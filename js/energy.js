@@ -20,6 +20,14 @@ var Energy = (function() {
 
     var _tickCounter = 0;
 
+    // Day/Night cycle state
+    var _isDay = true;
+    var _dayNightTimer = 0;   // seconds into current phase (day or night)
+
+    // Wind speed state
+    var _windSpeed = 15;       // current wind speed in mph
+    var _windTimer = 0;        // seconds until next wind change
+
     // Set of building IDs that transferred energy this tick (for cable glow)
     var _activeFlowNodes = {};
 
@@ -158,6 +166,29 @@ var Energy = (function() {
             _tickCounter++;
 
             // ============================================================
+            // Day/Night cycle update
+            // ============================================================
+            var halfCycle = (typeof Config !== 'undefined' && Config.DAY_NIGHT_CYCLE)
+                ? Config.DAY_NIGHT_CYCLE / 2 : 12;
+            _dayNightTimer += 1 / tps;
+            if (_dayNightTimer >= halfCycle) {
+                _dayNightTimer -= halfCycle;
+                _isDay = !_isDay;
+            }
+
+            // ============================================================
+            // Wind speed update
+            // ============================================================
+            var windInterval = (typeof Config !== 'undefined' && Config.WIND_CHANGE_INTERVAL)
+                ? Config.WIND_CHANGE_INTERVAL : 24;
+            _windTimer += 1 / tps;
+            if (_windTimer >= windInterval) {
+                _windTimer -= windInterval;
+                var maxWind = (typeof Config !== 'undefined' && Config.WIND_MAX_SPEED) ? Config.WIND_MAX_SPEED : 30;
+                _windSpeed = Math.floor(_rngRandom() * (maxWind + 1));
+            }
+
+            // ============================================================
             // Step 1: Generation
             // ============================================================
             var generators = [];
@@ -179,10 +210,19 @@ var Energy = (function() {
                 var genPerTick = def.energyGeneration / tps;
                 var actualGen = genPerTick;
 
-                // Wind variability
-                if (def.variability) {
-                    var variation = 1 - def.variability * (0.5 - _rngRandom());
-                    actualGen = genPerTick * variation;
+                // Solar — only generates during daytime
+                if (building.type === 'solar') {
+                    if (!_isDay) {
+                        continue; // no generation at night
+                    }
+                }
+
+                // Wind — scale by current wind speed (0 at 0mph, 1x at 15mph, 2x at 30mph)
+                if (building.type === 'wind') {
+                    var baseline = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED)
+                        ? Config.WIND_BASELINE_SPEED : 15;
+                    var windMult = _windSpeed / baseline;
+                    actualGen = genPerTick * windMult;
                 }
 
                 // Hydro — scale by river current speed
@@ -441,6 +481,15 @@ var Energy = (function() {
             return !!_activeFlowNodes[buildingId];
         },
 
+        // Day/Night and Wind queries
+        isDay: function() { return _isDay; },
+        getWindSpeed: function() { return _windSpeed; },
+        getDayNightTimer: function() { return _dayNightTimer; },
+        getDayNightHalfCycle: function() {
+            return (typeof Config !== 'undefined' && Config.DAY_NIGHT_CYCLE)
+                ? Config.DAY_NIGHT_CYCLE / 2 : 12;
+        },
+
         // ================================================================
         // Save/Load
         // ================================================================
@@ -452,7 +501,11 @@ var Energy = (function() {
                     totalStored: _stats.totalStored,
                     totalCapacity: _stats.totalCapacity
                 },
-                tickCounter: _tickCounter
+                tickCounter: _tickCounter,
+                isDay: _isDay,
+                dayNightTimer: _dayNightTimer,
+                windSpeed: _windSpeed,
+                windTimer: _windTimer
             };
         },
 
@@ -467,6 +520,10 @@ var Energy = (function() {
             if (data.tickCounter !== undefined) {
                 _tickCounter = data.tickCounter;
             }
+            if (data.isDay !== undefined) _isDay = data.isDay;
+            if (data.dayNightTimer !== undefined) _dayNightTimer = data.dayNightTimer;
+            if (data.windSpeed !== undefined) _windSpeed = data.windSpeed;
+            if (data.windTimer !== undefined) _windTimer = data.windTimer;
         }
     };
 })();

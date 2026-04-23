@@ -381,7 +381,9 @@ var UI = (function () {
                 modalOverlay: document.getElementById('modal-overlay'),
                 modalContent: document.getElementById('modal-body'),
                 pauseOverlay: document.getElementById('pause-overlay'),
-                modeIndicator: document.getElementById('mode-indicator')
+                modeIndicator: document.getElementById('mode-indicator'),
+                daynight: document.getElementById('hud-daynight'),
+                wind: document.getElementById('hud-wind')
             };
 
             document.addEventListener('click', function (e) {
@@ -435,6 +437,13 @@ var UI = (function () {
             if (_elements.coreHp && Engine.getCoreHP) {
                 var maxHP = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : 100;
                 _elements.coreHp.textContent = Engine.getCoreHP() + '/' + maxHP;
+            }
+            if (_elements.daynight && typeof Energy !== 'undefined' && Energy.isDay) {
+                var isDay = Energy.isDay();
+                _elements.daynight.textContent = isDay ? '☀️ Day' : '🌙 Night';
+            }
+            if (_elements.wind && typeof Energy !== 'undefined' && Energy.getWindSpeed) {
+                _elements.wind.textContent = '🌬️ ' + Energy.getWindSpeed() + 'mph';
             }
 
             // Live-update info panel if a building is selected

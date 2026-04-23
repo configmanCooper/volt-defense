@@ -19,6 +19,12 @@ var Config = {
     VIEWPORT_WIDTH: 1920,
     VIEWPORT_HEIGHT: 1080,
 
+    // Day/Night & Wind
+    DAY_NIGHT_CYCLE: 24,        // seconds for full cycle (12s day, 12s night)
+    WIND_CHANGE_INTERVAL: 24,   // seconds between wind speed changes
+    WIND_MAX_SPEED: 30,         // mph max
+    WIND_BASELINE_SPEED: 15,    // mph where turbines produce rated output
+
     // Cables
     CABLE_MAX_LENGTH: 200,
     CABLE_MAX_PER_BUILDING: 4,
@@ -104,14 +110,14 @@ var Config = {
             size: [1, 1],
             hp: 60,
             workersRequired: 1,
-            energyGeneration: 20,
+            energyGeneration: 30,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0,
             upgradeTo: null,
-            description: 'Generates 20 energy. Output varies with time of day.',
+            description: 'Generates 30 energy during daytime only. No output at night.',
             icon: '☀️'
         },
         wind: {
