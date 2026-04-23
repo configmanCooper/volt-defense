@@ -286,6 +286,10 @@ var UI = (function () {
                 );
                 break;
 
+            case 'show-glossary':
+                UI.showGlossary();
+                break;
+
             case 'save-game':
                 if (typeof Save !== 'undefined' && Save.saveGame) {
                     Save.saveGame();
@@ -872,6 +876,78 @@ var UI = (function () {
 
         formatEnergy: function (n) {
             return '⚡ ' + UI.formatNumber(n);
+        },
+
+        // ---- Enemy Glossary ----
+
+        showGlossary: function () {
+            if (typeof Config === 'undefined' || !Config.ENEMIES) return;
+
+            var currentWave = 0;
+            if (typeof Enemies !== 'undefined' && Enemies.getCurrentWave) {
+                currentWave = Enemies.getCurrentWave();
+            } else if (typeof Engine !== 'undefined' && Engine.getState) {
+                var st = Engine.getState();
+                if (st && st.wave) currentWave = st.wave;
+            }
+
+            // Collect non-procedural enemies, sorted by firstWave
+            var entries = [];
+            var keys = Object.keys(Config.ENEMIES);
+            for (var i = 0; i < keys.length; i++) {
+                // Skip procedural enemies
+                if (keys[i].indexOf('proc_') === 0) continue;
+                var eDef = Config.ENEMIES[keys[i]];
+                entries.push({ key: keys[i], def: eDef });
+            }
+            entries.sort(function (a, b) {
+                return (a.def.firstWave || 0) - (b.def.firstWave || 0);
+            });
+
+            var html = '<div style="max-height:60vh;overflow-y:auto;">';
+            html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+            html += '<thead><tr style="border-bottom:2px solid #555;text-align:left;">';
+            html += '<th style="padding:6px;">Icon</th>';
+            html += '<th style="padding:6px;">Name</th>';
+            html += '<th style="padding:6px;">HP</th>';
+            html += '<th style="padding:6px;">Spd</th>';
+            html += '<th style="padding:6px;">Dmg</th>';
+            html += '<th style="padding:6px;">Armor</th>';
+            html += '<th style="padding:6px;">Wave</th>';
+            html += '<th style="padding:6px;">Special</th>';
+            html += '</tr></thead><tbody>';
+
+            for (var j = 0; j < entries.length; j++) {
+                var e = entries[j];
+                var seen = currentWave >= (e.def.firstWave || 1);
+                html += '<tr style="border-bottom:1px solid #333;">';
+                if (seen) {
+                    html += '<td style="padding:6px;font-size:18px;">' + (e.def.icon || '') + '</td>';
+                    html += '<td style="padding:6px;font-weight:bold;">' + (e.def.name || e.key) + '</td>';
+                    html += '<td style="padding:6px;">' + (e.def.hp || 0) + '</td>';
+                    html += '<td style="padding:6px;">' + (e.def.speed || 0) + '</td>';
+                    html += '<td style="padding:6px;">' + (e.def.damage || 0) + '</td>';
+                    html += '<td style="padding:6px;">' + (e.def.armor || 0) + '</td>';
+                    html += '<td style="padding:6px;">' + (e.def.firstWave || '?') + '</td>';
+                    html += '<td style="padding:6px;font-size:11px;">' + (e.def.special || '—') + '</td>';
+                } else {
+                    html += '<td style="padding:6px;font-size:18px;">❓</td>';
+                    html += '<td style="padding:6px;font-style:italic;color:#888;">Unknown Enemy</td>';
+                    html += '<td style="padding:6px;color:#555;">???</td>';
+                    html += '<td style="padding:6px;color:#555;">???</td>';
+                    html += '<td style="padding:6px;color:#555;">???</td>';
+                    html += '<td style="padding:6px;color:#555;">???</td>';
+                    html += '<td style="padding:6px;">' + (e.def.firstWave || '?') + '</td>';
+                    html += '<td style="padding:6px;color:#555;">???</td>';
+                }
+                html += '</tr>';
+            }
+
+            html += '</tbody></table></div>';
+
+            UI.showModal('📖 Enemy Glossary', html, [
+                { label: 'Close', action: 'close-modal', className: 'menu-btn' }
+            ]);
         }
     };
 })();

@@ -67,8 +67,10 @@ var Enemies = (function () {
 
     /**
      * Check whether a grid cell is walkable (not water, not deep_water).
+     * If targetBuildingId is provided, buildings occupying the cell are
+     * treated as unwalkable UNLESS they are the target building.
      */
-    function _isWalkable(gx, gy) {
+    function _isWalkable(gx, gy, targetBuildingId) {
         var gridCols = Math.floor(Config.MAP_WIDTH / Config.GRID_CELL_SIZE);
         var gridRows = Math.floor(Config.MAP_HEIGHT / Config.GRID_CELL_SIZE);
         if (gx < 0 || gy < 0 || gx >= gridCols || gy >= gridRows) {
@@ -82,14 +84,28 @@ var Enemies = (function () {
                 return false;
             }
         }
+
+        // Block cells occupied by non-target buildings
+        if (typeof Buildings !== 'undefined' && Buildings.getAt) {
+            var bld = Buildings.getAt(gx, gy);
+            if (bld && bld.hp > 0) {
+                if (!targetBuildingId || bld.id !== targetBuildingId) {
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 
     /**
      * A* pathfinding from (startX, startY) world coords to the core.
-     * Returns an array of {x, y} world-coordinate waypoints.
+     * Returns an array of {x, y} world-coordinate waypoints, or null if
+     * no valid path is found.
+     * targetBuildingId is optional — buildings on the path are blocked
+     * unless they match this id.
      */
-    function _findPath(startX, startY) {
+    function _findPath(startX, startY, targetBuildingId) {
         var corePos = _getCorePosition();
         var startGrid = _worldToGrid(startX, startY);
         var endGrid   = _worldToGrid(corePos.x, corePos.y);
@@ -160,7 +176,7 @@ var Enemies = (function () {
                 var nk = key(nx, ny);
 
                 if (closedSet[nk]) { continue; }
-                if (!_isWalkable(nx, ny)) { continue; }
+                if (!_isWalkable(nx, ny, targetBuildingId)) { continue; }
 
                 var tentativeG = current.g + 1;
                 var existing = openSet[nk];
@@ -176,15 +192,17 @@ var Enemies = (function () {
             }
         }
 
-        // No valid path found — fall back to direct line
-        return _directPath(startX, startY, corePos.x, corePos.y);
+        // No valid path found — return null
+        return null;
     }
 
     /**
      * A* pathfinding to an arbitrary world coordinate.
      * If canSwim is true, water tiles are walkable (but not deep_water).
+     * If waterOnly is true, ONLY water tiles are walkable (for river serpents).
+     * targetBuildingId is optional — buildings are blocked unless they match.
      */
-    function _findPathTo(startX, startY, endX, endY, canSwim) {
+    function _findPathTo(startX, startY, endX, endY, canSwim, waterOnly, targetBuildingId) {
         var startGrid = _worldToGrid(startX, startY);
         var endGrid   = _worldToGrid(endX, endY);
 
@@ -199,11 +217,23 @@ var Enemies = (function () {
             var gridRows = Math.floor(Config.MAP_HEIGHT / Config.GRID_CELL_SIZE);
             if (gx < 0 || gy < 0 || gx >= gridCols || gy >= gridRows) return false;
             var terrain = Map.getTerrain(gx, gy);
-            if (canSwim) {
+            if (waterOnly) {
+                // Only allow water tiles (not deep_water, not land)
+                if (terrain !== Config.TERRAIN_TYPES.water) return false;
+            } else if (canSwim) {
                 if (terrain === Config.TERRAIN_TYPES.deep_water) return false;
-                return true;
+            } else {
+                if (terrain === Config.TERRAIN_TYPES.water || terrain === Config.TERRAIN_TYPES.deep_water) return false;
             }
-            if (terrain === Config.TERRAIN_TYPES.water || terrain === Config.TERRAIN_TYPES.deep_water) return false;
+            // Block cells occupied by non-target buildings
+            if (typeof Buildings !== 'undefined' && Buildings.getAt) {
+                var bld = Buildings.getAt(gx, gy);
+                if (bld && bld.hp > 0) {
+                    if (!targetBuildingId || bld.id !== targetBuildingId) {
+                        return false;
+                    }
+                }
+            }
             return true;
         }
 
@@ -259,7 +289,8 @@ var Enemies = (function () {
                 }
             }
         }
-        return _directPath(startX, startY, endX, endY);
+        // No valid path found — return null
+        return null;
     }
 
     /**
@@ -362,10 +393,12 @@ var Enemies = (function () {
 
     /**
      * Enemy attacks a targeted building, then clears target to repath.
+     * Non-boss, non-ranged enemies die after attacking (except vs walls).
      */
     function _enemyAttackBuilding(enemy) {
         if (typeof Buildings === 'undefined' || !Buildings.getAll) return;
         var buildings = Buildings.getAll();
+        var attackedBuilding = null;
         for (var i = 0; i < buildings.length; i++) {
             var b = buildings[i];
             if (b.id === enemy.targetBuildingId && b.hp > 0) {
@@ -373,11 +406,42 @@ var Enemies = (function () {
                 if (b.hp <= 0) {
                     b.hp = 0;
                 }
+                attackedBuilding = b;
                 break;
             }
         }
         enemy.targetBuildingId = null;
         enemy.repathTimer = 0;
+
+        // Self-damage: non-boss, non-ranged enemies die after attacking
+        // Exception: walls don't kill the attacker
+        if (attackedBuilding && !enemy.isBoss && enemy.mechanic !== 'ranged_attack') {
+            var isWall = (attackedBuilding.type === 'wall');
+            if (!isWall) {
+                // Kill enemy and give reward
+                var def = Config.ENEMIES[enemy.type];
+                if (def) {
+                    var killReward = def.killReward || 0;
+                    var difficulty = _getDifficulty();
+                    killReward = Math.round(killReward * (difficulty.killRewardMult || 1));
+                    if (typeof Economy !== 'undefined' && Economy.addMoney) {
+                        Economy.addMoney(killReward, 'kill');
+                    }
+                }
+                _totalKills++;
+                for (var j = _enemies.length - 1; j >= 0; j--) {
+                    if (_enemies[j].id === enemy.id) {
+                        _enemies.splice(j, 1);
+                        break;
+                    }
+                }
+                return;
+            }
+            // For walls: enemy keeps attacking (re-target the wall)
+            if (attackedBuilding.hp > 0) {
+                enemy.targetBuildingId = attackedBuilding.id;
+            }
+        }
     }
 
     /**
@@ -455,8 +519,6 @@ var Enemies = (function () {
         baseHP  = Math.round(baseHP);
         baseDmg = Math.round(baseDmg);
 
-        var path = _findPath(spawnX, spawnY);
-
         var specialToCategory = {
             'targets_power': 'power',
             'targets_housing': 'housing',
@@ -464,7 +526,8 @@ var Enemies = (function () {
             'targets_weapons': 'weapons',
             'targets_storage': 'storage',
             'targets_shields': 'defense',
-            'targets_grid': 'grid'
+            'targets_grid': 'grid',
+            'targets_walls': 'defense'
         };
 
         var enemy = {
@@ -477,7 +540,7 @@ var Enemies = (function () {
             speed: baseSpd,
             damage: baseDmg,
             armor: baseArmor,
-            path: path,
+            path: null,
             pathIndex: 0,
             special: def.special || null,
             stunTimer: 0,
@@ -501,6 +564,10 @@ var Enemies = (function () {
         if (def.isBoss) {
             enemy.isBoss = true;
         }
+
+        // Compute initial path
+        var path = _findPath(spawnX, spawnY, enemy.targetBuildingId);
+        enemy.path = path || _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
 
         return enemy;
     }
@@ -661,13 +728,33 @@ var Enemies = (function () {
                 enemy.repathTimer = 20;
                 var targetPos = _findTargetBuilding(enemy);
                 if (targetPos) {
-                    enemy.path = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false);
-                    enemy.pathIndex = 0;
-                    enemy.targetBuildingId = targetPos.buildingId;
+                    // River serpents: use water-only pathing while water buildings exist
+                    var useWaterOnly = false;
+                    if (enemy.special === 'river_spawn' && enemy.targetCategory === 'water_buildings') {
+                        useWaterOnly = true;
+                    }
+                    var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId);
+                    if (newPath) {
+                        enemy.path = newPath;
+                        enemy.pathIndex = 0;
+                        enemy.targetBuildingId = targetPos.buildingId;
+                    } else {
+                        // Can't reach target — fall through to core
+                        enemy.targetBuildingId = null;
+                        var corePos2 = _getCorePosition();
+                        var corePath = _findPathTo(enemy.x, enemy.y, corePos2.x, corePos2.y, enemy.canSwim || false, false, null);
+                        enemy.path = corePath || _directPath(enemy.x, enemy.y, corePos2.x, corePos2.y);
+                        enemy.pathIndex = 0;
+                    }
                 } else {
                     enemy.targetBuildingId = null;
+                    // River serpents with no water buildings: switch to normal land+water pathing
+                    if (enemy.special === 'river_spawn') {
+                        enemy.canSwim = true;
+                    }
                     var corePos = _getCorePosition();
-                    enemy.path = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false);
+                    var corePath2 = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null);
+                    enemy.path = corePath2 || _directPath(enemy.x, enemy.y, corePos.x, corePos.y);
                     enemy.pathIndex = 0;
                 }
             }
@@ -762,16 +849,39 @@ var Enemies = (function () {
                     spawnPts = [{ x: 0, y: Config.MAP_HEIGHT / 2 }];
                 }
 
-                // Pick random spawn point
+                // Pick random spawn point, validate path exists
                 var rngObj = (typeof Engine !== 'undefined' && Engine.getRng)
                     ? Engine.getRng()
                     : null;
                 var ptIndex = rngObj && typeof rngObj.randomInt === 'function'
                     ? rngObj.randomInt(0, spawnPts.length - 1)
                     : Math.floor(Math.random() * spawnPts.length);
-                var sp = spawnPts[ptIndex];
 
-                var enemy = _createEnemy(next.typeKey, sp.x, sp.y, _currentWave);
+                var sp = null;
+                var enemy = null;
+                // Try each spawn point to find one with a valid path
+                for (var si = 0; si < spawnPts.length; si++) {
+                    var tryIdx = (ptIndex + si) % spawnPts.length;
+                    var tryEnemy = _createEnemy(next.typeKey, spawnPts[tryIdx].x, spawnPts[tryIdx].y, _currentWave);
+                    if (tryEnemy) {
+                        // Check if the path is a real A* path (not a directPath fallback)
+                        var testPath = _findPath(spawnPts[tryIdx].x, spawnPts[tryIdx].y, tryEnemy.targetBuildingId);
+                        if (testPath) {
+                            sp = spawnPts[tryIdx];
+                            tryEnemy.path = testPath;
+                            tryEnemy.pathIndex = 0;
+                            enemy = tryEnemy;
+                            break;
+                        }
+                    }
+                }
+
+                // If no spawn point had a valid path, use the first one with fallback
+                if (!enemy) {
+                    sp = spawnPts[ptIndex];
+                    enemy = _createEnemy(next.typeKey, sp.x, sp.y, _currentWave);
+                }
+
                 if (enemy) {
                     _enemies.push(enemy);
                 }
@@ -960,8 +1070,8 @@ var Enemies = (function () {
 
         // ---- Pathfinding (public) ---------------------------------------------
 
-        findPath: function (startX, startY) {
-            return _findPath(startX, startY);
+        findPath: function (startX, startY, targetBuildingId) {
+            return _findPath(startX, startY, targetBuildingId);
         },
 
         // ---- Save / Load ------------------------------------------------------

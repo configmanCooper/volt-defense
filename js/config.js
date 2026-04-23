@@ -724,6 +724,25 @@ var Config = {
             upgradeTo: null,
             description: 'Sells power to the consumer grid. Slowly earns $3/s while powered.',
             icon: '🔌'
+        },
+
+        // ---- Defense (Wall) -----------------------------------------------
+        wall: {
+            name: 'Wall',
+            category: 'defense',
+            cost: { money: 100, iron: 1 },
+            size: [1, 1],
+            hp: 200,
+            workersRequired: 0,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 0,
+            maxChargeRate: 0,
+            maxDischargeRate: 0,
+            pollution: 0,
+            upgradeTo: null,
+            description: 'Blocks enemy movement. Enemies must path around or destroy it.',
+            icon: '🧱'
         }
     },
 
