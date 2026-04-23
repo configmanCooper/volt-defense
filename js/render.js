@@ -1326,7 +1326,7 @@ var Render = (function () {
 
             // Night-time overlay
             if (typeof Energy !== 'undefined' && Energy.isDay && !Energy.isDay()) {
-                _ctx.fillStyle = 'rgba(0, 0, 40, 0.35)';
+                _ctx.fillStyle = 'rgba(0, 0, 30, 0.12)';
                 _ctx.fillRect(
                     Math.floor(_camera.x), Math.floor(_camera.y),
                     Config.VIEWPORT_WIDTH / _zoom + 1,
