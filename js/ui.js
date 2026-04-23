@@ -1,0 +1,868 @@
+// ============================================================================
+// Volt Defense — UI Module
+// Manages all DOM-based UI: HUD updates, build menu, info panel, toasts, modals.
+// ============================================================================
+
+var UI = (function () {
+    var _elements = {};
+    var _selectedCategory = null;
+    var _toastQueue = [];
+    var _selectedBuildingId = null;
+    var _maxToasts = 5;
+
+    // ---- private helpers ----
+
+    function _showBuildInfoCard(typeKey) {
+        var card = document.getElementById('build-info-card');
+        if (!card || typeof Config === 'undefined' || !Config.BUILDINGS[typeKey]) return;
+        var def = Config.BUILDINGS[typeKey];
+        var cost = def.cost;
+        if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
+            cost = Engine.applyDifficultyToCost(def.cost);
+        }
+
+        var h = '<div class="bic-header">';
+        h += '<span class="bic-icon">' + (def.icon || '') + '</span>';
+        h += '<div><div class="bic-title">' + def.name + '</div>';
+        if (def.description) h += '<div class="bic-subtitle">' + def.description + '</div>';
+        h += '</div></div>';
+
+        h += '<div class="bic-stats">';
+
+        // Cost section
+        h += '<div class="bic-section">Cost</div>';
+        h += _bicStat('Money', '$' + (cost.money || 0));
+        if (cost.iron) h += _bicStat('Iron', cost.iron + ' ⛏️');
+        if (cost.coal) h += _bicStat('Coal', cost.coal + ' 🪨');
+        if (cost.uranium) h += _bicStat('Uranium', cost.uranium + ' ☢️');
+        if (def.workersRequired > 0) h += _bicStat('Workers', '👷 ' + def.workersRequired);
+
+        // Energy section
+        if (def.energyGeneration > 0 || def.energyConsumption > 0 || def.energyStorageCapacity > 0) {
+            h += '<div class="bic-section">Energy</div>';
+            if (def.energyGeneration > 0) h += _bicStat('Generation', '<span style="color:#44cc44">+' + def.energyGeneration + '/s</span>');
+            if (def.energyConsumption > 0) h += _bicStat('Consumption', '<span style="color:#cc4444">-' + def.energyConsumption + '/s</span>');
+            if (def.energyStorageCapacity > 0) h += _bicStat('Storage', def.energyStorageCapacity);
+            if (def.maxChargeRate > 0) h += _bicStat('Charge Rate', def.maxChargeRate + '/s');
+            if (def.maxDischargeRate > 0) h += _bicStat('Discharge', def.maxDischargeRate + '/s');
+        }
+
+        // Category-specific
+        if (def.category === 'power') {
+            h += '<div class="bic-section">Power Plant</div>';
+            if (def.pollution > 0) h += _bicStat('Pollution', '<span style="color:#ff9800">' + def.pollution + '/gen</span>');
+            else h += _bicStat('Pollution', '<span style="color:#44cc44">None ✓</span>');
+            if (def.fuelCost) {
+                var fuelStr = '';
+                for (var fk in def.fuelCost) { if (def.fuelCost.hasOwnProperty(fk)) fuelStr += def.fuelCost[fk] + ' ' + fk; }
+                h += _bicStat('Fuel', fuelStr);
+                if (def.fuelInterval) h += _bicStat('Fuel Interval', (def.fuelInterval / 10) + 's');
+            }
+            if (def.variability) h += _bicStat('Variability', '±' + Math.round(def.variability * 100) + '%');
+            if (def.requiresTerrain) h += _bicStat('Requires', def.requiresTerrain);
+        }
+        if (def.category === 'housing') {
+            h += '<div class="bic-section">Housing</div>';
+            h += _bicStat('Capacity', '👷 ' + (def.workersHoused || 0) + ' workers');
+            var eff = def.workersHoused ? (def.energyConsumption / def.workersHoused).toFixed(1) : '—';
+            h += _bicStat('Energy/Worker', eff + '/s');
+        }
+        if (def.category === 'weapons') {
+            h += '<div class="bic-section">Combat</div>';
+            if (def.baseDPS) h += _bicStat('Base DPS', def.baseDPS);
+            if (def.damage) h += _bicStat('Damage', def.damage);
+            if (def.range) h += _bicStat('Range', def.range + 'px');
+            if (def.maxRamp) h += _bicStat('Max Ramp', '×' + def.maxRamp);
+            if (def.baseEnergyDraw) h += _bicStat('Energy Draw', def.baseEnergyDraw + '/s (base)');
+            if (def.energyPerShot) h += _bicStat('Energy/Shot', def.energyPerShot);
+            if (def.reloadTicks) h += _bicStat('Reload', (def.reloadTicks / 10).toFixed(1) + 's');
+            if (def.ironPerShot) h += _bicStat('Iron/Shot', def.ironPerShot);
+            if (def.missileSpeed) h += _bicStat('Missile Speed', def.missileSpeed + 'px/s');
+        }
+        if (def.category === 'defense') {
+            h += '<div class="bic-section">Shield</div>';
+            if (def.shieldHP) h += _bicStat('Shield HP', def.shieldHP);
+            if (def.shieldDiameter) h += _bicStat('Diameter', def.shieldDiameter + 'px');
+            if (def.shieldEnergyCostPerDamage) h += _bicStat('Energy/Damage', def.shieldEnergyCostPerDamage);
+        }
+        if (def.category === 'mining') {
+            h += '<div class="bic-section">Mining</div>';
+            if (def.extractionRate) h += _bicStat('Extraction', def.extractionRate + '/s');
+            if (def.requiresTerrain) h += _bicStat('Requires', def.requiresTerrain.replace(/_/g, ' '));
+        }
+        if (def.category === 'environment') {
+            h += '<div class="bic-section">Environment</div>';
+            if (def.pollutionReduction) h += _bicStat('Pollution Reduction', '<span style="color:#44cc44">-' + def.pollutionReduction + '/s</span>');
+        }
+        if (def.category === 'storage') {
+            if (def.sellPrice) {
+                h += '<div class="bic-section">Consumer</div>';
+                h += _bicStat('Sell When Full', '<span style="color:#44cc44">$' + def.sellPrice + '</span>');
+                var fillTime = def.energyStorageCapacity && def.maxChargeRate ? (def.energyStorageCapacity / def.maxChargeRate).toFixed(0) : '?';
+                h += _bicStat('Fill Time', '~' + fillTime + 's');
+            }
+        }
+
+        // General
+        h += '<div class="bic-section">General</div>';
+        h += _bicStat('HP', def.hp);
+        h += _bicStat('Size', def.size[0] + '×' + def.size[1]);
+
+        if (def.upgradeTo && Config.BUILDINGS[def.upgradeTo]) {
+            var upDef = Config.BUILDINGS[def.upgradeTo];
+            h += '<div class="bic-upgrade">⬆️ Upgrades to: <strong>' + upDef.name + '</strong> ($' + (upDef.cost.money || 0) + ')</div>';
+        }
+
+        h += '</div>'; // close bic-stats
+        card.innerHTML = h;
+        card.classList.add('visible');
+    }
+
+    function _bicStat(label, value) {
+        return '<div class="bic-stat"><span class="bic-label">' + label + '</span><span class="bic-val">' + value + '</span></div>';
+    }
+
+    function _hideBuildInfoCard() {
+        var card = document.getElementById('build-info-card');
+        if (card) card.classList.remove('visible');
+    }
+
+    function _handleAction(action, target, e) {
+        switch (action) {
+            case 'select-difficulty':
+                // Handled by main.js — just highlight here as backup
+                var difficulty = target.getAttribute('data-difficulty');
+                if (!difficulty) return;
+                var allBtns = document.querySelectorAll('.difficulty-btn');
+                for (var i = 0; i < allBtns.length; i++) {
+                    allBtns[i].classList.remove('selected');
+                }
+                target.classList.add('selected');
+                break;
+
+            case 'select-category':
+                var category = target.getAttribute('data-category');
+                if (category) {
+                    UI.selectCategory(category);
+                }
+                break;
+
+            case 'select-building':
+                var typeKey = target.getAttribute('data-building-type');
+                if (!typeKey) break;
+
+                // Check if button is disabled — explain why
+                if (target.classList.contains('disabled')) {
+                    var bDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[typeKey] : null;
+                    if (bDef) {
+                        var reasons = [];
+                        var bCost = bDef.cost;
+                        if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
+                            bCost = Engine.applyDifficultyToCost(bDef.cost);
+                        }
+                        // Check money
+                        if (bCost.money && typeof Economy !== 'undefined' && Economy.getMoney) {
+                            var currentMoney = Economy.getMoney();
+                            if (currentMoney < bCost.money) {
+                                reasons.push('Need $' + bCost.money + ' (have $' + Math.floor(currentMoney) + ')');
+                            }
+                        }
+                        // Check resources
+                        if (bCost.iron && typeof Economy !== 'undefined' && Economy.getResource) {
+                            if (Economy.getResource('iron') < bCost.iron) {
+                                reasons.push('Need ' + bCost.iron + ' iron (have ' + Math.floor(Economy.getResource('iron')) + ')');
+                            }
+                        }
+                        if (bCost.coal && typeof Economy !== 'undefined' && Economy.getResource) {
+                            if (Economy.getResource('coal') < bCost.coal) {
+                                reasons.push('Need ' + bCost.coal + ' coal (have ' + Math.floor(Economy.getResource('coal')) + ')');
+                            }
+                        }
+                        if (bCost.uranium && typeof Economy !== 'undefined' && Economy.getResource) {
+                            if (Economy.getResource('uranium') < bCost.uranium) {
+                                reasons.push('Need ' + bCost.uranium + ' uranium (have ' + Math.floor(Economy.getResource('uranium')) + ')');
+                            }
+                        }
+                        // Check workers
+                        var bWorkersNeeded = bDef.workersRequired || 0;
+                        if (bWorkersNeeded > 0 && typeof Workers !== 'undefined' && Workers.getAvailableWorkers) {
+                            var avail = Workers.getAvailableWorkers();
+                            if (avail < bWorkersNeeded) {
+                                reasons.push('Need ' + bWorkersNeeded + ' workers (only ' + avail + ' idle)');
+                            }
+                        }
+                        if (reasons.length > 0) {
+                            UI.showToast('Cannot build ' + bDef.name + ': ' + reasons.join(', '), 'error', 3500);
+                        } else {
+                            UI.showToast('Cannot build ' + bDef.name + '.', 'error', 2000);
+                        }
+                    }
+                    break;
+                }
+
+                if (typeof Input !== 'undefined' && Input.setPlacingMode) {
+                    Input.setPlacingMode(typeKey);
+                }
+                _showBuildInfoCard(typeKey);
+                // Highlight selected build button
+                var allBuildBtns = document.querySelectorAll('.build-btn');
+                for (var bb = 0; bb < allBuildBtns.length; bb++) {
+                    allBuildBtns[bb].classList.remove('selected');
+                }
+                target.classList.add('selected');
+                break;
+
+            case 'upgrade-building':
+                if (_selectedBuildingId && typeof Buildings !== 'undefined' && Buildings.upgrade) {
+                    var upgraded = Buildings.upgrade(_selectedBuildingId);
+                    if (upgraded) {
+                        UI.showToast('Building upgraded!', 'success');
+                        UI.showBuildingInfo(_selectedBuildingId);
+                    } else {
+                        UI.showToast('Cannot upgrade — check cost or workers.', 'error');
+                    }
+                }
+                break;
+
+            case 'sell-building':
+                if (_selectedBuildingId && typeof Buildings !== 'undefined' && Buildings.remove) {
+                    Buildings.remove(_selectedBuildingId);
+                    UI.showToast('Building sold.', 'info');
+                    UI.clearInfoPanel();
+                }
+                break;
+
+            case 'pause':
+                if (typeof Engine !== 'undefined' && Engine.setPaused && Engine.isPaused) {
+                    Engine.setPaused(!Engine.isPaused());
+                    if (Engine.isPaused()) {
+                        UI.showPause();
+                    } else {
+                        UI.hidePause();
+                    }
+                }
+                break;
+
+            case 'resume':
+                if (typeof Engine !== 'undefined' && Engine.setPaused) {
+                    Engine.setPaused(false);
+                }
+                UI.hidePause();
+                break;
+
+            case 'close-modal':
+                UI.hideModal();
+                break;
+
+            case 'return-to-menu':
+                UI.hideModal();
+                UI.showMenu();
+                break;
+
+            case 'cable-from-building':
+                if (_selectedBuildingId && typeof Input !== 'undefined' && Input.startCableMode) {
+                    Input.startCableMode(_selectedBuildingId);
+                }
+                break;
+
+            case 'show-shortcuts':
+                UI.showModal('⌨️ Keyboard Shortcuts',
+                    '<div style="line-height:2; font-size:13px;">' +
+                    '<b>Building</b><br>' +
+                    '&nbsp; <kbd>1</kbd>–<kbd>8</kbd> &nbsp; Select category<br>' +
+                    '&nbsp; <kbd>ESC</kbd> &nbsp; Cancel placement / deselect<br>' +
+                    '<b>Selected Building</b><br>' +
+                    '&nbsp; <kbd>C</kbd> &nbsp; Connect cable<br>' +
+                    '&nbsp; <kbd>U</kbd> &nbsp; Upgrade<br>' +
+                    '&nbsp; <kbd>Del</kbd> &nbsp; Sell / demolish<br>' +
+                    '<b>Camera</b><br>' +
+                    '&nbsp; <kbd>W A S D</kbd> / Arrows &nbsp; Pan<br>' +
+                    '&nbsp; Right-click drag &nbsp; Pan<br>' +
+                    '&nbsp; Scroll wheel &nbsp; Zoom<br>' +
+                    '<b>Game</b><br>' +
+                    '&nbsp; <kbd>P</kbd> &nbsp; Pause / Resume<br>' +
+                    '</div>',
+                    [{ label: 'Got it!', action: 'close-modal', className: 'menu-btn' }]
+                );
+                break;
+
+            case 'save-game':
+                if (typeof Save !== 'undefined' && Save.saveGame) {
+                    Save.saveGame();
+                    UI.showToast('Game saved!', 'success');
+                }
+                break;
+
+            case 'quit-to-menu':
+                if (typeof Engine !== 'undefined' && Engine.setPaused) {
+                    Engine.setPaused(false);
+                }
+                UI.hidePause();
+                UI.showMenu();
+                break;
+        }
+    }
+
+    function _getRefundAmount(building) {
+        if (!building || typeof Config === 'undefined' || !Config.BUILDINGS) return 0;
+        var def = Config.BUILDINGS[building.type];
+        if (!def || !def.cost) return 0;
+        var ratio = (typeof Config !== 'undefined' && Config.SELL_REFUND_RATIO != null)
+            ? Config.SELL_REFUND_RATIO : 0.5;
+        var cost = def.cost;
+        if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
+            cost = Engine.applyDifficultyToCost(def.cost);
+        }
+        return Math.floor((cost.money || 0) * ratio);
+    }
+
+    function _removeToast(toastEl) {
+        if (!toastEl || !toastEl.parentNode) return;
+        toastEl.classList.add('toast-exit');
+        setTimeout(function () {
+            if (toastEl.parentNode) {
+                toastEl.parentNode.removeChild(toastEl);
+            }
+            var idx = _toastQueue.indexOf(toastEl);
+            if (idx !== -1) _toastQueue.splice(idx, 1);
+        }, 300);
+    }
+
+    function _updateInfoPanelLive() {
+        if (!_selectedBuildingId) return;
+        if (typeof Buildings === 'undefined' || !Buildings.getById) return;
+        var building = Buildings.getById(_selectedBuildingId);
+        if (!building) return;
+
+        // Update HP
+        var hpFill = document.getElementById('info-hp-fill');
+        var hpText = document.getElementById('info-hp-text');
+        if (hpFill && hpText) {
+            var hpPct = building.maxHp > 0 ? Math.floor((building.hp / building.maxHp) * 100) : 0;
+            hpFill.style.width = hpPct + '%';
+            hpText.textContent = Math.floor(building.hp) + '/' + building.maxHp + ' HP';
+        }
+
+        // Update stored energy
+        var energyText = document.getElementById('info-energy-text');
+        if (energyText) {
+            energyText.textContent = Math.floor(building.energy);
+        }
+
+        // Update shield HP
+        var shieldText = document.getElementById('info-shield-text');
+        if (shieldText) {
+            shieldText.textContent = Math.floor(building.shieldHP || 0);
+        }
+    }
+
+    // ---- public API ----
+
+    return {
+        init: function () {
+            _elements = {
+                menuScreen: document.getElementById('menu-screen'),
+                gameScreen: document.getElementById('game-screen'),
+                canvas: document.getElementById('game-canvas'),
+                wave: document.getElementById('hud-wave'),
+                waveTimer: document.getElementById('hud-wave-timer'),
+                money: document.getElementById('hud-money'),
+                iron: document.getElementById('hud-iron'),
+                coal: document.getElementById('hud-coal'),
+                uranium: document.getElementById('hud-uranium'),
+                workers: document.getElementById('hud-workers'),
+                energy: document.getElementById('hud-energy'),
+                pollution: document.getElementById('hud-pollution'),
+                coreHp: document.getElementById('hud-core-hp'),
+                buildCategories: document.getElementById('build-categories'),
+                buildOptions: document.getElementById('build-submenu'),
+                infoPanel: document.getElementById('info-panel'),
+                toastContainer: document.getElementById('toast-container'),
+                modalOverlay: document.getElementById('modal-overlay'),
+                modalContent: document.getElementById('modal-body'),
+                pauseOverlay: document.getElementById('pause-overlay'),
+                modeIndicator: document.getElementById('mode-indicator')
+            };
+
+            document.addEventListener('click', function (e) {
+                var target = e.target.closest('[data-action]');
+                if (!target) return;
+                var action = target.getAttribute('data-action');
+                _handleAction(action, target, e);
+            });
+        },
+
+        update: function () {
+            if (typeof Engine === 'undefined' || !Engine.getState) return;
+            var state = Engine.getState();
+            if (!state) return;
+
+            if (_elements.wave) {
+                _elements.wave.textContent = state.wave;
+            }
+            if (_elements.waveTimer) {
+                _elements.waveTimer.textContent = Math.ceil(Engine.getWaveTimer()) + 's';
+            }
+            if (_elements.money && typeof Economy !== 'undefined' && Economy.getMoney) {
+                _elements.money.textContent = UI.formatNumber(Economy.getMoney());
+            }
+            if (_elements.iron && typeof Economy !== 'undefined' && Economy.getResource) {
+                _elements.iron.textContent = Math.floor(Economy.getResource('iron'));
+            }
+            if (_elements.coal && typeof Economy !== 'undefined' && Economy.getResource) {
+                _elements.coal.textContent = Math.floor(Economy.getResource('coal'));
+            }
+            if (_elements.uranium && typeof Economy !== 'undefined' && Economy.getResource) {
+                _elements.uranium.textContent = Math.floor(Economy.getResource('uranium'));
+            }
+            if (_elements.workers && typeof Workers !== 'undefined' && Workers.getTotalWorkers && Workers.getMaxCapacity) {
+                var totalW = Workers.getTotalWorkers();
+                var maxW = Workers.getMaxCapacity();
+                var availW = (typeof Workers.getAvailableWorkers === 'function') ? Workers.getAvailableWorkers() : 0;
+                _elements.workers.textContent = totalW + '/' + maxW + ' (' + availW + ' idle)';
+            }
+            if (_elements.energy && typeof Energy !== 'undefined' && Energy.getStats) {
+                var eStats = Energy.getStats();
+                _elements.energy.textContent = Math.floor(eStats.totalStored) + '/' +
+                    eStats.totalCapacity + ' (+' + Math.floor(eStats.totalGeneration) + ')';
+            }
+            if (_elements.pollution && Engine.getPollution && Engine.getPollutionLevel) {
+                var poll = Engine.getPollution();
+                var pollLevel = Engine.getPollutionLevel();
+                _elements.pollution.textContent = Math.floor(poll);
+                _elements.pollution.className = 'hud-value pollution-' + pollLevel;
+            }
+            if (_elements.coreHp && Engine.getCoreHP) {
+                var maxHP = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : 100;
+                _elements.coreHp.textContent = Engine.getCoreHP() + '/' + maxHP;
+            }
+
+            // Live-update info panel if a building is selected
+            _updateInfoPanelLive();
+
+            // Refresh build options affordability if category is open
+            if (_selectedCategory) {
+                UI.selectCategory(_selectedCategory);
+            }
+
+            // Update mode indicator
+            if (_elements.modeIndicator) {
+                var inputState = (typeof Input !== 'undefined' && Input.getState) ? Input.getState() : 'idle';
+                if (inputState === 'placing') {
+                    var placingType = (typeof Input !== 'undefined' && Input.getPlacingType) ? Input.getPlacingType() : '';
+                    var placingName = placingType;
+                    if (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[placingType]) {
+                        placingName = Config.BUILDINGS[placingType].name;
+                    }
+                    _elements.modeIndicator.textContent = '🔨 Placing: ' + placingName + '  [ESC to cancel]';
+                    _elements.modeIndicator.className = 'mode-placing';
+                    _elements.modeIndicator.style.display = 'block';
+                } else if (inputState === 'cable') {
+                    _elements.modeIndicator.textContent = '🔌 Cable Mode — Click a building to connect  [ESC to cancel]';
+                    _elements.modeIndicator.className = 'mode-cable';
+                    _elements.modeIndicator.style.display = 'block';
+                } else {
+                    _elements.modeIndicator.style.display = 'none';
+                }
+            }
+
+            // Core HP danger flash
+            if (_elements.coreHp && Engine.getCoreHP) {
+                var maxHP2 = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : 100;
+                var hpPct2 = Engine.getCoreHP() / maxHP2;
+                if (hpPct2 <= 0.25) {
+                    _elements.coreHp.className = 'hud-value core-hp-critical';
+                } else if (hpPct2 <= 0.5) {
+                    _elements.coreHp.className = 'hud-value core-hp-warning';
+                } else {
+                    _elements.coreHp.className = 'hud-value';
+                }
+            }
+        },
+
+        // ---- Build menu ----
+
+        selectCategory: function (category) {
+            _selectedCategory = category;
+
+            // Highlight active category button
+            if (_elements.buildCategories) {
+                var catButtons = _elements.buildCategories.querySelectorAll('[data-action="select-category"]');
+                for (var i = 0; i < catButtons.length; i++) {
+                    if (catButtons[i].getAttribute('data-category') === category) {
+                        catButtons[i].classList.add('active');
+                    } else {
+                        catButtons[i].classList.remove('active');
+                    }
+                }
+            }
+
+            if (!_elements.buildOptions) return;
+            _elements.buildOptions.style.display = 'flex';
+            if (typeof Config === 'undefined' || !Config.getBuildingsInCategory) {
+                _elements.buildOptions.innerHTML = '';
+                return;
+            }
+
+            var buildings = Config.getBuildingsInCategory(category);
+            var html = '';
+            for (var j = 0; j < buildings.length; j++) {
+                var key = buildings[j][0];
+                var def = buildings[j][1];
+                if (key === 'core') continue;
+                if (def.buildable === false) continue;
+
+                var cost = def.cost;
+                if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
+                    cost = Engine.applyDifficultyToCost(def.cost);
+                }
+                var canAfford = (typeof Economy !== 'undefined' && Economy.canAfford)
+                    ? Economy.canAfford(def.cost) : true;
+                var hasWorkers = (typeof Workers !== 'undefined' && Workers.canAllocate)
+                    ? Workers.canAllocate(def.workersRequired || 0) : true;
+                var disabled = (!canAfford || !hasWorkers) ? ' disabled' : '';
+
+                html += '<button class="build-btn' + disabled + '" data-action="select-building" data-building-type="' + key + '">';
+                html += '<span class="build-icon">' + (def.icon || '') + '</span>';
+                html += '<span class="build-name">' + def.name + '</span>';
+                html += '<span class="build-cost">$' + (cost.money || 0);
+                if (cost.iron) html += ' +' + cost.iron + '⛏️';
+                if (cost.coal) html += ' +' + cost.coal + '🪨';
+                if (cost.uranium) html += ' +' + cost.uranium + '☢️';
+                html += '</span>';
+                if (def.workersRequired > 0) {
+                    html += '<span class="build-workers">👷' + def.workersRequired + '</span>';
+                }
+                // Tooltip with full stats
+                html += '<div class="build-tooltip">';
+                html += '<div class="tt-name">' + (def.icon || '') + ' ' + def.name + '</div>';
+                if (def.description) {
+                    html += '<div class="tt-desc">' + def.description + '</div>';
+                }
+                html += '<div class="tt-section">Cost</div>';
+                html += '<div class="tt-row"><span class="tt-label">Money</span><span class="tt-value">$' + (cost.money || 0) + '</span></div>';
+                if (cost.iron) html += '<div class="tt-row"><span class="tt-label">Iron</span><span class="tt-value">' + cost.iron + '</span></div>';
+                if (cost.coal) html += '<div class="tt-row"><span class="tt-label">Coal</span><span class="tt-value">' + cost.coal + '</span></div>';
+                if (cost.uranium) html += '<div class="tt-row"><span class="tt-label">Uranium</span><span class="tt-value">' + cost.uranium + '</span></div>';
+                if (def.workersRequired > 0) {
+                    html += '<div class="tt-row"><span class="tt-label">Workers</span><span class="tt-value">👷 ' + def.workersRequired + '</span></div>';
+                }
+                // Energy stats
+                if (def.energyGeneration > 0 || def.energyConsumption > 0 || def.energyStorageCapacity > 0) {
+                    html += '<div class="tt-section">Energy</div>';
+                    if (def.energyGeneration > 0) html += '<div class="tt-row"><span class="tt-label">Generation</span><span class="tt-value" style="color:#44cc44">+' + def.energyGeneration + '/s</span></div>';
+                    if (def.energyConsumption > 0) html += '<div class="tt-row"><span class="tt-label">Consumption</span><span class="tt-value" style="color:#cc4444">-' + def.energyConsumption + '/s</span></div>';
+                    if (def.energyStorageCapacity > 0) html += '<div class="tt-row"><span class="tt-label">Storage</span><span class="tt-value">' + def.energyStorageCapacity + '</span></div>';
+                    if (def.maxChargeRate > 0) html += '<div class="tt-row"><span class="tt-label">Charge Rate</span><span class="tt-value">' + def.maxChargeRate + '/s</span></div>';
+                }
+                // Category-specific stats
+                if (def.category === 'power') {
+                    html += '<div class="tt-section">Power</div>';
+                    if (def.pollution > 0) html += '<div class="tt-row"><span class="tt-label">Pollution</span><span class="tt-value" style="color:#ff9800">' + def.pollution + '/gen</span></div>';
+                    if (def.fuelCost) {
+                        var fuelStr = '';
+                        for (var fk in def.fuelCost) { fuelStr += def.fuelCost[fk] + ' ' + fk; }
+                        html += '<div class="tt-row"><span class="tt-label">Fuel</span><span class="tt-value">' + fuelStr + '</span></div>';
+                    }
+                    if (def.variability) html += '<div class="tt-row"><span class="tt-label">Variability</span><span class="tt-value">±' + Math.round(def.variability * 100) + '%</span></div>';
+                    if (def.requiresTerrain) html += '<div class="tt-row"><span class="tt-label">Requires</span><span class="tt-value">' + def.requiresTerrain + '</span></div>';
+                }
+                if (def.category === 'housing') {
+                    html += '<div class="tt-section">Housing</div>';
+                    html += '<div class="tt-row"><span class="tt-label">Workers Housed</span><span class="tt-value">' + (def.workersHoused || 0) + '</span></div>';
+                    var efficiency = def.workersHoused ? (def.energyConsumption / def.workersHoused).toFixed(1) : '—';
+                    html += '<div class="tt-row"><span class="tt-label">Energy/Worker</span><span class="tt-value">' + efficiency + '</span></div>';
+                }
+                if (def.category === 'weapons') {
+                    html += '<div class="tt-section">Combat</div>';
+                    if (def.baseDPS) html += '<div class="tt-row"><span class="tt-label">Base DPS</span><span class="tt-value">' + def.baseDPS + '</span></div>';
+                    if (def.damage) html += '<div class="tt-row"><span class="tt-label">Damage</span><span class="tt-value">' + def.damage + '</span></div>';
+                    if (def.range) html += '<div class="tt-row"><span class="tt-label">Range</span><span class="tt-value">' + def.range + 'px</span></div>';
+                    if (def.maxRamp) html += '<div class="tt-row"><span class="tt-label">Max Ramp</span><span class="tt-value">×' + def.maxRamp + '</span></div>';
+                    if (def.reloadTicks) html += '<div class="tt-row"><span class="tt-label">Reload</span><span class="tt-value">' + (def.reloadTicks / 10).toFixed(1) + 's</span></div>';
+                    if (def.ironPerShot) html += '<div class="tt-row"><span class="tt-label">Iron/Shot</span><span class="tt-value">' + def.ironPerShot + '</span></div>';
+                }
+                if (def.category === 'defense') {
+                    html += '<div class="tt-section">Shield</div>';
+                    if (def.shieldHP) html += '<div class="tt-row"><span class="tt-label">Shield HP</span><span class="tt-value">' + def.shieldHP + '</span></div>';
+                    if (def.shieldDiameter) html += '<div class="tt-row"><span class="tt-label">Diameter</span><span class="tt-value">' + def.shieldDiameter + 'px</span></div>';
+                }
+                if (def.category === 'mining') {
+                    html += '<div class="tt-section">Mining</div>';
+                    if (def.extractionRate) html += '<div class="tt-row"><span class="tt-label">Extraction</span><span class="tt-value">' + def.extractionRate + '/s</span></div>';
+                    if (def.requiresTerrain) html += '<div class="tt-row"><span class="tt-label">Requires</span><span class="tt-value">' + def.requiresTerrain.replace('_', ' ') + '</span></div>';
+                }
+                if (def.category === 'environment') {
+                    html += '<div class="tt-section">Environment</div>';
+                    if (def.pollutionReduction) html += '<div class="tt-row"><span class="tt-label">Pollution Reduction</span><span class="tt-value" style="color:#44cc44">-' + def.pollutionReduction + '/s</span></div>';
+                }
+                if (def.category === 'storage') {
+                    html += '<div class="tt-section">Storage</div>';
+                    if (def.maxDischargeRate > 0) html += '<div class="tt-row"><span class="tt-label">Discharge Rate</span><span class="tt-value">' + def.maxDischargeRate + '/s</span></div>';
+                    if (def.sellPrice) html += '<div class="tt-row"><span class="tt-label">Sell When Full</span><span class="tt-value" style="color:#44cc44">$' + def.sellPrice + '</span></div>';
+                }
+                // HP and upgrade info
+                html += '<div class="tt-section">General</div>';
+                html += '<div class="tt-row"><span class="tt-label">HP</span><span class="tt-value">' + def.hp + '</span></div>';
+                html += '<div class="tt-row"><span class="tt-label">Size</span><span class="tt-value">' + def.size[0] + '×' + def.size[1] + '</span></div>';
+                if (def.upgradeTo) {
+                    var upgName = (typeof Config !== 'undefined' && Config.BUILDINGS[def.upgradeTo]) ? Config.BUILDINGS[def.upgradeTo].name : def.upgradeTo;
+                    html += '<div class="tt-row"><span class="tt-label">Upgrades to</span><span class="tt-value" style="color:#66aaff">' + upgName + '</span></div>';
+                }
+                html += '</div>'; // close tooltip
+                html += '</button>';
+            }
+            _elements.buildOptions.innerHTML = html;
+        },
+
+        clearCategory: function () {
+            _selectedCategory = null;
+            _hideBuildInfoCard();
+            if (_elements.buildOptions) {
+                _elements.buildOptions.innerHTML = '';
+                _elements.buildOptions.style.display = 'none';
+            }
+            if (_elements.buildCategories) {
+                var catButtons = _elements.buildCategories.querySelectorAll('[data-action="select-category"]');
+                for (var i = 0; i < catButtons.length; i++) {
+                    catButtons[i].classList.remove('active');
+                }
+            }
+        },
+
+        // ---- Info panel ----
+
+        showBuildingInfo: function (buildingId) {
+            if (typeof Buildings === 'undefined' || !Buildings.getById) return;
+            var building = Buildings.getById(buildingId);
+            if (!building) return;
+            if (typeof Config === 'undefined' || !Config.BUILDINGS) return;
+            var def = Config.BUILDINGS[building.type];
+            if (!def) return;
+
+            _selectedBuildingId = buildingId;
+
+            var hpPct = building.maxHp > 0 ? Math.floor((building.hp / building.maxHp) * 100) : 0;
+            var html = '';
+            html += '<div class="info-header">';
+            html += '<span class="info-icon">' + (def.icon || '') + '</span>';
+            html += '<span class="info-name">' + def.name + '</span>';
+            html += '</div>';
+
+            // HP bar (live-updated)
+            html += '<div class="info-hp">';
+            html += '<div class="hp-bar"><div class="hp-fill" id="info-hp-fill" style="width:' + hpPct + '%"></div></div>';
+            html += '<span id="info-hp-text">' + Math.floor(building.hp) + '/' + building.maxHp + ' HP</span>';
+            html += '</div>';
+
+            // Energy info
+            if (def.energyGeneration > 0) {
+                html += '<div class="info-stat">⚡ Generation: ' + def.energyGeneration + '/s</div>';
+            }
+            if (def.energyConsumption > 0) {
+                html += '<div class="info-stat">⚡ Consumption: ' + def.energyConsumption + '/s</div>';
+            }
+            if (def.energyStorageCapacity > 0) {
+                html += '<div class="info-stat">🔋 Stored: <span id="info-energy-text">' + Math.floor(building.energy) + '</span>/' + def.energyStorageCapacity + '</div>';
+            }
+
+            // Workers
+            if (def.workersRequired > 0) {
+                html += '<div class="info-stat">👷 Workers: ' + def.workersRequired + '</div>';
+            }
+            if (def.workersHoused > 0) {
+                html += '<div class="info-stat">🏠 Houses: ' + def.workersHoused + ' workers</div>';
+            }
+
+            // Weapon stats
+            if (def.damage) {
+                html += '<div class="info-stat">⚔️ Damage: ' + def.damage + '</div>';
+            }
+            if (def.fireRate) {
+                html += '<div class="info-stat">🔥 Fire Rate: ' + def.fireRate + '/s</div>';
+            }
+            if (def.range) {
+                html += '<div class="info-stat">🎯 Range: ' + def.range + 'px</div>';
+            }
+
+            // Shield stats (live-updated)
+            if (def.shieldHP > 0) {
+                html += '<div class="info-stat">🛡️ Shield: <span id="info-shield-text">' + Math.floor(building.shieldHP || 0) + '</span>/' + def.shieldHP + '</div>';
+            }
+
+            // Pollution
+            if (def.pollution > 0) {
+                html += '<div class="info-stat">🏭 Pollution: +' + def.pollution + '/tick</div>';
+            }
+            if (def.pollutionReduction > 0) {
+                html += '<div class="info-stat">🌿 Cleans: -' + def.pollutionReduction + '/tick</div>';
+            }
+
+            // Mining
+            if (def.extractionRate) {
+                html += '<div class="info-stat">⛏️ Extraction: ' + def.extractionRate + '/s</div>';
+            }
+
+            // Description
+            html += '<div class="info-desc">' + (def.description || '') + '</div>';
+
+            // Buttons
+            html += '<div class="info-actions">';
+            // Cable button
+            html += '<button class="info-btn" data-action="cable-from-building">🔌 Connect Cable [C]</button>';
+            if (def.upgradeTo && Config.BUILDINGS[def.upgradeTo]) {
+                var upgradeDef = Config.BUILDINGS[def.upgradeTo];
+                var costParts = ['$' + (upgradeDef.cost.money || 0)];
+                if (upgradeDef.cost.iron) costParts.push(upgradeDef.cost.iron + ' iron');
+                if (upgradeDef.cost.coal) costParts.push(upgradeDef.cost.coal + ' coal');
+                if (upgradeDef.cost.uranium) costParts.push(upgradeDef.cost.uranium + ' uranium');
+                html += '<button class="info-btn upgrade" data-action="upgrade-building">⬆️ Upgrade to ' + upgradeDef.name + ' — ' + costParts.join(', ') + ' [U]</button>';
+            }
+            if (building.type !== 'core') {
+                var refund = _getRefundAmount(building);
+                html += '<button class="info-btn sell" data-action="sell-building">💰 Sell ($' + refund + ') [Del]</button>';
+            }
+            html += '</div>';
+
+            if (_elements.infoPanel) {
+                _elements.infoPanel.innerHTML = html;
+                _elements.infoPanel.style.display = 'block';
+            }
+        },
+
+        clearInfoPanel: function () {
+            _selectedBuildingId = null;
+            if (_elements.infoPanel) {
+                _elements.infoPanel.innerHTML = '';
+                _elements.infoPanel.style.display = 'none';
+            }
+        },
+
+        getSelectedBuildingId: function () {
+            return _selectedBuildingId;
+        },
+
+        // ---- Toasts ----
+
+        showToast: function (message, type, duration) {
+            if (!_elements.toastContainer) return;
+            type = type || 'info';
+            duration = duration || 3000;
+
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            _elements.toastContainer.appendChild(toast);
+            _toastQueue.push(toast);
+
+            // Trim excess toasts
+            while (_toastQueue.length > _maxToasts) {
+                _removeToast(_toastQueue[0]);
+            }
+
+            // Trigger entrance animation on next frame
+            requestAnimationFrame(function () {
+                toast.classList.add('toast-enter');
+            });
+
+            // Auto-remove
+            setTimeout(function () {
+                _removeToast(toast);
+            }, duration);
+        },
+
+        // ---- Modal ----
+
+        showModal: function (title, content, buttons) {
+            if (!_elements.modalOverlay || !_elements.modalContent) return;
+            var html = '';
+            html += '<h2 class="modal-title">' + title + '</h2>';
+            html += '<div class="modal-body">' + content + '</div>';
+            if (buttons && buttons.length > 0) {
+                html += '<div class="modal-buttons">';
+                for (var i = 0; i < buttons.length; i++) {
+                    var btn = buttons[i];
+                    var action = btn.action || 'close-modal';
+                    var cls = btn.className || 'modal-btn';
+                    html += '<button class="' + cls + '" data-action="' + action + '">' + btn.label + '</button>';
+                }
+                html += '</div>';
+            }
+            _elements.modalContent.innerHTML = html;
+            _elements.modalOverlay.style.display = 'flex';
+        },
+
+        hideModal: function () {
+            if (_elements.modalOverlay) {
+                _elements.modalOverlay.style.display = 'none';
+            }
+            if (_elements.modalContent) {
+                _elements.modalContent.innerHTML = '';
+            }
+        },
+
+        // ---- Game over ----
+
+        showGameOver: function (stats) {
+            var waveReached = (stats && stats.wave) ? stats.wave : 0;
+            var enemiesKilled = (stats && stats.kills != null) ? stats.kills : ((stats && stats.enemiesKilled) ? stats.enemiesKilled : 0);
+            var timePlayed = (stats && stats.time != null) ? stats.time : ((stats && stats.timePlayed) ? stats.timePlayed : 0);
+
+            var minutes = Math.floor(timePlayed / 60);
+            var seconds = Math.floor(timePlayed % 60);
+            var timeStr = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+
+            var score = (waveReached * 1000) + (enemiesKilled * 10);
+
+            var content = '';
+            content += '<div class="gameover-stat">🌊 Waves Survived: <strong>' + waveReached + '</strong></div>';
+            content += '<div class="gameover-stat">💀 Enemies Killed: <strong>' + UI.formatNumber(enemiesKilled) + '</strong></div>';
+            content += '<div class="gameover-stat">⏱️ Time Played: <strong>' + timeStr + '</strong></div>';
+            content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumber(score) + '</strong></div>';
+
+            UI.showModal('⚡ Game Over ⚡', content, [
+                { label: '🏠 Return to Menu', action: 'return-to-menu', className: 'modal-btn modal-btn-primary' }
+            ]);
+        },
+
+        // ---- Screens ----
+
+        showMenu: function () {
+            if (_elements.menuScreen) _elements.menuScreen.style.display = 'flex';
+            if (_elements.gameScreen) _elements.gameScreen.style.display = 'none';
+        },
+
+        showGame: function () {
+            if (_elements.menuScreen) _elements.menuScreen.style.display = 'none';
+            if (_elements.gameScreen) _elements.gameScreen.style.display = 'block';
+        },
+
+        showPause: function () {
+            if (_elements.pauseOverlay) _elements.pauseOverlay.style.display = 'flex';
+        },
+
+        hidePause: function () {
+            if (_elements.pauseOverlay) _elements.pauseOverlay.style.display = 'none';
+        },
+
+        // ---- Utility ----
+
+        formatNumber: function (n) {
+            if (n == null) return '0';
+            n = Math.floor(n);
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 10000) return (n / 1000).toFixed(1) + 'K';
+            var parts = [];
+            var s = Math.abs(n).toString();
+            for (var i = s.length - 1, count = 0; i >= 0; i--, count++) {
+                if (count > 0 && count % 3 === 0) parts.unshift(',');
+                parts.unshift(s[i]);
+            }
+            return (n < 0 ? '-' : '') + parts.join('');
+        },
+
+        formatEnergy: function (n) {
+            return '⚡ ' + UI.formatNumber(n);
+        }
+    };
+})();

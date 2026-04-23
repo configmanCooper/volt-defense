@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920">
+    <title>Volt Defense</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Main Menu Screen -->
+    <div id="menu-screen">
+        <h1 class="game-title">⚡ Volt Defense</h1>
+        <p class="game-subtitle">Build. Power. Defend.</p>
+
+        <div id="difficulty-select">
+            <h2>Select Difficulty</h2>
+            <div class="difficulty-grid">
+                <button class="difficulty-btn" data-action="select-difficulty" data-difficulty="watt">
+                    <span class="diff-icon">💡</span>
+                    <span class="diff-name">Watt</span>
+                    <span class="diff-label">Easy</span>
+                    <span class="diff-desc">Relaxed play. Weaker enemies, cheaper buildings.</span>
+                </button>
+                <button class="difficulty-btn diff-recommended selected" data-action="select-difficulty" data-difficulty="volt">
+                    <span class="diff-icon">🔌</span>
+                    <span class="diff-name">Volt</span>
+                    <span class="diff-label">Medium — Recommended</span>
+                    <span class="diff-desc">The intended experience. Balanced challenge.</span>
+                </button>
+                <button class="difficulty-btn" data-action="select-difficulty" data-difficulty="amp">
+                    <span class="diff-icon">⚡</span>
+                    <span class="diff-name">Amp</span>
+                    <span class="diff-label">Hard</span>
+                    <span class="diff-desc">Tougher enemies, pricier buildings, faster waves.</span>
+                </button>
+                <button class="difficulty-btn" data-action="select-difficulty" data-difficulty="lightning">
+                    <span class="diff-icon">🌩️</span>
+                    <span class="diff-name">Lightning</span>
+                    <span class="diff-label">Very Hard</span>
+                    <span class="diff-desc">Relentless. Waves every 30 seconds. Good luck.</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="menu-buttons">
+            <button class="menu-btn" data-action="newGame">New Game</button>
+            <button class="menu-btn" data-action="loadGame" id="btn-load-game">Load Game</button>
+        </div>
+    </div>
+
+    <!-- Game Screen (hidden until game starts) -->
+    <div id="game-screen" style="display: none;">
+        <!-- HUD Top Bar -->
+        <div id="hud-bar">
+            <div class="hud-group">
+                <span class="hud-label">Wave</span>
+                <span id="hud-wave" class="hud-value">0</span>
+                <span id="hud-wave-timer" class="hud-timer">2:00</span>
+            </div>
+            <div class="hud-group">
+                <span class="hud-label">$</span>
+                <span id="hud-money" class="hud-value">2000</span>
+            </div>
+            <div class="hud-group hud-resources">
+                <span title="Iron">⛏<span id="hud-iron">0</span></span>
+                <span title="Coal">🪨<span id="hud-coal">0</span></span>
+                <span title="Uranium">☢<span id="hud-uranium">0</span></span>
+            </div>
+            <div class="hud-group">
+                <span class="hud-label">👷</span>
+                <span id="hud-workers" class="hud-value">0/0</span>
+            </div>
+            <div class="hud-group">
+                <span class="hud-label">⚡</span>
+                <span id="hud-energy" class="hud-value">0/0</span>
+            </div>
+            <div class="hud-group">
+                <span class="hud-label">💨</span>
+                <span id="hud-pollution" class="hud-value pollution-clean">0</span>
+            </div>
+            <div class="hud-group">
+                <span class="hud-label">Core</span>
+                <span id="hud-core-hp" class="hud-value">100%</span>
+            </div>
+            <div class="hud-group hud-right">
+                <button class="hud-btn" data-action="pause" id="btn-pause" title="Pause [P]">⏸</button>
+                <button class="hud-btn" id="btn-shortcuts" title="Keyboard Shortcuts" data-action="show-shortcuts">❓</button>
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="game-canvas" width="1920" height="1080"></canvas>
+
+        <!-- Building Info Panel (right side, hidden by default) -->
+        <div id="info-panel" style="display: none;"></div>
+
+        <!-- Build Info Card (shown when selecting a build option) -->
+        <div id="build-info-card"></div>
+
+        <!-- Build Menu (bottom) -->
+        <div id="build-bar">
+            <div id="build-categories">
+                <button class="cat-btn" data-action="select-category" data-category="power" title="Power Plants [1]">⚡<span class="cat-label">Power</span></button>
+                <button class="cat-btn" data-action="select-category" data-category="storage" title="Energy Storage [2]">🔋<span class="cat-label">Storage</span></button>
+                <button class="cat-btn" data-action="select-category" data-category="mining" title="Mining [3]">⛏️<span class="cat-label">Mine</span></button>
+                <button class="cat-btn" data-action="select-category" data-category="weapons" title="Weapons [4]">🔫<span class="cat-label">Weapons</span></button>
+                <button class="cat-btn" data-action="select-category" data-category="defense" title="Defense [5]">🛡️<span class="cat-label">Defense</span></button>
+                <button class="cat-btn" data-action="select-category" data-category="housing" title="Housing [6]">🏠<span class="cat-label">Housing</span></button>
+                <button class="cat-btn" data-action="select-category" data-category="environment" title="Environment [7]">🌿<span class="cat-label">Environ</span></button>
+                <button class="cat-btn" data-action="select-category" data-category="grid" title="Grid [8]">🔌<span class="cat-label">Grid</span></button>
+            </div>
+            <div id="build-submenu" style="display: none;"></div>
+        </div>
+
+        <!-- Mode Indicator (shows current input state) -->
+        <div id="mode-indicator" style="display: none;"></div>
+
+        <!-- Toast Container -->
+        <div id="toast-container"></div>
+
+        <!-- Modal Overlay -->
+        <div id="modal-overlay" style="display: none;">
+            <div id="modal-box">
+                <div id="modal-header">
+                    <span id="modal-title"></span>
+                    <button id="modal-close" data-action="close-modal">&times;</button>
+                </div>
+                <div id="modal-body"></div>
+                <div id="modal-footer"></div>
+            </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pause-overlay" style="display: none;">
+            <div class="pause-content">
+                <h2>⏸ Paused</h2>
+                <button class="menu-btn" data-action="resume">Resume</button>
+                <button class="menu-btn" data-action="save-game">Save Game</button>
+                <button class="menu-btn" data-action="quit-to-menu">Quit to Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts (order matters — dependencies first) -->
+    <script src="js/config.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/buildings.js"></script>
+    <script src="js/energy.js"></script>
+    <script src="js/workers.js"></script>
+    <script src="js/economy.js"></script>
+    <script src="js/enemies.js"></script>
+    <script src="js/combat.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
