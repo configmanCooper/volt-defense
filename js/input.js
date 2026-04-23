@@ -118,18 +118,18 @@ var Input = (function () {
             if (dep && dep.remaining > 0) return dep;
         }
 
-        // Check rock terrain
+        // Check rock or water terrain
         if (Map.getTerrainAt) {
             var terrain = Map.getTerrainAt(_hoverGrid.x, _hoverGrid.y);
             if (terrain === 1) {
                 return { type: 'rock', remaining: 0, maxAmount: 0, gridX: _hoverGrid.x, gridY: _hoverGrid.y };
             }
             // Water tile — show speed and direction
-            if (terrain === 2) {
+            if (terrain === 2 || terrain === 3) {
                 var wSpeed = 0;
                 var wDir = { dx: 0, dy: 0 };
-                if (Map.getEffectiveWaterSpeed) wSpeed = Map.getEffectiveWaterSpeed(_hoverGrid.x, _hoverGrid.y);
-                if (Map.getFlowDirection) wDir = Map.getFlowDirection(_hoverGrid.x, _hoverGrid.y);
+                if (typeof Map.getEffectiveWaterSpeed === 'function') wSpeed = Map.getEffectiveWaterSpeed(_hoverGrid.x, _hoverGrid.y);
+                if (typeof Map.getFlowDirection === 'function') wDir = Map.getFlowDirection(_hoverGrid.x, _hoverGrid.y);
                 return { type: 'water', waterSpeed: wSpeed, flowDir: wDir, gridX: _hoverGrid.x, gridY: _hoverGrid.y };
             }
         }
@@ -304,6 +304,18 @@ var Input = (function () {
                                 if (terrain === 1) {
                                     if (typeof UI !== 'undefined' && UI.showToast) {
                                         UI.showToast('🪨 Rock — Terrain only, no resources', 'info', 2000);
+                                    }
+                                } else if (terrain === 2 || terrain === 3) {
+                                    // Water tile click — show flow info
+                                    var wSpd = 0;
+                                    var wFlowDir = { dx: 0, dy: 0 };
+                                    if (typeof Map.getEffectiveWaterSpeed === 'function') wSpd = Map.getEffectiveWaterSpeed(_mouseGrid.x, _mouseGrid.y);
+                                    if (typeof Map.getFlowDirection === 'function') wFlowDir = Map.getFlowDirection(_mouseGrid.x, _mouseGrid.y);
+                                    var dirMap = { '0,1': '↓ South', '0,-1': '↑ North', '1,0': '→ East', '-1,0': '← West' };
+                                    var dKey = wFlowDir.dx + ',' + wFlowDir.dy;
+                                    var dName = dirMap[dKey] || '—';
+                                    if (typeof UI !== 'undefined' && UI.showToast) {
+                                        UI.showToast('🌊 River — Speed: ' + wSpd.toFixed(1) + ' mph, Flow: ' + dName, 'info', 3000);
                                     }
                                 }
                             }

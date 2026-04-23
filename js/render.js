@@ -1324,16 +1324,6 @@ var Render = (function () {
             _drawDamageNumbers(_ctx);
             _drawPlacementPreview(_ctx);
 
-            // Night-time overlay
-            if (typeof Energy !== 'undefined' && Energy.isDay && !Energy.isDay()) {
-                _ctx.fillStyle = 'rgba(0, 0, 30, 0.12)';
-                _ctx.fillRect(
-                    Math.floor(_camera.x), Math.floor(_camera.y),
-                    Config.VIEWPORT_WIDTH / _zoom + 1,
-                    Config.VIEWPORT_HEIGHT / _zoom + 1
-                );
-            }
-
             _ctx.restore();
 
             // Screen-space UI
