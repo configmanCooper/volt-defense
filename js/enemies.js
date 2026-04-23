@@ -442,7 +442,7 @@ var Enemies = (function () {
 
         var baseHP    = def.hp    * (difficulty.enemyHPMult    || 1);
         var baseDmg   = def.damage * (difficulty.enemyDamageMult || 1);
-        var baseSpd   = def.speed  * (difficulty.enemySpeedMult  || 1);
+        var baseSpd   = def.speed  * (difficulty.enemySpeedMult  || 1) * 0.85;
         var baseArmor = def.armor;
 
         // Extra scaling for waves 51+
