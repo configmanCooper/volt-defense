@@ -1186,13 +1186,24 @@ var Render = (function () {
         if (!dep) return;
 
         var ms = Input.getMouseScreen();
-        var names = { iron: 'Iron Ore', coal: 'Coal', uranium: 'Uranium', rock: 'Rock' };
-        var icons = { iron: '⛏️', coal: '🪨', uranium: '☢️', rock: '🪨' };
-        var colors = { iron: '#d4a574', coal: '#3a3a3a', uranium: '#44ff44', rock: '#8a8580' };
+        var names = { iron: 'Iron Ore', coal: 'Coal', uranium: 'Uranium', rock: 'Rock', water: 'River' };
+        var icons = { iron: '⛏️', coal: '🪨', uranium: '☢️', rock: '🪨', water: '🌊' };
+        var colors = { iron: '#d4a574', coal: '#3a3a3a', uranium: '#44ff44', rock: '#8a8580', water: '#4488ff' };
         var name = (icons[dep.type] || '') + ' ' + (names[dep.type] || dep.type);
 
         var isRock = dep.type === 'rock';
-        var line2 = isRock ? 'Terrain only — no resources' : dep.remaining + ' / ' + dep.maxAmount + ' (' + (dep.maxAmount > 0 ? Math.floor((dep.remaining / dep.maxAmount) * 100) : 0) + '%)';
+        var isWater = dep.type === 'water';
+        var line2;
+        if (isRock) {
+            line2 = 'Terrain only — no resources';
+        } else if (isWater) {
+            var dirNames = { '0,1': '↓ South', '0,-1': '↑ North', '1,0': '→ East', '-1,0': '← West' };
+            var dirKey = (dep.flowDir ? dep.flowDir.dx : 0) + ',' + (dep.flowDir ? dep.flowDir.dy : 0);
+            var dirLabel = dirNames[dirKey] || '—';
+            line2 = 'Speed: ' + (dep.waterSpeed || 0).toFixed(1) + ' mph  Flow: ' + dirLabel;
+        } else {
+            line2 = dep.remaining + ' / ' + dep.maxAmount + ' (' + (dep.maxAmount > 0 ? Math.floor((dep.remaining / dep.maxAmount) * 100) : 0) + '%)';
+        }
 
         var padX = 10;
         var padY = 6;

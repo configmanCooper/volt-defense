@@ -54,27 +54,23 @@ var Map = (function() {
             riverId++;
             var side = rng.randomInt(0, 3); // 0=north, 1=south, 2=west, 3=east
             var riverWidth = rng.randomInt(3, 5);
-            var baseSpeed = 0.7 + rng.random() * 0.3; // 0.7 – 1.0
+            var baseSpeedMph = rng.randomInt(5, 20); // 5-20 mph base water speed
             var riverCells = [];
             var x, y, dx, dy, steps;
 
             if (side === 0) {
-                // Start from north edge, walk south
                 x = rng.randomInt(20, _gridWidth - 20);
                 y = 0;
                 dx = 0; dy = 1;
             } else if (side === 1) {
-                // Start from south edge, walk north
                 x = rng.randomInt(20, _gridWidth - 20);
                 y = _gridHeight - 1;
                 dx = 0; dy = -1;
             } else if (side === 2) {
-                // Start from west edge, walk east
                 x = 0;
                 y = rng.randomInt(20, _gridHeight - 20);
                 dx = 1; dy = 0;
             } else {
-                // Start from east edge, walk west
                 x = _gridWidth - 1;
                 y = rng.randomInt(20, _gridHeight - 20);
                 dx = -1; dy = 0;
@@ -84,7 +80,6 @@ var Map = (function() {
             var distFromSource = 0;
 
             for (var s = 0; s < steps; s++) {
-                // Apply random lateral drift
                 if (s > 0 && s % 5 === 0) {
                     if (dx !== 0) {
                         y += rng.randomInt(-2, 2);
@@ -95,7 +90,6 @@ var Map = (function() {
                     }
                 }
 
-                // Paint river cells with width
                 var halfW = Math.floor(riverWidth / 2);
                 for (var w = -halfW; w <= halfW; w++) {
                     var cx, cy;
@@ -107,13 +101,15 @@ var Map = (function() {
                     if (cx >= 0 && cx < _gridWidth && cy >= 0 && cy < _gridHeight) {
                         grid[cx][cy] = TERRAIN_WATER;
 
-                        var speedVariation = baseSpeed + (rng.random() - 0.5) * 0.1;
-                        speedVariation = Math.max(0.5, Math.min(1.0, speedVariation));
+                        var speedVariation = baseSpeedMph + (rng.random() - 0.5) * 2;
+                        speedVariation = Math.max(3, Math.min(22, speedVariation));
 
                         var cell = {
                             gridX: cx,
                             gridY: cy,
                             currentSpeed: speedVariation,
+                            flowDirX: dx,
+                            flowDirY: dy,
                             riverId: riverId,
                             distanceFromSource: distFromSource
                         };
@@ -409,6 +405,87 @@ var Map = (function() {
             return 0;
         },
 
+        getFlowDirection: function(gx, gy) {
+            for (var i = 0; i < _rivers.length; i++) {
+                if (_rivers[i].gridX === gx && _rivers[i].gridY === gy) {
+                    return { dx: _rivers[i].flowDirX || 0, dy: _rivers[i].flowDirY || 0 };
+                }
+            }
+            return { dx: 0, dy: 0 };
+        },
+
+        /**
+         * Get effective water speed at a tile, factoring in upstream hydro plant slowdown.
+         * Hydro plants reduce speed downstream:
+         *   tiles 1-4: 50% reduction
+         *   tiles 5-8: 25% reduction
+         *   tiles 9-12: 10% reduction
+         */
+        getEffectiveWaterSpeed: function(gx, gy) {
+            var baseSpeed = 0;
+            var riverId = -1;
+            var flowDx = 0, flowDy = 0;
+            for (var i = 0; i < _rivers.length; i++) {
+                if (_rivers[i].gridX === gx && _rivers[i].gridY === gy) {
+                    baseSpeed = _rivers[i].currentSpeed;
+                    riverId = _rivers[i].riverId;
+                    flowDx = _rivers[i].flowDirX || 0;
+                    flowDy = _rivers[i].flowDirY || 0;
+                    break;
+                }
+            }
+            if (riverId < 0) return 0;
+
+            // Check for upstream hydro plants that slow this tile
+            if (typeof Buildings === 'undefined' || !Buildings.getAll) return baseSpeed;
+            var allBuildings = Buildings.getAll();
+            var totalReduction = 0;
+
+            for (var b = 0; b < allBuildings.length; b++) {
+                var bld = allBuildings[b];
+                if (bld.type !== 'hydro_plant' || bld.hp <= 0) continue;
+                if (!bld.active) continue;
+
+                // Check if this hydro plant is upstream of (gx, gy) on the same river
+                var bFlow = Map.getFlowDirection(bld.gridX, bld.gridY);
+                if (bFlow.dx === 0 && bFlow.dy === 0) continue;
+
+                // The hydro plant is upstream if (gx,gy) is in the flow direction from it
+                var ddx = gx - bld.gridX;
+                var ddy = gy - bld.gridY;
+
+                // Must be in the flow direction
+                var distInFlow = 0;
+                if (bFlow.dx !== 0) {
+                    if (bFlow.dx > 0 && ddx > 0 && ddx <= 12) {
+                        // Check lateral offset is within river width
+                        if (Math.abs(ddy) <= 2) distInFlow = ddx;
+                    } else if (bFlow.dx < 0 && ddx < 0 && ddx >= -12) {
+                        if (Math.abs(ddy) <= 2) distInFlow = -ddx;
+                    }
+                }
+                if (bFlow.dy !== 0) {
+                    if (bFlow.dy > 0 && ddy > 0 && ddy <= 12) {
+                        if (Math.abs(ddx) <= 2) distInFlow = ddy;
+                    } else if (bFlow.dy < 0 && ddy < 0 && ddy >= -12) {
+                        if (Math.abs(ddx) <= 2) distInFlow = -ddy;
+                    }
+                }
+
+                if (distInFlow >= 1 && distInFlow <= 4) {
+                    totalReduction += 0.50;
+                } else if (distInFlow >= 5 && distInFlow <= 8) {
+                    totalReduction += 0.25;
+                } else if (distInFlow >= 9 && distInFlow <= 12) {
+                    totalReduction += 0.10;
+                }
+            }
+
+            // Cap total reduction at 90%
+            if (totalReduction > 0.90) totalReduction = 0.90;
+            return baseSpeed * (1 - totalReduction);
+        },
+
         reduceCurrentSpeed: function(gx, gy, amount) {
             var minSpeed = (typeof Config !== 'undefined' && Config.MIN_CURRENT_SPEED != null)
                 ? Config.MIN_CURRENT_SPEED : 0.05;
@@ -456,6 +533,7 @@ var Map = (function() {
                 riverData.push({
                     gridX: r.gridX, gridY: r.gridY,
                     currentSpeed: r.currentSpeed, riverId: r.riverId,
+                    flowDirX: r.flowDirX || 0, flowDirY: r.flowDirY || 0,
                     distanceFromSource: r.distanceFromSource
                 });
             }

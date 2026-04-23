@@ -225,10 +225,13 @@ var Energy = (function() {
                     actualGen = genPerTick * windMult;
                 }
 
-                // Hydro — scale by river current speed
+                // Hydro — scale by effective water speed (15 mph = rated output)
                 if (building.type === 'hydro_plant') {
-                    var currentSpeed = _getRiverCurrentSpeed(building.gridX, building.gridY);
-                    actualGen = genPerTick * (currentSpeed / 1.0);
+                    var effectiveSpeed = 15;
+                    if (typeof Map !== 'undefined' && typeof Map.getEffectiveWaterSpeed === 'function') {
+                        effectiveSpeed = Map.getEffectiveWaterSpeed(building.gridX, building.gridY);
+                    }
+                    actualGen = genPerTick * (effectiveSpeed / 15);
                 }
 
                 // Fuel-burning plants: check and deduct fuel

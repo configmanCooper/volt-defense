@@ -124,6 +124,14 @@ var Input = (function () {
             if (terrain === 1) {
                 return { type: 'rock', remaining: 0, maxAmount: 0, gridX: _hoverGrid.x, gridY: _hoverGrid.y };
             }
+            // Water tile — show speed and direction
+            if (terrain === 2) {
+                var wSpeed = 0;
+                var wDir = { dx: 0, dy: 0 };
+                if (Map.getEffectiveWaterSpeed) wSpeed = Map.getEffectiveWaterSpeed(_hoverGrid.x, _hoverGrid.y);
+                if (Map.getFlowDirection) wDir = Map.getFlowDirection(_hoverGrid.x, _hoverGrid.y);
+                return { type: 'water', waterSpeed: wSpeed, flowDir: wDir, gridX: _hoverGrid.x, gridY: _hoverGrid.y };
+            }
         }
 
         return null;
