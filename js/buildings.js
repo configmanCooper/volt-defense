@@ -223,6 +223,13 @@ var Buildings = (function() {
                 return { allowed: false, reason: 'Not enough available workers (need ' + workersNeeded + ').' };
             }
 
+            // Check that placing this building doesn't block all enemy paths to core
+            if (typeof Enemies !== 'undefined' && Enemies.canReachCoreWith) {
+                if (!Enemies.canReachCoreWith(cells)) {
+                    return { allowed: false, reason: 'Would block all enemy paths to the core.' };
+                }
+            }
+
             return { allowed: true };
         },
 

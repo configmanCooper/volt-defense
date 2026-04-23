@@ -65,6 +65,9 @@ var Enemies = (function () {
         };
     }
 
+    // Temporary blocked cells for placement validation (set by Buildings module)
+    var _tempBlockedCells = {};
+
     /**
      * Check whether a grid cell is walkable (not water, not deep_water).
      * If targetBuildingId is provided, buildings occupying the cell are
@@ -84,6 +87,10 @@ var Enemies = (function () {
                 return false;
             }
         }
+
+        // Check temporary blocked cells (for placement validation)
+        var bk = gx + ',' + gy;
+        if (_tempBlockedCells[bk]) return false;
 
         // Block cells occupied by non-target buildings
         if (typeof Buildings !== 'undefined' && Buildings.getAt) {
@@ -1072,6 +1079,47 @@ var Enemies = (function () {
 
         findPath: function (startX, startY, targetBuildingId) {
             return _findPath(startX, startY, targetBuildingId);
+        },
+
+        /**
+         * Check if all spawn points can still reach the core with given cells blocked.
+         * blockedCells is an array of {x, y} grid coords.
+         * Returns true if all spawn points can reach the core.
+         */
+        canReachCoreWith: function (blockedCells) {
+            // Set temporary blocked cells
+            _tempBlockedCells = {};
+            for (var i = 0; i < blockedCells.length; i++) {
+                _tempBlockedCells[blockedCells[i].x + ',' + blockedCells[i].y] = true;
+            }
+
+            var reachable = true;
+            var spawnPts = (typeof Map !== 'undefined' && Map.getSpawnPoints)
+                ? Map.getSpawnPoints() : [];
+
+            // Also check map edge fallback points
+            if (spawnPts.length === 0) {
+                var hw = Config.MAP_WIDTH / 2;
+                var hh = Config.MAP_HEIGHT / 2;
+                spawnPts = [
+                    { x: 0, y: hh },
+                    { x: Config.MAP_WIDTH, y: hh },
+                    { x: hw, y: 0 },
+                    { x: hw, y: Config.MAP_HEIGHT }
+                ];
+            }
+
+            for (var s = 0; s < spawnPts.length; s++) {
+                var path = _findPath(spawnPts[s].x, spawnPts[s].y);
+                if (!path) {
+                    reachable = false;
+                    break;
+                }
+            }
+
+            // Clear temporary blocked cells
+            _tempBlockedCells = {};
+            return reachable;
         },
 
         // ---- Save / Load ------------------------------------------------------
