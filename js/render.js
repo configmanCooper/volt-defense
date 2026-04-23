@@ -1368,7 +1368,7 @@ var Render = (function () {
         zoom: function (delta, mouseScreenX, mouseScreenY) {
             var step = 0.1;
             var newZoom = _zoom + delta * step;
-            if (newZoom < 0.25) newZoom = 0.25;
+            if (newZoom < 0.5) newZoom = 0.5;
             if (newZoom > 3.0) newZoom = 3.0;
             // Zoom toward mouse position
             var worldX = mouseScreenX / _zoom + _camera.x;
