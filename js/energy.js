@@ -147,9 +147,7 @@ var Energy = (function() {
         if (typeof Config !== 'undefined' && Config.CONSUMER_BATTERY_SELL_PRICE) {
             sellPrice = Config.CONSUMER_BATTERY_SELL_PRICE;
         }
-        if (typeof Economy !== 'undefined' && typeof Economy.addResource === 'function') {
-            Economy.addResource('money', sellPrice);
-        } else if (typeof Economy !== 'undefined' && typeof Economy.addMoney === 'function') {
+        if (typeof Economy !== 'undefined' && typeof Economy.addMoney === 'function') {
             Economy.addMoney(sellPrice);
         }
         building.energy = 0;
