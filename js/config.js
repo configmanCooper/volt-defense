@@ -99,6 +99,7 @@ var Config = {
         rock: 1,
         water: 2,
         deep_water: 3,
+        bridge: 4,
         iron_deposit: 10,
         coal_deposit: 11,
         uranium_deposit: 12,

@@ -350,6 +350,10 @@ var Input = (function () {
                                             UI.showToast('🌊 River — Speed: ' + wSpd.toFixed(1) + ' mph, Flow: ' + dName, 'info', 3000);
                                         }
                                     }
+                                } else if (terrain === 4) {
+                                    if (typeof UI !== 'undefined' && UI.showToast) {
+                                        UI.showToast('🌉 Bridge — Walkable river crossing', 'info', 2000);
+                                    }
                                 }
                             }
                             // Start left-click drag pan

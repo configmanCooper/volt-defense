@@ -10,6 +10,7 @@ var Map = (function() {
     var TERRAIN_ROCK = 1;
     var TERRAIN_WATER = 2;
     var TERRAIN_DEEP_WATER = 3;
+    var TERRAIN_BRIDGE = 4;
     // Deposit overlay types
     var TERRAIN_IRON_DEPOSIT = 10;
     var TERRAIN_COAL_DEPOSIT = 11;
@@ -19,6 +20,7 @@ var Map = (function() {
     // ---- private state ----
     var _grid = null;
     var _rivers = [];
+    var _bridges = [];
     var _riverLookup = {};  // 'gx,gy' -> river tile index for O(1) lookup
     var _deposits = [];
     var _spawnPoints = [];
@@ -138,6 +140,85 @@ var Map = (function() {
         }
 
         return rivers;
+    }
+
+    // ---- bridge generation ----
+
+    function _generateBridges(rng, grid, rivers) {
+        var bridges = [];
+        // Group river tiles by riverId
+        var riverGroups = {};
+        for (var i = 0; i < rivers.length; i++) {
+            var rid = rivers[i].riverId;
+            if (!riverGroups[rid]) { riverGroups[rid] = []; }
+            riverGroups[rid].push(rivers[i]);
+        }
+
+        var rids = Object.keys(riverGroups);
+        for (var ri = 0; ri < rids.length; ri++) {
+            var tiles = riverGroups[rids[ri]];
+            var riverId = parseInt(rids[ri], 10);
+            if (tiles.length === 0) continue;
+
+            // Determine flow direction from first tile
+            var flowDx = tiles[0].flowDirX || 0;
+            var flowDy = tiles[0].flowDirY || 0;
+
+            // Sort tiles along the flow axis
+            if (Math.abs(flowDx) > 0) {
+                // River flows horizontally — sort by x
+                tiles.sort(function(a, b) { return a.gridX - b.gridX; });
+            } else {
+                // River flows vertically — sort by y
+                tiles.sort(function(a, b) { return a.gridY - b.gridY; });
+            }
+
+            // Determine number of bridges (2-4, more for longer rivers)
+            var riverLength = tiles.length > 0 ? tiles[tiles.length - 1].distanceFromSource - tiles[0].distanceFromSource + 1 : 0;
+            var numBridges = riverLength > 150 ? 4 : (riverLength > 80 ? 3 : 2);
+
+            // Pick bridge positions along the river, spaced at least 30 tiles apart
+            var lastBridgeDist = -999;
+            var bridgeCount = 0;
+            // Collect unique flow-axis positions
+            var crossSections = {};
+            for (var ti = 0; ti < tiles.length; ti++) {
+                var posKey = Math.abs(flowDx) > 0 ? tiles[ti].gridX : tiles[ti].gridY;
+                if (!crossSections[posKey]) { crossSections[posKey] = []; }
+                crossSections[posKey].push(tiles[ti]);
+            }
+            var csKeys = Object.keys(crossSections);
+            // Shuffle candidate positions
+            for (var si = csKeys.length - 1; si > 0; si--) {
+                var sj = rng.randomInt(0, si);
+                var tmp = csKeys[si];
+                csKeys[si] = csKeys[sj];
+                csKeys[sj] = tmp;
+            }
+            // Sort back by position to maintain spacing logic
+            csKeys.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+
+            // Select evenly-spaced candidates
+            var spacing = Math.max(30, Math.floor(csKeys.length / (numBridges + 1)));
+            for (var ci = spacing; ci < csKeys.length && bridgeCount < numBridges; ci += spacing) {
+                var crossTiles = crossSections[csKeys[ci]];
+                var pos = parseInt(csKeys[ci], 10);
+                if (pos - lastBridgeDist < 30) continue;
+                lastBridgeDist = pos;
+                bridgeCount++;
+
+                // Set all tiles in this cross-section to bridge
+                for (var bt = 0; bt < crossTiles.length; bt++) {
+                    var bx = crossTiles[bt].gridX;
+                    var by = crossTiles[bt].gridY;
+                    if (bx >= 0 && bx < _gridWidth && by >= 0 && by < _gridHeight) {
+                        grid[bx][by] = TERRAIN_BRIDGE;
+                        bridges.push({ gridX: bx, gridY: by, riverId: riverId });
+                    }
+                }
+            }
+        }
+        return bridges;
     }
 
     // ---- deposit generation ----
@@ -334,6 +415,7 @@ var Map = (function() {
 
             // 2. Rivers
             _rivers = _generateRivers(rng, _grid);
+            _bridges = _generateBridges(rng, _grid, _rivers);
             _buildRiverLookup();
 
             // 3. Scattered rocks (before deposits so deposits overwrite rocks)
@@ -363,6 +445,7 @@ var Map = (function() {
         },
 
         getRivers: function() { return _rivers; },
+        getBridges: function() { return _bridges; },
         getDeposits: function() { return _deposits; },
         getSpawnPoints: function() { return _spawnPoints; },
         getGridWidth: function() { return _gridWidth; },
@@ -399,6 +482,9 @@ var Map = (function() {
                 return false;
             }
             var terrain = _grid[gx][gy];
+
+            // Bridges are not buildable
+            if (terrain === TERRAIN_BRIDGE) { return false; }
 
             // Deep water is never buildable
             if (terrain === TERRAIN_DEEP_WATER) { return false; }
@@ -594,6 +680,7 @@ var Map = (function() {
                 deposits: depositData,
                 rivers: riverData,
                 rocks: rocks,
+                bridges: _bridges.slice(),
                 spawnPoints: _spawnPoints.slice()
             };
         },
@@ -630,6 +717,15 @@ var Map = (function() {
                 var r = _rivers[i];
                 if (r.gridX >= 0 && r.gridX < _gridWidth && r.gridY >= 0 && r.gridY < _gridHeight) {
                     _grid[r.gridX][r.gridY] = TERRAIN_WATER;
+                }
+            }
+
+            // Restore bridges
+            _bridges = data.bridges || [];
+            for (var i = 0; i < _bridges.length; i++) {
+                var b = _bridges[i];
+                if (b.gridX >= 0 && b.gridX < _gridWidth && b.gridY >= 0 && b.gridY < _gridHeight) {
+                    _grid[b.gridX][b.gridY] = TERRAIN_BRIDGE;
                 }
             }
 

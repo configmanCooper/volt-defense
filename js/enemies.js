@@ -114,6 +114,99 @@ var Enemies = (function () {
         return true;
     }
 
+    // ---- Binary Min-Heap for A* priority queue ----
+
+    function _BinaryHeap() {
+        this._data = [];
+        this._positions = {}; // key -> index in _data
+    }
+
+    _BinaryHeap.prototype.size = function() {
+        return this._data.length;
+    };
+
+    _BinaryHeap.prototype.push = function(node) {
+        var idx = this._data.length;
+        this._data.push(node);
+        this._positions[node.key] = idx;
+        this._bubbleUp(idx);
+    };
+
+    _BinaryHeap.prototype.pop = function() {
+        var data = this._data;
+        if (data.length === 0) return null;
+        var top = data[0];
+        var last = data.pop();
+        delete this._positions[top.key];
+        if (data.length > 0) {
+            data[0] = last;
+            this._positions[last.key] = 0;
+            this._sinkDown(0);
+        }
+        return top;
+    };
+
+    _BinaryHeap.prototype.updateNode = function(node) {
+        var idx = this._positions[node.key];
+        if (idx === undefined) {
+            this.push(node);
+            return;
+        }
+        this._data[idx] = node;
+        this._bubbleUp(idx);
+        this._sinkDown(this._positions[node.key]);
+    };
+
+    _BinaryHeap.prototype.contains = function(key) {
+        return this._positions[key] !== undefined;
+    };
+
+    _BinaryHeap.prototype.get = function(key) {
+        var idx = this._positions[key];
+        return idx !== undefined ? this._data[idx] : null;
+    };
+
+    _BinaryHeap.prototype._bubbleUp = function(idx) {
+        var data = this._data;
+        var pos = this._positions;
+        while (idx > 0) {
+            var parent = (idx - 1) >> 1;
+            if (data[idx].f < data[parent].f) {
+                var tmp = data[parent];
+                data[parent] = data[idx];
+                data[idx] = tmp;
+                pos[data[parent].key] = parent;
+                pos[data[idx].key] = idx;
+                idx = parent;
+            } else {
+                break;
+            }
+        }
+    };
+
+    _BinaryHeap.prototype._sinkDown = function(idx) {
+        var data = this._data;
+        var pos = this._positions;
+        var len = data.length;
+        while (true) {
+            var left = 2 * idx + 1;
+            var right = 2 * idx + 2;
+            var smallest = idx;
+            if (left < len && data[left].f < data[smallest].f) smallest = left;
+            if (right < len && data[right].f < data[smallest].f) smallest = right;
+            if (smallest !== idx) {
+                var tmp = data[idx];
+                data[idx] = data[smallest];
+                data[smallest] = tmp;
+                pos[data[idx].key] = idx;
+                pos[data[smallest].key] = smallest;
+                idx = smallest;
+            } else {
+                break;
+            }
+        }
+    };
+
     /**
      * A* pathfinding from (startX, startY) world coords to the core.
      * Returns an array of {x, y} world-coordinate waypoints, or null if
@@ -136,19 +229,19 @@ var Enemies = (function () {
         // Node key helper
         function key(gx, gy) { return gx + gy * gridCols; }
 
-        var openSet  = {};   // key -> node
+        var openHeap = new _BinaryHeap();
         var closedSet = {};
         var startKey = key(startGrid.gx, startGrid.gy);
-        var endKey   = key(endGrid.gx, endGrid.gy);
 
-        openSet[startKey] = {
+        openHeap.push({
             gx: startGrid.gx, gy: startGrid.gy,
             g: 0,
             f: _manhattan(startGrid.gx, startGrid.gy, endGrid.gx, endGrid.gy),
-            parent: null
-        };
+            parent: null,
+            key: startKey
+        });
 
-        var maxIterations = 5000;
+        var maxIterations = 50000;
         var iterations = 0;
 
         // Directions: 4-directional movement
@@ -159,27 +252,12 @@ var Enemies = (function () {
             { dx:  0, dy: -1 }
         ];
 
-        while (true) {
+        while (openHeap.size() > 0) {
             iterations++;
             if (iterations > maxIterations) { break; }
 
-            // Find the node in openSet with lowest f
-            var bestKey = null;
-            var bestF   = Infinity;
-            var openKeys = Object.keys(openSet);
-            if (openKeys.length === 0) { break; }
-
-            for (var oi = 0; oi < openKeys.length; oi++) {
-                var ok = openKeys[oi];
-                if (openSet[ok].f < bestF) {
-                    bestF = openSet[ok].f;
-                    bestKey = ok;
-                }
-            }
-
-            var current = openSet[bestKey];
-            delete openSet[bestKey];
-            closedSet[bestKey] = current;
+            var current = openHeap.pop();
+            closedSet[current.key] = true;
 
             // Reached the goal?
             if (current.gx === endGrid.gx && current.gy === endGrid.gy) {
@@ -195,15 +273,21 @@ var Enemies = (function () {
                 if (!_isWalkable(nx, ny, targetBuildingId)) { continue; }
 
                 var tentativeG = current.g + 1;
-                var existing = openSet[nk];
+                var existing = openHeap.get(nk);
 
-                if (!existing || tentativeG < existing.g) {
-                    openSet[nk] = {
+                if (!existing) {
+                    openHeap.push({
                         gx: nx, gy: ny,
                         g: tentativeG,
                         f: tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy),
-                        parent: current
-                    };
+                        parent: current,
+                        key: nk
+                    });
+                } else if (tentativeG < existing.g) {
+                    existing.g = tentativeG;
+                    existing.f = tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy);
+                    existing.parent = current;
+                    openHeap.updateNode(existing);
                 }
             }
         }
@@ -253,37 +337,29 @@ var Enemies = (function () {
             return true;
         }
 
-        var openSet = {};
+        var openHeap = new _BinaryHeap();
         var closedSet = {};
         var startKey = key(startGrid.gx, startGrid.gy);
 
-        openSet[startKey] = {
+        openHeap.push({
             gx: startGrid.gx, gy: startGrid.gy,
             g: 0,
             f: _manhattan(startGrid.gx, startGrid.gy, endGrid.gx, endGrid.gy),
-            parent: null
-        };
+            parent: null,
+            key: startKey
+        });
 
-        var maxIterations = 5000;
+        var maxIterations = 50000;
         var iterations = 0;
         var dirs = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
 
-        while (true) {
+        while (openHeap.size() > 0) {
             iterations++;
             if (iterations > maxIterations) break;
-            var bestKey = null;
-            var bestF = Infinity;
-            var openKeys = Object.keys(openSet);
-            if (openKeys.length === 0) break;
-            for (var oi = 0; oi < openKeys.length; oi++) {
-                if (openSet[openKeys[oi]].f < bestF) {
-                    bestF = openSet[openKeys[oi]].f;
-                    bestKey = openKeys[oi];
-                }
-            }
-            var current = openSet[bestKey];
-            delete openSet[bestKey];
-            closedSet[bestKey] = current;
+
+            var current = openHeap.pop();
+            closedSet[current.key] = true;
+
             if (current.gx === endGrid.gx && current.gy === endGrid.gy) {
                 return _reconstructPath(current);
             }
@@ -294,14 +370,20 @@ var Enemies = (function () {
                 if (closedSet[nk]) continue;
                 if (!isValid(nx, ny)) continue;
                 var tentativeG = current.g + 1;
-                var existing = openSet[nk];
-                if (!existing || tentativeG < existing.g) {
-                    openSet[nk] = {
+                var existing = openHeap.get(nk);
+                if (!existing) {
+                    openHeap.push({
                         gx: nx, gy: ny,
                         g: tentativeG,
                         f: tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy),
-                        parent: current
-                    };
+                        parent: current,
+                        key: nk
+                    });
+                } else if (tentativeG < existing.g) {
+                    existing.g = tentativeG;
+                    existing.f = tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy);
+                    existing.parent = current;
+                    openHeap.updateNode(existing);
                 }
             }
         }

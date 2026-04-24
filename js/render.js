@@ -407,6 +407,34 @@ var Render = (function () {
                         ctx.fill();
                     }
                     continue;
+                } else if (t === 4) {
+                    // Bridge — brown wooden planks
+                    ctx.fillStyle = '#8B7355';
+                    ctx.fillRect(sx, sy, cs, cs);
+                    // Draw horizontal planks with darker gaps
+                    ctx.fillStyle = '#6B5535';
+                    var plankH = Math.floor(cs / 3);
+                    ctx.fillRect(sx, sy + plankH - 1, cs, 2);
+                    ctx.fillRect(sx, sy + plankH * 2 - 1, cs, 2);
+                    // Slightly lighter plank highlights
+                    ctx.fillStyle = 'rgba(180,160,130,0.3)';
+                    ctx.fillRect(sx + 2, sy + 2, cs - 4, plankH - 4);
+                    ctx.fillRect(sx + 2, sy + plankH + 2, cs - 4, plankH - 4);
+                    // Railing dots at edges
+                    ctx.fillStyle = '#5A4430';
+                    ctx.beginPath();
+                    ctx.arc(sx + 3, sy + 3, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(sx + cs - 3, sy + 3, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(sx + 3, sy + cs - 3, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(sx + cs - 3, sy + cs - 3, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    continue;
                 } else if (t === 10) {
                     // Iron ore deposit — grass base with iron rocks
                     var ironNv = _terrainNoise(col, row);
