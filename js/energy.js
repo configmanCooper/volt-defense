@@ -550,23 +550,7 @@ var Energy = (function() {
             }
 
             // ============================================================
-            // Step 2b: Round energy to prevent floating-point drift
-            // ============================================================
-            for (i = 0; i < allBuildings.length; i++) {
-                building = allBuildings[i];
-                def = _getDef(building.type);
-                if (!def) continue;
-                var cap = def.energyStorageCapacity || 0;
-                // Round to 1 decimal to prevent fractional accumulation
-                building.energy = Math.round(building.energy * 10) / 10;
-                // Clamp to capacity
-                if (cap > 0 && building.energy > cap) {
-                    building.energy = cap;
-                }
-                if (building.energy < 0) {
-                    building.energy = 0;
-                }
-            }
+            // (Rounding moved to after Step 3)
 
             // ============================================================
             // Step 3: Consumption + Carbon Collection + Stats (consolidated)
@@ -646,6 +630,23 @@ var Energy = (function() {
             _stats.totalConsumption = totalConsumption * tps;
             _stats.totalStored = totalStored;
             _stats.totalCapacity = totalCapacity;
+
+            // ============================================================
+            // Final step: Round energy to prevent floating-point drift
+            // ============================================================
+            for (i = 0; i < allBuildings.length; i++) {
+                building = allBuildings[i];
+                def = _getDef(building.type);
+                if (!def) continue;
+                var cap = def.energyStorageCapacity || 0;
+                building.energy = Math.round(building.energy * 10) / 10;
+                if (cap > 0 && building.energy > cap) {
+                    building.energy = cap;
+                }
+                if (building.energy < 0) {
+                    building.energy = 0;
+                }
+            }
         },
 
         // ================================================================
