@@ -28,6 +28,9 @@ var Energy = (function() {
     var _windSpeed = 15;       // current wind speed in mph
     var _windTimer = 0;        // seconds until next wind change
 
+    // Weather state (affects solar)
+    var _weather = 'sunny';    // 'sunny', 'partly_cloudy', 'cloudy'
+
     // Set of building IDs that transferred energy this tick (for cable glow)
     var _activeFlowNodes = {};
 
@@ -192,6 +195,13 @@ var Energy = (function() {
             if (_dayNightTimer >= halfCycle) {
                 _dayNightTimer -= halfCycle;
                 _isDay = !_isDay;
+                // Roll weather when a new day starts
+                if (_isDay) {
+                    var roll = _rngRandom();
+                    if (roll < 0.5) { _weather = 'sunny'; }
+                    else if (roll < 0.75) { _weather = 'partly_cloudy'; }
+                    else { _weather = 'cloudy'; }
+                }
             }
 
             // ============================================================
@@ -228,11 +238,13 @@ var Energy = (function() {
                 var genPerTick = def.energyGeneration / tps;
                 var actualGen = genPerTick;
 
-                // Solar — only generates during daytime
+                // Solar — only generates during daytime, affected by weather
                 if (building.type === 'solar') {
                     if (!_isDay) {
                         continue; // no generation at night
                     }
+                    if (_weather === 'partly_cloudy') { actualGen *= 0.75; }
+                    else if (_weather === 'cloudy') { actualGen *= 0.5; }
                 }
 
                 // Wind — scale by current wind speed (0 at 0mph, 1x at 15mph, 2x at 30mph)
@@ -692,6 +704,7 @@ var Energy = (function() {
 
         // Day/Night and Wind queries
         isDay: function() { return _isDay; },
+        getWeather: function() { return _weather; },
         getWindSpeed: function() { return _windSpeed; },
         getDayNightTimer: function() { return _dayNightTimer; },
         getDayNightHalfCycle: function() {
@@ -714,7 +727,8 @@ var Energy = (function() {
                 isDay: _isDay,
                 dayNightTimer: _dayNightTimer,
                 windSpeed: _windSpeed,
-                windTimer: _windTimer
+                windTimer: _windTimer,
+                weather: _weather
             };
         },
 
@@ -733,6 +747,7 @@ var Energy = (function() {
             if (data.dayNightTimer !== undefined) _dayNightTimer = data.dayNightTimer;
             if (data.windSpeed !== undefined) _windSpeed = data.windSpeed;
             if (data.windTimer !== undefined) _windTimer = data.windTimer;
+            if (data.weather !== undefined) _weather = data.weather;
         }
     };
 })();

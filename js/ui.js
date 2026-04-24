@@ -515,7 +515,14 @@ var UI = (function () {
             }
             if (_elements.daynight && typeof Energy !== 'undefined' && Energy.isDay) {
                 var isDay = Energy.isDay();
-                _elements.daynight.textContent = isDay ? '☀️ Day' : '🌙 Night';
+                if (isDay) {
+                    var weather = (typeof Energy.getWeather === 'function') ? Energy.getWeather() : 'sunny';
+                    if (weather === 'sunny') { _elements.daynight.textContent = '☀️ Sunny'; }
+                    else if (weather === 'partly_cloudy') { _elements.daynight.textContent = '⛅ Partly Cloudy'; }
+                    else { _elements.daynight.textContent = '☁️ Cloudy'; }
+                } else {
+                    _elements.daynight.textContent = '🌙 Night';
+                }
             }
             if (_elements.wind && typeof Energy !== 'undefined' && Energy.getWindSpeed) {
                 _elements.wind.textContent = '🌬️ ' + Energy.getWindSpeed() + 'mph';
@@ -810,7 +817,12 @@ var UI = (function () {
                 } else if (building.type === 'solar') {
                     var isDay = (typeof Energy !== 'undefined' && Energy.isDay) ? Energy.isDay() : true;
                     if (!isDay) { actualGen = 0; genLabel = ' (night)'; }
-                    else { genLabel = ' (day)'; }
+                    else {
+                        var weather = (typeof Energy !== 'undefined' && typeof Energy.getWeather === 'function') ? Energy.getWeather() : 'sunny';
+                        if (weather === 'partly_cloudy') { actualGen = Math.round(actualGen * 0.75 * 10) / 10; genLabel = ' (⛅ -25%)'; }
+                        else if (weather === 'cloudy') { actualGen = Math.round(actualGen * 0.5 * 10) / 10; genLabel = ' (☁️ -50%)'; }
+                        else { genLabel = ' (☀️)'; }
+                    }
                 }
                 html += '<div class="info-stat">⚡ Generation: ' + actualGen + '/s' + genLabel + '</div>';
             }
