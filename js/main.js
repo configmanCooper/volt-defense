@@ -301,17 +301,6 @@ var Main = (function () {
         _buildSlotListHTML('pause-slot-list', true);
     }
 
-    function _showSlotPicker(callback) {
-        var slot = prompt('Choose a save slot (1-5):', '1');
-        if (slot === null) return;
-        var n = parseInt(slot, 10);
-        if (isNaN(n) || n < 1 || n > 5) {
-            alert('Please enter a number between 1 and 5.');
-            return;
-        }
-        callback(n);
-    }
-
     function _updatePauseSlotIndicator() {
         var el = document.getElementById('pause-slot-num');
         if (el && typeof Save !== 'undefined' && Save.getSlot) {
@@ -405,6 +394,62 @@ var Main = (function () {
         if (content) content.style.display = '';
     }
 
+    function _buildSaveSlotListHTML(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+
+        for (var i = 1; i <= 5; i++) {
+            var info = (typeof Save !== 'undefined' && Save.getSlotInfo) ? Save.getSlotInfo(i) : null;
+            var entry = document.createElement('div');
+            entry.className = 'save-slot-entry';
+
+            var label = document.createElement('div');
+            label.className = 'save-slot-label';
+
+            if (info) {
+                var d = new Date(info.timestamp);
+                var dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+                var diffName = info.difficulty.charAt(0).toUpperCase() + info.difficulty.slice(1);
+                label.innerHTML = '<strong>Slot ' + i + '</strong> — Wave ' + info.wave +
+                    ' · ' + diffName + '<br><span class="save-slot-date">' + dateStr + '</span>';
+            } else {
+                label.innerHTML = '<strong>Slot ' + i + '</strong> — <span class="save-slot-empty">Empty</span>';
+            }
+
+            var actions = document.createElement('div');
+            actions.className = 'save-slot-actions';
+
+            var saveBtn = document.createElement('button');
+            saveBtn.className = 'menu-btn save-slot-btn';
+            saveBtn.textContent = info ? 'Overwrite' : 'Save';
+            saveBtn.setAttribute('data-action', 'save-to-slot');
+            saveBtn.setAttribute('data-slot', i);
+            actions.appendChild(saveBtn);
+
+            entry.appendChild(label);
+            entry.appendChild(actions);
+            container.appendChild(entry);
+        }
+    }
+
+    function _showPauseSavePanel() {
+        var panel = document.getElementById('pause-save-panel');
+        var content = document.querySelector('.pause-content');
+        if (panel) {
+            _buildSaveSlotListHTML('pause-save-slot-list');
+            panel.style.display = '';
+        }
+        if (content) content.style.display = 'none';
+    }
+
+    function _hidePauseSavePanel() {
+        var panel = document.getElementById('pause-save-panel');
+        var content = document.querySelector('.pause-content');
+        if (panel) panel.style.display = 'none';
+        if (content) content.style.display = '';
+    }
+
     // ---- DOM Ready & delegation ---------------------------------------------
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -439,6 +484,18 @@ var Main = (function () {
                 _showPauseLoadPanel();
             } else if (action === 'hide-load-ingame') {
                 _hidePauseLoadPanel();
+            } else if (action === 'show-save-ingame') {
+                _showPauseSavePanel();
+            } else if (action === 'hide-save-ingame') {
+                _hidePauseSavePanel();
+            } else if (action === 'save-to-slot') {
+                var saveSlot = parseInt(target.getAttribute('data-slot'), 10);
+                if (saveSlot >= 1 && saveSlot <= 5 && typeof Save !== 'undefined') {
+                    Save.setSlot(saveSlot);
+                    Save.save();
+                    _updatePauseSlotIndicator();
+                    _hidePauseSavePanel();
+                }
             } else if (action === 'load-slot') {
                 var loadSlot = parseInt(target.getAttribute('data-slot'), 10);
                 if (loadSlot >= 1 && loadSlot <= 5) {
@@ -474,13 +531,12 @@ var Main = (function () {
                     }
                 }
             } else if (action === 'saveGame' || action === 'save-game') {
-                if (typeof Save !== 'undefined' && typeof Save.save === 'function') {
-                    Save.save();
-                }
+                _showPauseSavePanel();
             } else if (action === 'quitToMenu' || action === 'quit-to-menu' || action === 'return-menu') {
                 _stopLoops();
                 _initialized = false;
                 _hidePauseLoadPanel();
+                _hidePauseSavePanel();
                 var po = document.getElementById('pause-overlay');
                 if (po) po.style.display = 'none';
                 _showScreen('menu');
@@ -499,6 +555,7 @@ var Main = (function () {
         startGame: _startGame,
         loadGame: _loadGame,
         refreshSlotList: _refreshSlotList,
+        showSavePanel: _showPauseSavePanel,
         isInitialized: function () { return _initialized; }
     };
 })();
