@@ -1173,8 +1173,15 @@ var UI = (function () {
             var catBtns = catsEl.querySelectorAll('.debug-cat-btn');
             for (var i = 0; i < catBtns.length; i++) {
                 catBtns[i].addEventListener('click', function () {
+                    var wasActive = this.classList.contains('active');
                     var allCats = catsEl.querySelectorAll('.debug-cat-btn');
                     for (var j = 0; j < allCats.length; j++) allCats[j].classList.remove('active');
+                    if (wasActive) {
+                        // Toggle off — clear spawn selection and hide options
+                        if (typeof Input !== 'undefined' && Input.setDebugSpawnType) Input.setDebugSpawnType(null);
+                        optsEl.innerHTML = '';
+                        return;
+                    }
                     this.classList.add('active');
                     var cat = this.getAttribute('data-debug-cat');
                     UI._renderDebugCategory(cat);
@@ -1209,13 +1216,17 @@ var UI = (function () {
                 for (var j = 0; j < btns.length; j++) {
                     btns[j].addEventListener('click', function () {
                         var typeKey = this.getAttribute('data-enemy-type');
+                        var currentType = (typeof Input !== 'undefined' && Input.getDebugSpawnType) ? Input.getDebugSpawnType() : null;
                         var allBtns = optsEl.querySelectorAll('.debug-enemy-btn');
                         for (var k = 0; k < allBtns.length; k++) allBtns[k].classList.remove('selected');
-                        this.classList.add('selected');
-                        if (typeof Input !== 'undefined' && Input.setDebugSpawnType) {
-                            Input.setDebugSpawnType(typeKey);
-                        }
-                        if (typeof UI !== 'undefined' && UI.showToast) {
+
+                        if (currentType === typeKey) {
+                            // Deselect
+                            if (typeof Input !== 'undefined' && Input.setDebugSpawnType) Input.setDebugSpawnType(null);
+                            UI.showToast('Enemy spawning cancelled', 'info', 1000);
+                        } else {
+                            this.classList.add('selected');
+                            if (typeof Input !== 'undefined' && Input.setDebugSpawnType) Input.setDebugSpawnType(typeKey);
                             UI.showToast('Click on map to spawn: ' + typeKey, 'info', 2000);
                         }
                     });
