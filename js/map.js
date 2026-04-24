@@ -324,7 +324,7 @@ var Map = (function() {
         }
 
         // Coal: 8-13 clusters, each 2-5 cells, 400-1200 units/cell
-        var coalClusters = rng.randomInt(8, 13);
+        var coalClusters = rng.randomInt(10, 16);
         for (var i = 0; i < coalClusters; i++) {
             var spot = findSpot(800, minDistFromCenter);
             if (!spot) { continue; }
@@ -365,7 +365,7 @@ var Map = (function() {
         }
 
         // Oil: 12-18 clusters, each 3-6 cells, 400-1000 units/cell (same frequency as iron)
-        var oilClusters = rng.randomInt(12, 18);
+        var oilClusters = rng.randomInt(8, 14);
         for (var i = 0; i < oilClusters; i++) {
             var spot = findSpot(800, minDistFromCenter);
             if (!spot) { continue; }
