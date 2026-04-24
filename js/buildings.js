@@ -257,6 +257,44 @@ var Buildings = (function() {
                 }
             }
 
+            // Max count check
+            if (def.maxCount) {
+                var count = 0;
+                for (i = 0; i < _buildings.length; i++) {
+                    if (_buildings[i].type === typeKey) count++;
+                }
+                if (count >= def.maxCount) {
+                    return { allowed: false, reason: 'Maximum of ' + def.maxCount + ' ' + (def.name || typeKey) + ' allowed.' };
+                }
+            }
+
+            // Must be adjacent to core check
+            if (def.requiresAdjacentCore) {
+                var coreBuilding = null;
+                for (i = 0; i < _buildings.length; i++) {
+                    if (_buildings[i].type === 'core') { coreBuilding = _buildings[i]; break; }
+                }
+                if (!coreBuilding) {
+                    return { allowed: false, reason: 'No core found.' };
+                }
+                var coreDef = _getDef('core');
+                var coreSizeX = coreDef && coreDef.size ? coreDef.size[0] : 1;
+                var coreSizeY = coreDef && coreDef.size ? coreDef.size[1] : 1;
+                var adjacent = false;
+                for (i = 0; i < cells.length && !adjacent; i++) {
+                    for (var cx = coreBuilding.gridX - 1; cx <= coreBuilding.gridX + coreSizeX && !adjacent; cx++) {
+                        for (var cy = coreBuilding.gridY - 1; cy <= coreBuilding.gridY + coreSizeY && !adjacent; cy++) {
+                            if (cx >= coreBuilding.gridX && cx < coreBuilding.gridX + coreSizeX &&
+                                cy >= coreBuilding.gridY && cy < coreBuilding.gridY + coreSizeY) continue;
+                            if (cells[i].x === cx && cells[i].y === cy) adjacent = true;
+                        }
+                    }
+                }
+                if (!adjacent) {
+                    return { allowed: false, reason: 'Must be placed adjacent to the core.' };
+                }
+            }
+
             return { allowed: true };
         },
 

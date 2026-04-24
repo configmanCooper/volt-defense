@@ -1019,6 +1019,25 @@ var Config = {
             upgradeTo: null,
             description: 'Blocks enemy movement. Enemies must path around or destroy it.',
             icon: '🧱'
+        },
+        core_repair: {
+            name: 'Core Repair',
+            category: 'defense',
+            cost: { money: 10000, iron: 200, uranium: 50 },
+            size: [1, 1],
+            hp: 150,
+            workersRequired: 3,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 10000,
+            maxChargeRate: 200,
+            maxDischargeRate: 0,
+            pollution: 0,
+            requiresAdjacentCore: true,
+            maxCount: 3,
+            upgradeTo: null,
+            description: 'Repairs the core by 1 HP when fully charged (10,000 energy). Must be placed adjacent to core. Max 3.',
+            icon: '🔧'
         }
     },
 

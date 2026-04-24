@@ -65,6 +65,32 @@ var Combat = (function() {
         return [];
     }
 
+    // ---- Core Repair ----
+
+    function _processCoreRepair() {
+        var buildings = _getAllBuildings();
+        var core = null;
+        for (var i = 0; i < buildings.length; i++) {
+            if (buildings[i].type === 'core') { core = buildings[i]; break; }
+        }
+        if (!core) return;
+
+        var coreDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS.core : null;
+        var coreMaxHp = coreDef ? (coreDef.hp || 100) : 100;
+        if (core.hp >= coreMaxHp) return;
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'core_repair' || !b.active || b.hp <= 0) continue;
+            var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS.core_repair : null;
+            var requiredEnergy = def ? (def.energyStorageCapacity || 10000) : 10000;
+            if (b.energy >= requiredEnergy && core.hp < coreMaxHp) {
+                b.energy -= requiredEnergy;
+                core.hp = Math.min(core.hp + 1, coreMaxHp);
+            }
+        }
+    }
+
     // ---- 1. Process Shields ----
 
     function _processShields() {
@@ -1311,6 +1337,7 @@ var Combat = (function() {
 
             _processShields();
             _processShieldCollisions();
+            _processCoreRepair();
             _processLasers();
             _processMissiles();
             _updateProjectiles();
