@@ -715,6 +715,26 @@ var Buildings = (function() {
             return _categoryCache[category] || [];
         },
 
+        getAdjacentCount: function(building) {
+            var count = 0;
+            var def = _getDef(building.type);
+            var sizeX = (def && def.size) ? def.size[0] : 1;
+            var sizeY = (def && def.size) ? def.size[1] : 1;
+            var checked = {};
+            for (var dx = -1; dx <= sizeX; dx++) {
+                for (var dy = -1; dy <= sizeY; dy++) {
+                    if (dx >= 0 && dx < sizeX && dy >= 0 && dy < sizeY) continue;
+                    var key = (building.gridX + dx) + ',' + (building.gridY + dy);
+                    var id = _buildingGrid[key];
+                    if (id != null && id !== building.id && !checked[id]) {
+                        checked[id] = true;
+                        count++;
+                    }
+                }
+            }
+            return count;
+        },
+
         getCore: function() {
             for (var i = 0; i < _buildings.length; i++) {
                 if (_buildings[i].type === 'core') return _buildings[i];

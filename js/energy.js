@@ -240,7 +240,13 @@ var Energy = (function() {
                     var baseline = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED)
                         ? Config.WIND_BASELINE_SPEED : 15;
                     var windMult = _windSpeed / baseline;
-                    actualGen = genPerTick * windMult;
+                    // Adjacency penalty: -10% per adjacent building, max -50%
+                    var adjCount = 0;
+                    if (typeof Buildings !== 'undefined' && Buildings.getAdjacentCount) {
+                        adjCount = Buildings.getAdjacentCount(building);
+                    }
+                    var adjPenalty = Math.min(adjCount * 0.1, 0.5);
+                    actualGen = genPerTick * windMult * (1 - adjPenalty);
                 }
 
                 // Hydro — scale by effective water speed (15 mph = rated output)

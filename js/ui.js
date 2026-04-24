@@ -781,9 +781,14 @@ var UI = (function () {
                 if (building.type === 'wind') {
                     var ws = (typeof Energy !== 'undefined' && Energy.getWindSpeed) ? Energy.getWindSpeed() : 15;
                     var baseline = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED) ? Config.WIND_BASELINE_SPEED : 15;
-                    actualGen = Math.round(def.energyGeneration * (ws / baseline) * 10) / 10;
+                    var adjCount = (typeof Buildings !== 'undefined' && Buildings.getAdjacentCount) ? Buildings.getAdjacentCount(building) : 0;
+                    var adjPenalty = Math.min(adjCount * 0.1, 0.5);
+                    actualGen = Math.round(def.energyGeneration * (ws / baseline) * (1 - adjPenalty) * 10) / 10;
                     genLabel = ' (wind: ' + ws + ' mph)';
-                } else if (building.type === 'hydro_plant') {
+                    if (adjCount > 0) {
+                        html += '<div class="info-stat" style="color:#ff9955;">🏗️ Crowding: -' + Math.round(adjPenalty * 100) + '% (' + adjCount + ' adjacent)</div>';
+                    }
+                }else if (building.type === 'hydro_plant') {
                     var effSpeed = 15;
                     if (typeof Map !== 'undefined' && typeof Map.getEffectiveWaterSpeed === 'function') {
                         effSpeed = Map.getEffectiveWaterSpeed(building.gridX, building.gridY);
