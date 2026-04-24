@@ -22,8 +22,11 @@ var Map = (function() {
     var _rivers = [];
     var _bridges = [];
     var _riverLookup = {};  // 'gx,gy' -> river tile index for O(1) lookup
+    var _depositLookup = {};  // 'gx,gy' -> deposit index for O(1) lookup
     var _deposits = [];
     var _spawnPoints = [];
+    var _hydroSpeedCache = {};
+    var _hydroCacheDirty = true;
     var _gridWidth = 0;
     var _gridHeight = 0;
 
@@ -53,6 +56,51 @@ var Map = (function() {
             var key = _rivers[i].gridX + ',' + _rivers[i].gridY;
             _riverLookup[key] = i;
         }
+    }
+
+    function _buildDepositLookup() {
+        _depositLookup = {};
+        for (var i = 0; i < _deposits.length; i++) {
+            var key = _deposits[i].gridX + ',' + _deposits[i].gridY;
+            _depositLookup[key] = i;
+        }
+    }
+
+    function _rebuildHydroCache() {
+        _hydroSpeedCache = {};
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) {
+            _hydroCacheDirty = false;
+            return;
+        }
+        var allBuildings = Buildings.getAll();
+        for (var b = 0; b < allBuildings.length; b++) {
+            var bld = allBuildings[b];
+            if (bld.type !== 'hydro_plant' || bld.hp <= 0 || !bld.active) continue;
+            var bFlow = Map.getFlowDirection(bld.gridX, bld.gridY);
+            if (bFlow.dx === 0 && bFlow.dy === 0) continue;
+
+            for (var dist = 1; dist <= 12; dist++) {
+                var reduction = 0;
+                if (dist <= 4) reduction = 0.50;
+                else if (dist <= 8) reduction = 0.25;
+                else reduction = 0.10;
+
+                for (var lat = -2; lat <= 2; lat++) {
+                    var tx, ty;
+                    if (bFlow.dx !== 0) {
+                        tx = bld.gridX + dist * bFlow.dx;
+                        ty = bld.gridY + lat;
+                    } else {
+                        tx = bld.gridX + lat;
+                        ty = bld.gridY + dist * bFlow.dy;
+                    }
+                    var tKey = tx + ',' + ty;
+                    if (!_hydroSpeedCache[tKey]) _hydroSpeedCache[tKey] = 0;
+                    _hydroSpeedCache[tKey] += reduction;
+                }
+            }
+        }
+        _hydroCacheDirty = false;
     }
 
     // ---- river generation ----
@@ -423,6 +471,7 @@ var Map = (function() {
 
             // 4. Resource deposits
             _deposits = _generateDeposits(rng, _grid);
+            _buildDepositLookup();
 
             // 5. Spawn points
             _spawnPoints = _generateSpawnPoints(rng);
@@ -550,94 +599,46 @@ var Map = (function() {
          */
         getEffectiveWaterSpeed: function(gx, gy) {
             var baseSpeed = 0;
-            var riverId = -1;
-            var flowDx = 0, flowDy = 0;
             var key = gx + ',' + gy;
             var idx = _riverLookup[key];
             if (idx !== undefined && _rivers[idx]) {
                 baseSpeed = _rivers[idx].currentSpeed;
-                riverId = _rivers[idx].riverId;
-                flowDx = _rivers[idx].flowDirX || 0;
-                flowDy = _rivers[idx].flowDirY || 0;
-            }
-            if (riverId < 0) return 0;
-
-            // Check for upstream hydro plants that slow this tile
-            if (typeof Buildings === 'undefined' || !Buildings.getAll) return baseSpeed;
-            var allBuildings = Buildings.getAll();
-            var totalReduction = 0;
-
-            for (var b = 0; b < allBuildings.length; b++) {
-                var bld = allBuildings[b];
-                if (bld.type !== 'hydro_plant' || bld.hp <= 0) continue;
-                if (!bld.active) continue;
-
-                // Check if this hydro plant is upstream of (gx, gy) on the same river
-                var bFlow = Map.getFlowDirection(bld.gridX, bld.gridY);
-                if (bFlow.dx === 0 && bFlow.dy === 0) continue;
-
-                // The hydro plant is upstream if (gx,gy) is in the flow direction from it
-                var ddx = gx - bld.gridX;
-                var ddy = gy - bld.gridY;
-
-                // Must be in the flow direction
-                var distInFlow = 0;
-                if (bFlow.dx !== 0) {
-                    if (bFlow.dx > 0 && ddx > 0 && ddx <= 12) {
-                        // Check lateral offset is within river width
-                        if (Math.abs(ddy) <= 2) distInFlow = ddx;
-                    } else if (bFlow.dx < 0 && ddx < 0 && ddx >= -12) {
-                        if (Math.abs(ddy) <= 2) distInFlow = -ddx;
-                    }
-                }
-                if (bFlow.dy !== 0) {
-                    if (bFlow.dy > 0 && ddy > 0 && ddy <= 12) {
-                        if (Math.abs(ddx) <= 2) distInFlow = ddy;
-                    } else if (bFlow.dy < 0 && ddy < 0 && ddy >= -12) {
-                        if (Math.abs(ddx) <= 2) distInFlow = -ddy;
-                    }
-                }
-
-                if (distInFlow >= 1 && distInFlow <= 4) {
-                    totalReduction += 0.50;
-                } else if (distInFlow >= 5 && distInFlow <= 8) {
-                    totalReduction += 0.25;
-                } else if (distInFlow >= 9 && distInFlow <= 12) {
-                    totalReduction += 0.10;
-                }
+            } else {
+                return 0;
             }
 
-            // Cap total reduction at 90%
+            if (_hydroCacheDirty) _rebuildHydroCache();
+            var totalReduction = _hydroSpeedCache[key] || 0;
             if (totalReduction > 0.90) totalReduction = 0.90;
             return baseSpeed * (1 - totalReduction);
+        },
+
+        invalidateHydroCache: function() {
+            _hydroCacheDirty = true;
         },
 
         reduceCurrentSpeed: function(gx, gy, amount) {
             var minSpeed = (typeof Config !== 'undefined' && Config.MIN_CURRENT_SPEED != null)
                 ? Config.MIN_CURRENT_SPEED : 0.05;
-            for (var i = 0; i < _rivers.length; i++) {
-                if (_rivers[i].gridX === gx && _rivers[i].gridY === gy) {
-                    _rivers[i].currentSpeed = Math.max(minSpeed, _rivers[i].currentSpeed - amount);
-                    return;
-                }
+            var key = gx + ',' + gy;
+            var idx = _riverLookup[key];
+            if (idx !== undefined && _rivers[idx]) {
+                _rivers[idx].currentSpeed = Math.max(minSpeed, _rivers[idx].currentSpeed - amount);
             }
         },
 
         getDepositAt: function(gx, gy) {
-            for (var i = 0; i < _deposits.length; i++) {
-                if (_deposits[i].gridX === gx && _deposits[i].gridY === gy) {
-                    return _deposits[i];
-                }
-            }
+            var key = gx + ',' + gy;
+            var idx = _depositLookup[key];
+            if (idx !== undefined && _deposits[idx]) return _deposits[idx];
             return null;
         },
 
         depleteDeposit: function(gx, gy, amount) {
-            for (var i = 0; i < _deposits.length; i++) {
-                if (_deposits[i].gridX === gx && _deposits[i].gridY === gy) {
-                    _deposits[i].remaining = Math.max(0, _deposits[i].remaining - amount);
-                    return;
-                }
+            var key = gx + ',' + gy;
+            var idx = _depositLookup[key];
+            if (idx !== undefined && _deposits[idx]) {
+                _deposits[idx].remaining = Math.max(0, _deposits[idx].remaining - amount);
             }
         },
 
@@ -740,6 +741,7 @@ var Map = (function() {
                     else if (d.type === 'oil') { _grid[d.gridX][d.gridY] = TERRAIN_OIL_DEPOSIT; }
                 }
             }
+            _buildDepositLookup();
         }
     };
 })();

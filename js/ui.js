@@ -6,6 +6,7 @@
 var UI = (function () {
     var _elements = {};
     var _selectedCategory = null;
+    var _lastCategory = '';
     var _toastQueue = [];
     var _selectedBuildingId = null;
     var _selectedEnemyId = null;
@@ -552,6 +553,9 @@ var UI = (function () {
         // ---- Build menu ----
 
         selectCategory: function (category) {
+            // Skip rebuild if same category
+            if (category === _lastCategory) return;
+            _lastCategory = category;
             _selectedCategory = category;
 
             // Highlight active category button
@@ -700,6 +704,7 @@ var UI = (function () {
 
         clearCategory: function () {
             _selectedCategory = null;
+            _lastCategory = '';
             _hideBuildInfoCard();
             if (_elements.buildOptions) {
                 _elements.buildOptions.innerHTML = '';

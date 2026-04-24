@@ -6,6 +6,32 @@
 var Enemies = (function () {
     var _enemies = [];
     var _nextId = 1;
+
+    // ---- Spatial Grid (performance optimisation) ---------------------------
+    var _spatialGrid = {};
+    var _spatialCellSize = 200;
+
+    // ---- A* Node Pool (performance optimisation) ---------------------------
+    var _nodePool = [];
+    var _nodePoolIdx = 0;
+
+    function _getNode() {
+        if (_nodePoolIdx < _nodePool.length) {
+            var node = _nodePool[_nodePoolIdx++];
+            node.g = 0; node.h = 0; node.f = 0;
+            node.parent = null; node.key = '';
+            node.x = 0; node.y = 0;
+            return node;
+        }
+        var newNode = { x: 0, y: 0, g: 0, h: 0, f: 0, parent: null, key: '' };
+        _nodePool.push(newNode);
+        _nodePoolIdx++;
+        return newNode;
+    }
+
+    function _resetNodePool() {
+        _nodePoolIdx = 0;
+    }
     var _currentWave = 0;
     var _spawnQueue = [];
     var _spawnTimer = 0;
@@ -22,6 +48,41 @@ var Enemies = (function () {
      */
     function _getRng() {
         return (typeof Engine !== 'undefined' && Engine.getRng) ? Engine.getRng() : null;
+    }
+
+    function _getSpatialKey(worldX, worldY) {
+        var cx = Math.floor(worldX / _spatialCellSize);
+        var cy = Math.floor(worldY / _spatialCellSize);
+        return cx + ',' + cy;
+    }
+
+    function _rebuildSpatialGrid() {
+        _spatialGrid = {};
+        for (var i = 0; i < _enemies.length; i++) {
+            var e = _enemies[i];
+            var key = _getSpatialKey(e.x, e.y);
+            if (!_spatialGrid[key]) _spatialGrid[key] = [];
+            _spatialGrid[key].push(e);
+        }
+    }
+
+    function _getNearbyEnemies(worldX, worldY, range) {
+        var results = [];
+        var minCx = Math.floor((worldX - range) / _spatialCellSize);
+        var maxCx = Math.floor((worldX + range) / _spatialCellSize);
+        var minCy = Math.floor((worldY - range) / _spatialCellSize);
+        var maxCy = Math.floor((worldY + range) / _spatialCellSize);
+        for (var cx = minCx; cx <= maxCx; cx++) {
+            for (var cy = minCy; cy <= maxCy; cy++) {
+                var cell = _spatialGrid[cx + ',' + cy];
+                if (cell) {
+                    for (var i = 0; i < cell.length; i++) {
+                        results.push(cell[i]);
+                    }
+                }
+            }
+        }
+        return results;
     }
 
     /**
@@ -233,13 +294,14 @@ var Enemies = (function () {
         var closedSet = {};
         var startKey = key(startGrid.gx, startGrid.gy);
 
-        openHeap.push({
-            gx: startGrid.gx, gy: startGrid.gy,
-            g: 0,
-            f: _manhattan(startGrid.gx, startGrid.gy, endGrid.gx, endGrid.gy),
-            parent: null,
-            key: startKey
-        });
+        _resetNodePool();
+        var startNode = _getNode();
+        startNode.gx = startGrid.gx; startNode.gy = startGrid.gy;
+        startNode.g = 0;
+        startNode.f = _manhattan(startGrid.gx, startGrid.gy, endGrid.gx, endGrid.gy);
+        startNode.parent = null;
+        startNode.key = startKey;
+        openHeap.push(startNode);
 
         var maxIterations = 50000;
         var iterations = 0;
@@ -276,13 +338,13 @@ var Enemies = (function () {
                 var existing = openHeap.get(nk);
 
                 if (!existing) {
-                    openHeap.push({
-                        gx: nx, gy: ny,
-                        g: tentativeG,
-                        f: tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy),
-                        parent: current,
-                        key: nk
-                    });
+                    var newNode = _getNode();
+                    newNode.gx = nx; newNode.gy = ny;
+                    newNode.g = tentativeG;
+                    newNode.f = tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy);
+                    newNode.parent = current;
+                    newNode.key = nk;
+                    openHeap.push(newNode);
                 } else if (tentativeG < existing.g) {
                     existing.g = tentativeG;
                     existing.f = tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy);
@@ -341,13 +403,14 @@ var Enemies = (function () {
         var closedSet = {};
         var startKey = key(startGrid.gx, startGrid.gy);
 
-        openHeap.push({
-            gx: startGrid.gx, gy: startGrid.gy,
-            g: 0,
-            f: _manhattan(startGrid.gx, startGrid.gy, endGrid.gx, endGrid.gy),
-            parent: null,
-            key: startKey
-        });
+        _resetNodePool();
+        var startNode = _getNode();
+        startNode.gx = startGrid.gx; startNode.gy = startGrid.gy;
+        startNode.g = 0;
+        startNode.f = _manhattan(startGrid.gx, startGrid.gy, endGrid.gx, endGrid.gy);
+        startNode.parent = null;
+        startNode.key = startKey;
+        openHeap.push(startNode);
 
         var maxIterations = 50000;
         var iterations = 0;
@@ -372,13 +435,13 @@ var Enemies = (function () {
                 var tentativeG = current.g + 1;
                 var existing = openHeap.get(nk);
                 if (!existing) {
-                    openHeap.push({
-                        gx: nx, gy: ny,
-                        g: tentativeG,
-                        f: tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy),
-                        parent: current,
-                        key: nk
-                    });
+                    var newNode = _getNode();
+                    newNode.gx = nx; newNode.gy = ny;
+                    newNode.g = tentativeG;
+                    newNode.f = tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy);
+                    newNode.parent = current;
+                    newNode.key = nk;
+                    openHeap.push(newNode);
                 } else if (tentativeG < existing.g) {
                     existing.g = tentativeG;
                     existing.f = tentativeG + _manhattan(nx, ny, endGrid.gx, endGrid.gy);
@@ -912,7 +975,8 @@ var Enemies = (function () {
         var target = enemy.path[enemy.pathIndex];
         var dx = target.x - enemy.x;
         var dy = target.y - enemy.y;
-        var distToWaypoint = Math.sqrt(dx * dx + dy * dy);
+        var distSqToWaypoint = dx * dx + dy * dy;
+        var distToWaypoint = Math.sqrt(distSqToWaypoint);
 
         if (distToWaypoint <= 5) {
             enemy.pathIndex++;
@@ -927,7 +991,8 @@ var Enemies = (function () {
             target = enemy.path[enemy.pathIndex];
             dx = target.x - enemy.x;
             dy = target.y - enemy.y;
-            distToWaypoint = Math.sqrt(dx * dx + dy * dy);
+            distSqToWaypoint = dx * dx + dy * dy;
+            distToWaypoint = Math.sqrt(distSqToWaypoint);
         }
 
         if (distToWaypoint > 0) {
@@ -1068,6 +1133,8 @@ var Enemies = (function () {
 
     return {
         tick: function () {
+            _rebuildSpatialGrid();
+
             // 1. Process spawn queue
             if (_spawnTimer > 0) {
                 _spawnTimer--;
@@ -1213,10 +1280,11 @@ var Enemies = (function () {
 
         getInRange: function (worldX, worldY, range) {
             var rangeSq = range * range;
+            var candidates = _getNearbyEnemies(worldX, worldY, range);
             var results = [];
-            for (var i = 0; i < _enemies.length; i++) {
-                if (_distSq(worldX, worldY, _enemies[i].x, _enemies[i].y) <= rangeSq) {
-                    results.push(_enemies[i]);
+            for (var i = 0; i < candidates.length; i++) {
+                if (_distSq(worldX, worldY, candidates[i].x, candidates[i].y) <= rangeSq) {
+                    results.push(candidates[i]);
                 }
             }
             return results;
@@ -1224,13 +1292,14 @@ var Enemies = (function () {
 
         getClosest: function (worldX, worldY, range) {
             var rangeSq = range * range;
+            var candidates = _getNearbyEnemies(worldX, worldY, range);
             var closest = null;
             var closestDist = Infinity;
-            for (var i = 0; i < _enemies.length; i++) {
-                var d = _distSq(worldX, worldY, _enemies[i].x, _enemies[i].y);
+            for (var i = 0; i < candidates.length; i++) {
+                var d = _distSq(worldX, worldY, candidates[i].x, candidates[i].y);
                 if (d <= rangeSq && d < closestDist) {
                     closestDist = d;
-                    closest = _enemies[i];
+                    closest = candidates[i];
                 }
             }
             return closest;
@@ -1238,13 +1307,14 @@ var Enemies = (function () {
 
         getFurthest: function (worldX, worldY, range) {
             var rangeSq = range * range;
+            var candidates = _getNearbyEnemies(worldX, worldY, range);
             var furthest = null;
             var furthestDist = -1;
-            for (var i = 0; i < _enemies.length; i++) {
-                var d = _distSq(worldX, worldY, _enemies[i].x, _enemies[i].y);
-                if (d <= rangeSq && _enemies[i].distanceTraveled > furthestDist) {
-                    furthestDist = _enemies[i].distanceTraveled;
-                    furthest = _enemies[i];
+            for (var i = 0; i < candidates.length; i++) {
+                var d = _distSq(worldX, worldY, candidates[i].x, candidates[i].y);
+                if (d <= rangeSq && candidates[i].distanceTraveled > furthestDist) {
+                    furthestDist = candidates[i].distanceTraveled;
+                    furthest = candidates[i];
                 }
             }
             return furthest;

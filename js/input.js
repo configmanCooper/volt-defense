@@ -18,6 +18,7 @@ var Input = (function () {
     var _keysDown = {};
     var _cameraMoveSpeed = 400;
     var _initialized = false;
+    var _lastMouseGrid = { x: -1, y: -1 };
 
     // Deposit hover tooltip
     var _hoverGrid = { x: -1, y: -1 };
@@ -261,8 +262,17 @@ var Input = (function () {
 
                 // Convert to grid
                 var cellSize = _getCellSize();
-                _mouseGrid.x = Math.floor(_mouseWorld.x / cellSize);
-                _mouseGrid.y = Math.floor(_mouseWorld.y / cellSize);
+                var newGridX = Math.floor(_mouseWorld.x / cellSize);
+                var newGridY = Math.floor(_mouseWorld.y / cellSize);
+
+                // Skip expensive checks if grid cell hasn't changed
+                if (newGridX === _lastMouseGrid.x && newGridY === _lastMouseGrid.y) {
+                    return;
+                }
+                _lastMouseGrid.x = newGridX;
+                _lastMouseGrid.y = newGridY;
+                _mouseGrid.x = newGridX;
+                _mouseGrid.y = newGridY;
 
                 // Update placement preview
                 if (_state === 'placing' && _placingType) {

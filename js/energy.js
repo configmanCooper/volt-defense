@@ -295,6 +295,16 @@ var Energy = (function() {
             var adjacency = (typeof Buildings.getAdjacencyMap === 'function')
                 ? Buildings.getAdjacencyMap() : {};
 
+            // Cache cable throughputs for this tick
+            var _cableThroughputCache = {};
+            function _cachedCableThroughput(fromId, toId) {
+                var key = fromId < toId ? fromId + '-' + toId : toId + '-' + fromId;
+                if (_cableThroughputCache[key] !== undefined) return _cableThroughputCache[key];
+                var tp = _getCableThroughput(fromId, toId);
+                _cableThroughputCache[key] = tp;
+                return tp;
+            }
+
             // Collect all consumers sorted by priority
             var consumers = [];
             for (i = 0; i < allBuildings.length; i++) {
@@ -308,9 +318,15 @@ var Energy = (function() {
                 }
             }
 
+            // Pre-compute priorities for faster sorting
+            var _priorityMap = {};
+            for (i = 0; i < allBuildings.length; i++) {
+                _priorityMap[allBuildings[i].id] = _getEnergyPriority(allBuildings[i]);
+            }
+
             // Sort consumers by priority
             consumers.sort(function(a, b) {
-                return _getEnergyPriority(a) - _getEnergyPriority(b);
+                return _priorityMap[a.id] - _priorityMap[b.id];
             });
 
             // Track energy transferred through each cable this tick
@@ -353,7 +369,7 @@ var Energy = (function() {
                         if (!nDef) continue;
 
                         // Track min throughput along path
-                        var cableTP = _getCableThroughput(currentId, nId) / tps;
+                        var cableTP = _cachedCableThroughput(currentId, nId) / tps;
                         minThroughputMap[nId] = Math.min(currentMinTP, cableTP);
 
                         // Check if this building needs/accepts energy
@@ -370,7 +386,7 @@ var Energy = (function() {
 
                 // Sort reachable by priority
                 reachable.sort(function(a, b) {
-                    return _getEnergyPriority(a) - _getEnergyPriority(b);
+                    return _priorityMap[a.id] - _priorityMap[b.id];
                 });
 
                 // Distribute energy to reachable buildings
@@ -410,33 +426,43 @@ var Energy = (function() {
             }
 
             // ============================================================
-            // Step 3: Consumption
+            // Step 3: Consumption + Carbon Collection + Stats (consolidated)
             // ============================================================
             var totalConsumption = 0;
+            var totalStored = 0;
+            var totalCapacity = 0;
 
             for (i = 0; i < allBuildings.length; i++) {
                 building = allBuildings[i];
                 def = _getDef(building.type);
                 if (!def) continue;
 
-                // Handle consumer battery sell when full
+                // Stats accumulation (was Step 4)
+                totalStored += building.energy || 0;
+                totalCapacity += def.energyStorageCapacity || 0;
+
+                // Consumer battery sell check
                 if (def.sellPrice && def.maxDischargeRate === 0) {
                     var consCapacity = def.energyStorageCapacity || 0;
                     if (building.energy >= consCapacity && consCapacity > 0) {
                         building.sellReady = true;
                         _sellConsumerBattery(building);
                     }
-                    continue; // consumer batteries don't have energyConsumption
+                    continue;
                 }
 
+                // Carbon collectors (was Step 3b)
+                if (building.active && building.hp > 0 && def.pollutionReduction && def.pollutionReduction > 0) {
+                    if (typeof Engine !== 'undefined' && typeof Engine.reducePollution === 'function') {
+                        Engine.reducePollution(def.pollutionReduction / tps);
+                    }
+                }
+
+                // Energy consumption
                 if (!def.energyConsumption || def.energyConsumption <= 0) continue;
 
                 var consumePerTick = def.energyConsumption / tps;
-
-                // Apply difficulty multiplier
                 consumePerTick = _applyDifficultyToEnergy(consumePerTick);
-
-                // Apply pollution penalty
                 var penalty = _getEnergyPenalty();
                 if (penalty > 0) {
                     consumePerTick = consumePerTick * (1 + penalty);
@@ -448,41 +474,13 @@ var Energy = (function() {
                     totalConsumption += consumePerTick;
                 } else {
                     building.active = false;
-                    // Lasers lose ramp when unpowered
                     if (def.category === 'weapons') {
                         building.laserRampTime = 0;
                     }
                 }
             }
 
-            // ============================================================
-            // Step 3b: Carbon collectors reduce pollution
-            // ============================================================
-            for (i = 0; i < allBuildings.length; i++) {
-                building = allBuildings[i];
-                if (!building.active || building.hp <= 0) continue;
-                def = _getDef(building.type);
-                if (!def || !def.pollutionReduction || def.pollutionReduction <= 0) continue;
-                if (typeof Engine !== 'undefined' && typeof Engine.reducePollution === 'function') {
-                    Engine.reducePollution(def.pollutionReduction / tps);
-                }
-            }
-
-            // ============================================================
-            // Step 4: Update Stats
-            // ============================================================
-            var totalStored = 0;
-            var totalCapacity = 0;
-
-            for (i = 0; i < allBuildings.length; i++) {
-                building = allBuildings[i];
-                def = _getDef(building.type);
-                if (!def) continue;
-                totalStored += building.energy || 0;
-                totalCapacity += def.energyStorageCapacity || 0;
-            }
-
-            _stats.totalGeneration = totalGeneration * tps; // normalize to per-second
+            _stats.totalGeneration = totalGeneration * tps;
             _stats.totalConsumption = totalConsumption * tps;
             _stats.totalStored = totalStored;
             _stats.totalCapacity = totalCapacity;

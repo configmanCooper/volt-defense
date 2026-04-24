@@ -7,6 +7,10 @@ var Buildings = (function() {
     var _nextId = 1;
     var _adjacencyDirty = true;
     var _adjacencyMap = {}; // buildingId -> [connectedBuildingIds]
+    var _buildingMap = {};
+    var _buildingGrid = {};
+    var _categoryCache = {};
+    var _categoryCacheDirty = true;
 
     // Rebuild cable adjacency lookup
     function _rebuildAdjacency() {
@@ -28,10 +32,31 @@ var Buildings = (function() {
     }
 
     function _getById(id) {
-        for (var i = 0; i < _buildings.length; i++) {
-            if (_buildings[i].id === id) return _buildings[i];
+        return _buildingMap[id] || null;
+    }
+
+    function _updateBuildingGrid(building, adding) {
+        var cells = _getOccupiedCells(building.gridX, building.gridY, building.type);
+        for (var i = 0; i < cells.length; i++) {
+            var key = cells[i].x + ',' + cells[i].y;
+            if (adding) {
+                _buildingGrid[key] = building.id;
+            } else {
+                delete _buildingGrid[key];
+            }
         }
-        return null;
+    }
+
+    function _rebuildCategoryCache() {
+        _categoryCache = {};
+        for (var i = 0; i < _buildings.length; i++) {
+            var def = _getDef(_buildings[i].type);
+            if (def && def.category) {
+                if (!_categoryCache[def.category]) _categoryCache[def.category] = [];
+                _categoryCache[def.category].push(_buildings[i]);
+            }
+        }
+        _categoryCacheDirty = false;
     }
 
     function _getDef(typeKey) {
@@ -286,9 +311,15 @@ var Buildings = (function() {
                     var hydroReduction = (typeof Config !== 'undefined' && Config.HYDRO_CURRENT_REDUCTION != null) ? Config.HYDRO_CURRENT_REDUCTION : 0.15;
                     Map.reduceCurrentSpeed(gridX, gridY, hydroReduction);
                 }
+                if (typeof Map !== 'undefined' && typeof Map.invalidateHydroCache === 'function') {
+                    Map.invalidateHydroCache();
+                }
             }
 
             _buildings.push(building);
+            _buildingMap[building.id] = building;
+            _updateBuildingGrid(building, true);
+            _categoryCacheDirty = true;
 
             // Allocate workers
             var workersNeeded = def.workersRequired || 0;
@@ -327,10 +358,21 @@ var Buildings = (function() {
                 _addRefund(def.cost, _getRefundRatio());
             }
 
+            // Hydro plant removal — invalidate water speed cache
+            if (building.type === 'hydro_plant') {
+                if (typeof Map !== 'undefined' && typeof Map.invalidateHydroCache === 'function') {
+                    Map.invalidateHydroCache();
+                }
+            }
+
             // Remove from array
             for (i = 0; i < _buildings.length; i++) {
                 if (_buildings[i].id === buildingId) {
+                    var b = _buildings[i];
+                    _updateBuildingGrid(b, false);
                     _buildings.splice(i, 1);
+                    delete _buildingMap[b.id];
+                    _categoryCacheDirty = true;
                     break;
                 }
             }
@@ -516,16 +558,9 @@ var Buildings = (function() {
         },
 
         getAt: function(gridX, gridY) {
-            for (var i = 0; i < _buildings.length; i++) {
-                var b = _buildings[i];
-                var def = _getDef(b.type);
-                var sizeX = (def && def.size) ? def.size[0] : 1;
-                var sizeY = (def && def.size) ? def.size[1] : 1;
-                if (gridX >= b.gridX && gridX < b.gridX + sizeX &&
-                    gridY >= b.gridY && gridY < b.gridY + sizeY) {
-                    return b;
-                }
-            }
+            var key = gridX + ',' + gridY;
+            var id = _buildingGrid[key];
+            if (id != null) return _getById(id);
             return null;
         },
 
@@ -549,12 +584,8 @@ var Buildings = (function() {
         },
 
         getByCategory: function(category) {
-            var result = [];
-            for (var i = 0; i < _buildings.length; i++) {
-                var def = _getDef(_buildings[i].type);
-                if (def && def.category === category) result.push(_buildings[i]);
-            }
-            return result;
+            if (_categoryCacheDirty) _rebuildCategoryCache();
+            return _categoryCache[category] || [];
         },
 
         getCore: function() {
@@ -659,6 +690,9 @@ var Buildings = (function() {
             _buildings = [];
             _cables = [];
             _adjacencyDirty = true;
+            _buildingMap = {};
+            _buildingGrid = {};
+            _categoryCacheDirty = true;
 
             if (data.nextId) _nextId = data.nextId;
 
@@ -698,6 +732,8 @@ var Buildings = (function() {
                     }
 
                     _buildings.push(building);
+                    _buildingMap[building.id] = building;
+                    _updateBuildingGrid(building, true);
                 }
             }
 

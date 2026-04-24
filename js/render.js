@@ -32,6 +32,7 @@ var Render = (function () {
             environment: '#60c060',
             grid: '#808080'
         },
+        FLOWER: ['rgba(220,200,60,0.7)', 'rgba(200,100,140,0.6)', 'rgba(180,180,220,0.6)'],
         CABLE: {
             normal: '#00aacc',
             active: '#00eeff',
@@ -128,10 +129,21 @@ var Render = (function () {
     var _cachedCamX = -1;
     var _cachedCamY = -1;
 
+    // Static terrain cache (offscreen canvas for non-animated tiles)
+    var _staticTerrainCanvas = null;
+    var _staticTerrainCtx = null;
+    var _staticCacheStartCol = -1;
+    var _staticCacheStartRow = -1;
+    var _staticCacheEndCol = -1;
+    var _staticCacheEndRow = -1;
+
     // Minimap
     var MINIMAP_SIZE = 200;
     var MINIMAP_PADDING = 10;
     var MINIMAP_BOTTOM_OFFSET = 150; // Above the build bar
+    var _minimapFrameCounter = 0;
+    var _minimapCanvas = null;
+    var _minimapCtx = null;
 
     // Projectile trail history (id → array of {x,y})
     var _trails = {};
@@ -224,6 +236,26 @@ var Render = (function () {
                _smoothNoise(col, row, 32) * 0.2;
     }
 
+    // Noise caches for terrain rendering
+    var _noiseCache = {};
+    var _smoothNoiseCache = {};
+
+    function _getSmoothNoise(col, row, scale) {
+        var key = col + ',' + row + ',' + scale;
+        if (_smoothNoiseCache[key] !== undefined) return _smoothNoiseCache[key];
+        var val = _smoothNoise(col, row, scale);
+        _smoothNoiseCache[key] = val;
+        return val;
+    }
+
+    function _getTerrainNoise(col, row) {
+        var key = col * 10000 + row;
+        if (_noiseCache[key] !== undefined) return _noiseCache[key];
+        var val = _terrainNoise(col, row);
+        _noiseCache[key] = val;
+        return val;
+    }
+
     // ------------------------------------------------------------------------
     // Drawing helpers
     // ------------------------------------------------------------------------
@@ -241,114 +273,283 @@ var Render = (function () {
     // ------------------------------------------------------------------------
     // Layer: Terrain
     // ------------------------------------------------------------------------
+
+    // Draws a single static terrain tile to the given context at (sx, sy)
+    function _drawStaticTile(sctx, t, col, row, sx, sy, cs, hash) {
+        var brightness, localHash, nv, patchNoise;
+        if (t === 0) {
+            // Natural grass with multi-octave noise for color variation
+            nv = _getTerrainNoise(col, row);
+            localHash = hash % 100;
+
+            var baseR = 52 + Math.floor(nv * 30) + ((localHash % 12) - 6);
+            var baseG = 115 + Math.floor(nv * 50) + ((localHash % 16) - 8);
+            var baseB = 38 + Math.floor(nv * 15) + ((localHash % 8) - 4);
+
+            sctx.fillStyle = 'rgb(' + baseR + ',' + baseG + ',' + baseB + ')';
+            sctx.fillRect(sx, sy, cs, cs);
+
+            patchNoise = _getSmoothNoise(col, row, 5);
+            if (patchNoise > 0.6) {
+                sctx.fillStyle = 'rgba(90,160,50,' + ((patchNoise - 0.6) * 0.4) + ')';
+                sctx.fillRect(sx, sy, cs, cs);
+            } else if (patchNoise < 0.3) {
+                sctx.fillStyle = 'rgba(30,60,15,' + ((0.3 - patchNoise) * 0.35) + ')';
+                sctx.fillRect(sx, sy, cs, cs);
+            }
+
+            if (localHash < 40) {
+                var clumpX = sx + (hash % (cs - 8)) + 2;
+                var clumpY = sy + ((hash * 3) % (cs - 8)) + 2;
+                var clumpR = 3 + (hash % 4);
+                sctx.fillStyle = localHash < 20
+                    ? 'rgba(45,100,25,0.3)'
+                    : 'rgba(85,155,55,0.25)';
+                sctx.beginPath();
+                sctx.arc(clumpX, clumpY, clumpR, 0, Math.PI * 2);
+                sctx.fill();
+            }
+
+            var bladeCount = 3 + (hash % 4);
+            for (var bl = 0; bl < bladeCount; bl++) {
+                var seed = hash * (bl + 1);
+                var bx = sx + 3 + ((seed * 7) % (cs - 6));
+                var by = sy + cs - 1;
+                var bh = 6 + ((seed * 3) % 14);
+                var lean = ((seed * 13) % 9) - 4;
+                var bladeAlpha = 0.2 + ((seed % 20) / 80);
+                var bladeGreen = 120 + ((seed * 11) % 60);
+                sctx.strokeStyle = 'rgba(50,' + bladeGreen + ',35,' + bladeAlpha + ')';
+                sctx.lineWidth = 1;
+                sctx.beginPath();
+                sctx.moveTo(bx, by);
+                sctx.quadraticCurveTo(bx + lean * 0.5, by - bh * 0.6, bx + lean, by - bh);
+                sctx.stroke();
+            }
+
+            if (hash % 25 === 0) {
+                var fx1 = sx + 6 + (hash % (cs - 12));
+                var fy1 = sy + 6 + ((hash * 7) % (cs - 12));
+                sctx.fillStyle = COLORS.FLOWER[hash % 3];
+                sctx.beginPath();
+                sctx.arc(fx1, fy1, 1.5, 0, Math.PI * 2);
+                sctx.fill();
+            }
+        } else if (t === 1) {
+            // Rocky terrain
+            nv = _getTerrainNoise(col, row);
+            brightness = (hash % 20) - 10;
+            var rr = 85 + brightness + Math.floor(nv * 20);
+            var rg = 80 + brightness + Math.floor(nv * 18);
+            var rb = 75 + brightness + Math.floor(nv * 15);
+            sctx.fillStyle = 'rgb(' + rr + ',' + rg + ',' + rb + ')';
+            sctx.fillRect(sx, sy, cs, cs);
+            if (hash % 3 === 0) {
+                sctx.strokeStyle = 'rgba(50,45,40,0.3)';
+                sctx.lineWidth = 1;
+                sctx.beginPath();
+                sctx.moveTo(sx + (hash % cs), sy);
+                sctx.lineTo(sx + ((hash * 3) % cs), sy + cs);
+                sctx.stroke();
+            }
+            if (hash % 5 === 0) {
+                sctx.fillStyle = 'rgba(130,125,115,0.25)';
+                sctx.beginPath();
+                sctx.arc(sx + cs * 0.5 + (hash % 10) - 5, sy + cs * 0.5, 5 + hash % 4, 0, Math.PI * 2);
+                sctx.fill();
+            }
+        } else if (t === 4) {
+            // Bridge
+            sctx.fillStyle = '#8B7355';
+            sctx.fillRect(sx, sy, cs, cs);
+            sctx.fillStyle = '#6B5535';
+            var plankH = Math.floor(cs / 3);
+            sctx.fillRect(sx, sy + plankH - 1, cs, 2);
+            sctx.fillRect(sx, sy + plankH * 2 - 1, cs, 2);
+            sctx.fillStyle = 'rgba(180,160,130,0.3)';
+            sctx.fillRect(sx + 2, sy + 2, cs - 4, plankH - 4);
+            sctx.fillRect(sx + 2, sy + plankH + 2, cs - 4, plankH - 4);
+            sctx.fillStyle = '#5A4430';
+            sctx.beginPath();
+            sctx.arc(sx + 3, sy + 3, 2, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.beginPath();
+            sctx.arc(sx + cs - 3, sy + 3, 2, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.beginPath();
+            sctx.arc(sx + 3, sy + cs - 3, 2, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.beginPath();
+            sctx.arc(sx + cs - 3, sy + cs - 3, 2, 0, Math.PI * 2);
+            sctx.fill();
+        } else if (t === 10) {
+            // Iron ore deposit
+            nv = _getTerrainNoise(col, row);
+            sctx.fillStyle = 'rgb(' + (50 + Math.floor(nv * 25)) + ',' + (115 + Math.floor(nv * 35)) + ',' + (38 + Math.floor(nv * 12)) + ')';
+            sctx.fillRect(sx, sy, cs, cs);
+            sctx.fillStyle = 'rgba(100,80,55,0.4)';
+            sctx.beginPath();
+            sctx.ellipse(sx + cs * 0.5, sy + cs * 0.5, cs * 0.4, cs * 0.35, 0, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#7a6555';
+            sctx.beginPath();
+            sctx.arc(sx + cs * 0.35, sy + cs * 0.38, cs * 0.18, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#8d7565';
+            sctx.beginPath();
+            sctx.arc(sx + cs * 0.6, sy + cs * 0.55, cs * 0.15, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#6d5a48';
+            sctx.beginPath();
+            sctx.arc(sx + cs * 0.48, sy + cs * 0.65, cs * 0.12, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = 'rgba(200,180,150,0.45)';
+            sctx.beginPath();
+            sctx.arc(sx + cs * 0.3, sy + cs * 0.33, cs * 0.06, 0, Math.PI * 2);
+            sctx.fill();
+        } else if (t === 11) {
+            // Coal deposit
+            nv = _getTerrainNoise(col, row);
+            sctx.fillStyle = 'rgb(' + (48 + Math.floor(nv * 22)) + ',' + (108 + Math.floor(nv * 30)) + ',' + (36 + Math.floor(nv * 10)) + ')';
+            sctx.fillRect(sx, sy, cs, cs);
+            sctx.fillStyle = 'rgba(50,45,35,0.45)';
+            sctx.beginPath();
+            sctx.ellipse(sx + cs * 0.5, sy + cs * 0.5, cs * 0.38, cs * 0.32, 0, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#2a2a2a';
+            sctx.fillRect(sx + cs * 0.22, sy + cs * 0.28, cs * 0.28, cs * 0.22);
+            sctx.fillStyle = '#1e1e1e';
+            sctx.fillRect(sx + cs * 0.48, sy + cs * 0.42, cs * 0.22, cs * 0.2);
+            sctx.fillStyle = '#333';
+            sctx.fillRect(sx + cs * 0.3, sy + cs * 0.52, cs * 0.18, cs * 0.16);
+            sctx.fillStyle = 'rgba(80,80,100,0.35)';
+            sctx.fillRect(sx + cs * 0.24, sy + cs * 0.3, cs * 0.1, cs * 0.06);
+        } else if (t === 2) {
+            // Water placeholder — solid base color
+            sctx.fillStyle = 'rgb(25,85,160)';
+            sctx.fillRect(sx, sy, cs, cs);
+        } else if (t === 3) {
+            // Deep water placeholder
+            sctx.fillStyle = 'rgb(15,50,100)';
+            sctx.fillRect(sx, sy, cs, cs);
+        } else if (t === 12) {
+            // Uranium static base — grass + dark rock, no glow
+            nv = _getTerrainNoise(col, row);
+            sctx.fillStyle = 'rgb(' + (48 + Math.floor(nv * 20)) + ',' + (110 + Math.floor(nv * 30)) + ',' + (35 + Math.floor(nv * 10)) + ')';
+            sctx.fillRect(sx, sy, cs, cs);
+            sctx.fillStyle = '#3a4a30';
+            sctx.beginPath();
+            sctx.arc(sx + cs / 2, sy + cs / 2, cs * 0.32, 0, Math.PI * 2);
+            sctx.fill();
+        } else if (t === 13) {
+            // Oil static base — grass + oily ground, no sheen
+            nv = _getTerrainNoise(col, row);
+            sctx.fillStyle = 'rgb(' + (48 + Math.floor(nv * 22)) + ',' + (108 + Math.floor(nv * 30)) + ',' + (36 + Math.floor(nv * 10)) + ')';
+            sctx.fillRect(sx, sy, cs, cs);
+            sctx.fillStyle = 'rgba(20,15,10,0.5)';
+            sctx.beginPath();
+            sctx.ellipse(sx + cs * 0.5, sy + cs * 0.55, cs * 0.4, cs * 0.35, 0, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#1a1208';
+            sctx.beginPath();
+            sctx.ellipse(sx + cs * 0.45, sy + cs * 0.5, cs * 0.25, cs * 0.2, 0.3, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#0d0a05';
+            sctx.beginPath();
+            sctx.arc(sx + cs * 0.7, sy + cs * 0.35, cs * 0.08, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.beginPath();
+            sctx.arc(sx + cs * 0.3, sy + cs * 0.7, cs * 0.06, 0, Math.PI * 2);
+            sctx.fill();
+        } else {
+            sctx.fillStyle = COLORS.TERRAIN.grass;
+            sctx.fillRect(sx, sy, cs, cs);
+        }
+    }
+
+    function _ensureStaticTerrainCache() {
+        var cs = _cellSize();
+        var range = _visibleRange();
+        var margin = 10;
+        var needsRedraw = false;
+
+        if (!_staticTerrainCanvas) {
+            needsRedraw = true;
+        } else if (range.startCol < _staticCacheStartCol + 3 ||
+                   range.endCol > _staticCacheEndCol - 3 ||
+                   range.startRow < _staticCacheStartRow + 3 ||
+                   range.endRow > _staticCacheEndRow - 3) {
+            needsRedraw = true;
+        }
+
+        if (_terrainDirty) {
+            needsRedraw = true;
+            _terrainDirty = false;
+        }
+
+        if (!needsRedraw) return;
+
+        var cols = _gridCols();
+        var rows = _gridRows();
+        var cStartCol = Math.max(0, range.startCol - margin);
+        var cEndCol = Math.min(cols - 1, range.endCol + margin);
+        var cStartRow = Math.max(0, range.startRow - margin);
+        var cEndRow = Math.min(rows - 1, range.endRow + margin);
+
+        var cacheW = (cEndCol - cStartCol + 1) * cs;
+        var cacheH = (cEndRow - cStartRow + 1) * cs;
+
+        if (!_staticTerrainCanvas) {
+            _staticTerrainCanvas = document.createElement('canvas');
+            _staticTerrainCtx = _staticTerrainCanvas.getContext('2d');
+        }
+        _staticTerrainCanvas.width = cacheW;
+        _staticTerrainCanvas.height = cacheH;
+
+        var sctx = _staticTerrainCtx;
+        var col, row, t, hash, sx, sy;
+        for (col = cStartCol; col <= cEndCol; col++) {
+            for (row = cStartRow; row <= cEndRow; row++) {
+                t = Map.getTerrain(col, row);
+                sx = (col - cStartCol) * cs;
+                sy = (row - cStartRow) * cs;
+                hash = _cellHash(col, row);
+                _drawStaticTile(sctx, t, col, row, sx, sy, cs, hash);
+            }
+        }
+
+        _staticCacheStartCol = cStartCol;
+        _staticCacheEndCol = cEndCol;
+        _staticCacheStartRow = cStartRow;
+        _staticCacheEndRow = cEndRow;
+    }
+
     function _drawTerrain(ctx) {
         var cs = _cellSize();
         var range = _visibleRange();
         if (typeof Map === 'undefined' || !Map || typeof Map.getTerrain !== 'function') return;
 
-        // Draw directly to the main context (already has camera transform)
-        var col, row, t, hash, brightness, sx, sy;
+        _ensureStaticTerrainCache();
+
+        // Blit static terrain cache
+        if (_staticTerrainCanvas) {
+            var offsetX = _staticCacheStartCol * cs;
+            var offsetY = _staticCacheStartRow * cs;
+            ctx.drawImage(_staticTerrainCanvas, offsetX, offsetY);
+        }
+
+        // Draw ONLY animated tiles on top
+        var col, row, t, hash, sx, sy;
         for (col = range.startCol; col <= range.endCol; col++) {
             for (row = range.startRow; row <= range.endRow; row++) {
                 t = Map.getTerrain(col, row);
+                if (t !== 2 && t !== 3 && t !== 12 && t !== 13) continue;
+
                 sx = col * cs;
                 sy = row * cs;
                 hash = _cellHash(col, row);
 
-                if (t === 0) {
-                    // Natural grass with multi-octave noise for color variation
-                    var nv = _terrainNoise(col, row);       // 0..1 smooth value
-                    var localHash = hash % 100;              // per-cell randomness
-
-                    // Base green varies from light meadow to darker grass
-                    var baseR = 52 + Math.floor(nv * 30) + ((localHash % 12) - 6);
-                    var baseG = 115 + Math.floor(nv * 50) + ((localHash % 16) - 8);
-                    var baseB = 38 + Math.floor(nv * 15) + ((localHash % 8) - 4);
-
-                    ctx.fillStyle = 'rgb(' + baseR + ',' + baseG + ',' + baseB + ')';
-                    ctx.fillRect(sx, sy, cs, cs);
-
-                    // Soft color patches to break up uniformity (no hard edges)
-                    var patchNoise = _smoothNoise(col, row, 5);
-                    if (patchNoise > 0.6) {
-                        // Lighter meadow patches
-                        ctx.fillStyle = 'rgba(90,160,50,' + ((patchNoise - 0.6) * 0.4) + ')';
-                        ctx.fillRect(sx, sy, cs, cs);
-                    } else if (patchNoise < 0.3) {
-                        // Darker ground patches
-                        ctx.fillStyle = 'rgba(30,60,15,' + ((0.3 - patchNoise) * 0.35) + ')';
-                        ctx.fillRect(sx, sy, cs, cs);
-                    }
-
-                    // Scattered grass tufts (small darker/lighter clumps)
-                    if (localHash < 40) {
-                        var clumpX = sx + (hash % (cs - 8)) + 2;
-                        var clumpY = sy + ((hash * 3) % (cs - 8)) + 2;
-                        var clumpR = 3 + (hash % 4);
-                        ctx.fillStyle = localHash < 20
-                            ? 'rgba(45,100,25,0.3)'
-                            : 'rgba(85,155,55,0.25)';
-                        ctx.beginPath();
-                        ctx.arc(clumpX, clumpY, clumpR, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    // Grass blade strokes (taller, more varied)
-                    var bladeCount = 3 + (hash % 4);
-                    for (var bl = 0; bl < bladeCount; bl++) {
-                        var seed = hash * (bl + 1);
-                        var bx = sx + 3 + ((seed * 7) % (cs - 6));
-                        var by = sy + cs - 1;
-                        var bh = 6 + ((seed * 3) % 14);
-                        var lean = ((seed * 13) % 9) - 4;
-                        var bladeAlpha = 0.2 + ((seed % 20) / 80);
-                        var bladeGreen = 120 + ((seed * 11) % 60);
-                        ctx.strokeStyle = 'rgba(50,' + bladeGreen + ',35,' + bladeAlpha + ')';
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(bx, by);
-                        ctx.quadraticCurveTo(bx + lean * 0.5, by - bh * 0.6, bx + lean, by - bh);
-                        ctx.stroke();
-                    }
-
-                    // Tiny wildflowers on some cells
-                    if (hash % 25 === 0) {
-                        var fx1 = sx + 6 + (hash % (cs - 12));
-                        var fy1 = sy + 6 + ((hash * 7) % (cs - 12));
-                        var flowerColors = ['rgba(220,200,60,0.7)', 'rgba(200,100,140,0.6)', 'rgba(180,180,220,0.6)'];
-                        ctx.fillStyle = flowerColors[hash % 3];
-                        ctx.beginPath();
-                        ctx.arc(fx1, fy1, 1.5, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-                    continue;
-                } else if (t === 1) {
-                    // Rocky terrain with natural variation
-                    var rockNv = _terrainNoise(col, row);
-                    brightness = (hash % 20) - 10;
-                    var rr = 85 + brightness + Math.floor(rockNv * 20);
-                    var rg = 80 + brightness + Math.floor(rockNv * 18);
-                    var rb = 75 + brightness + Math.floor(rockNv * 15);
-                    ctx.fillStyle = 'rgb(' + rr + ',' + rg + ',' + rb + ')';
-                    ctx.fillRect(sx, sy, cs, cs);
-                    // Rock cracks/texture
-                    if (hash % 3 === 0) {
-                        ctx.strokeStyle = 'rgba(50,45,40,0.3)';
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(sx + (hash % cs), sy);
-                        ctx.lineTo(sx + ((hash * 3) % cs), sy + cs);
-                        ctx.stroke();
-                    }
-                    // Light spots
-                    if (hash % 5 === 0) {
-                        ctx.fillStyle = 'rgba(130,125,115,0.25)';
-                        ctx.beginPath();
-                        ctx.arc(sx + cs * 0.5 + (hash % 10) - 5, sy + cs * 0.5, 5 + hash % 4, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-                    continue;
-                } else if (t === 2) {
+                if (t === 2) {
                     // Flowing water with realistic ripples
                     var wTime = _animFrame * 0.04;
                     var wave = Math.sin(wTime + col * 0.7 + row * 0.4) * 10;
@@ -358,7 +559,6 @@ var Render = (function () {
                     var wb = 160 + Math.floor(wave * 0.4);
                     ctx.fillStyle = 'rgb(' + wr + ',' + wg + ',' + wb + ')';
                     ctx.fillRect(sx, sy, cs, cs);
-                    // Subtle shoreline blend with neighboring grass
                     var neighbors = [
                         Map.getTerrain(col - 1, row), Map.getTerrain(col + 1, row),
                         Map.getTerrain(col, row - 1), Map.getTerrain(col, row + 1)
@@ -372,7 +572,6 @@ var Render = (function () {
                             else ctx.fillRect(sx, sy + cs - 4, cs, 4);
                         }
                     }
-                    // Animated ripple lines
                     ctx.strokeStyle = 'rgba(140,200,255,0.2)';
                     ctx.lineWidth = 1;
                     var ripOffset = (_animFrame * 0.6 + col * 4) % cs;
@@ -385,128 +584,42 @@ var Render = (function () {
                     ctx.moveTo(sx, sy + ripOffset2);
                     ctx.bezierCurveTo(sx + cs * 0.3, sy + ripOffset2 + 2, sx + cs * 0.6, sy + ripOffset2 - 2, sx + cs, sy + ripOffset2);
                     ctx.stroke();
-                    // Light sparkle
                     if (Math.sin(wTime * 2 + hash) > 0.85) {
                         ctx.fillStyle = 'rgba(200,230,255,0.4)';
                         ctx.beginPath();
                         ctx.arc(sx + (hash % cs), sy + ((hash * 3) % cs), 1.5, 0, Math.PI * 2);
                         ctx.fill();
                     }
-                    continue;
                 } else if (t === 3) {
                     // Deep water — darker, slower ripples
                     var deepTime = _animFrame * 0.025;
                     var deepWave = Math.sin(deepTime + col * 0.4 + row * 0.6) * 8;
                     ctx.fillStyle = 'rgb(' + (15 + Math.floor(deepWave)) + ',' + (50 + Math.floor(deepWave * 0.8)) + ',' + (100 + Math.floor(deepWave * 0.3)) + ')';
                     ctx.fillRect(sx, sy, cs, cs);
-                    // Subtle deep shimmer
                     if (Math.sin(deepTime * 1.5 + hash) > 0.9) {
                         ctx.fillStyle = 'rgba(80,130,180,0.2)';
                         ctx.beginPath();
                         ctx.arc(sx + (hash % cs), sy + ((hash * 5) % cs), 2, 0, Math.PI * 2);
                         ctx.fill();
                     }
-                    continue;
-                } else if (t === 4) {
-                    // Bridge — brown wooden planks
-                    ctx.fillStyle = '#8B7355';
-                    ctx.fillRect(sx, sy, cs, cs);
-                    // Draw horizontal planks with darker gaps
-                    ctx.fillStyle = '#6B5535';
-                    var plankH = Math.floor(cs / 3);
-                    ctx.fillRect(sx, sy + plankH - 1, cs, 2);
-                    ctx.fillRect(sx, sy + plankH * 2 - 1, cs, 2);
-                    // Slightly lighter plank highlights
-                    ctx.fillStyle = 'rgba(180,160,130,0.3)';
-                    ctx.fillRect(sx + 2, sy + 2, cs - 4, plankH - 4);
-                    ctx.fillRect(sx + 2, sy + plankH + 2, cs - 4, plankH - 4);
-                    // Railing dots at edges
-                    ctx.fillStyle = '#5A4430';
-                    ctx.beginPath();
-                    ctx.arc(sx + 3, sy + 3, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(sx + cs - 3, sy + 3, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(sx + 3, sy + cs - 3, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(sx + cs - 3, sy + cs - 3, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    continue;
-                } else if (t === 10) {
-                    // Iron ore deposit — grass base with iron rocks
-                    var ironNv = _terrainNoise(col, row);
-                    ctx.fillStyle = 'rgb(' + (50 + Math.floor(ironNv * 25)) + ',' + (115 + Math.floor(ironNv * 35)) + ',' + (38 + Math.floor(ironNv * 12)) + ')';
-                    ctx.fillRect(sx, sy, cs, cs);
-                    // Dirt patch beneath rocks
-                    ctx.fillStyle = 'rgba(100,80,55,0.4)';
-                    ctx.beginPath();
-                    ctx.ellipse(sx + cs * 0.5, sy + cs * 0.5, cs * 0.4, cs * 0.35, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    // Iron-colored rocks
-                    ctx.fillStyle = '#7a6555';
-                    ctx.beginPath();
-                    ctx.arc(sx + cs * 0.35, sy + cs * 0.38, cs * 0.18, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = '#8d7565';
-                    ctx.beginPath();
-                    ctx.arc(sx + cs * 0.6, sy + cs * 0.55, cs * 0.15, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = '#6d5a48';
-                    ctx.beginPath();
-                    ctx.arc(sx + cs * 0.48, sy + cs * 0.65, cs * 0.12, 0, Math.PI * 2);
-                    ctx.fill();
-                    // Metallic glint highlights
-                    ctx.fillStyle = 'rgba(200,180,150,0.45)';
-                    ctx.beginPath();
-                    ctx.arc(sx + cs * 0.3, sy + cs * 0.33, cs * 0.06, 0, Math.PI * 2);
-                    ctx.fill();
-                    continue;
-                } else if (t === 11) {
-                    // Coal deposit — grass base with dark coal chunks
-                    var coalNv = _terrainNoise(col, row);
-                    ctx.fillStyle = 'rgb(' + (48 + Math.floor(coalNv * 22)) + ',' + (108 + Math.floor(coalNv * 30)) + ',' + (36 + Math.floor(coalNv * 10)) + ')';
-                    ctx.fillRect(sx, sy, cs, cs);
-                    // Dirty ground beneath
-                    ctx.fillStyle = 'rgba(50,45,35,0.45)';
-                    ctx.beginPath();
-                    ctx.ellipse(sx + cs * 0.5, sy + cs * 0.5, cs * 0.38, cs * 0.32, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    // Coal chunks (angular shapes)
-                    ctx.fillStyle = '#2a2a2a';
-                    ctx.fillRect(sx + cs * 0.22, sy + cs * 0.28, cs * 0.28, cs * 0.22);
-                    ctx.fillStyle = '#1e1e1e';
-                    ctx.fillRect(sx + cs * 0.48, sy + cs * 0.42, cs * 0.22, cs * 0.2);
-                    ctx.fillStyle = '#333';
-                    ctx.fillRect(sx + cs * 0.3, sy + cs * 0.52, cs * 0.18, cs * 0.16);
-                    // Shiny coal highlight
-                    ctx.fillStyle = 'rgba(80,80,100,0.35)';
-                    ctx.fillRect(sx + cs * 0.24, sy + cs * 0.3, cs * 0.1, cs * 0.06);
-                    continue;
                 } else if (t === 12) {
-                    // Uranium deposit — grass base with glowing rock
-                    var uranNv = _terrainNoise(col, row);
+                    // Uranium deposit — animated glow on top of cached base
+                    var uranNv = _getTerrainNoise(col, row);
                     ctx.fillStyle = 'rgb(' + (48 + Math.floor(uranNv * 20)) + ',' + (110 + Math.floor(uranNv * 30)) + ',' + (35 + Math.floor(uranNv * 10)) + ')';
                     ctx.fillRect(sx, sy, cs, cs);
-                    // Dark rock base
                     ctx.fillStyle = '#3a4a30';
                     ctx.beginPath();
                     ctx.arc(sx + cs / 2, sy + cs / 2, cs * 0.32, 0, Math.PI * 2);
                     ctx.fill();
-                    // Radioactive glow (pulsing)
                     var glowPulse = 0.25 + Math.sin(_animFrame * 0.08 + col) * 0.15;
                     ctx.fillStyle = 'rgba(60,230,60,' + glowPulse + ')';
                     ctx.beginPath();
                     ctx.arc(sx + cs / 2, sy + cs / 2, cs * 0.38, 0, Math.PI * 2);
                     ctx.fill();
-                    // Bright center core
                     ctx.fillStyle = 'rgba(120,255,120,0.5)';
                     ctx.beginPath();
                     ctx.arc(sx + cs / 2, sy + cs / 2, cs * 0.14, 0, Math.PI * 2);
                     ctx.fill();
-                    // Veins radiating out
                     ctx.strokeStyle = 'rgba(80,220,80,' + (glowPulse * 0.6) + ')';
                     ctx.lineWidth = 1;
                     for (var vi = 0; vi < 3; vi++) {
@@ -516,23 +629,19 @@ var Render = (function () {
                         ctx.lineTo(sx + cs / 2 + Math.cos(va) * cs * 0.35, sy + cs / 2 + Math.sin(va) * cs * 0.35);
                         ctx.stroke();
                     }
-                    continue;
                 } else if (t === 13) {
-                    // Oil deposit — grass base with dark oily patches
-                    var oilNv = _terrainNoise(col, row);
+                    // Oil deposit — animated sheen on top of cached base
+                    var oilNv = _getTerrainNoise(col, row);
                     ctx.fillStyle = 'rgb(' + (48 + Math.floor(oilNv * 22)) + ',' + (108 + Math.floor(oilNv * 30)) + ',' + (36 + Math.floor(oilNv * 10)) + ')';
                     ctx.fillRect(sx, sy, cs, cs);
-                    // Dark oily ground
                     ctx.fillStyle = 'rgba(20,15,10,0.5)';
                     ctx.beginPath();
                     ctx.ellipse(sx + cs * 0.5, sy + cs * 0.55, cs * 0.4, cs * 0.35, 0, 0, Math.PI * 2);
                     ctx.fill();
-                    // Oil puddle with sheen
                     ctx.fillStyle = '#1a1208';
                     ctx.beginPath();
                     ctx.ellipse(sx + cs * 0.45, sy + cs * 0.5, cs * 0.25, cs * 0.2, 0.3, 0, Math.PI * 2);
                     ctx.fill();
-                    // Rainbow sheen on oil
                     var sheenPhase = _animFrame * 0.05 + col * 0.7 + row * 0.3;
                     var sheenR = 80 + Math.floor(Math.sin(sheenPhase) * 40);
                     var sheenG = 60 + Math.floor(Math.sin(sheenPhase + 2) * 40);
@@ -541,7 +650,6 @@ var Render = (function () {
                     ctx.beginPath();
                     ctx.ellipse(sx + cs * 0.42, sy + cs * 0.48, cs * 0.15, cs * 0.1, 0.5, 0, Math.PI * 2);
                     ctx.fill();
-                    // Small oil drops
                     ctx.fillStyle = '#0d0a05';
                     ctx.beginPath();
                     ctx.arc(sx + cs * 0.7, sy + cs * 0.35, cs * 0.08, 0, Math.PI * 2);
@@ -549,11 +657,6 @@ var Render = (function () {
                     ctx.beginPath();
                     ctx.arc(sx + cs * 0.3, sy + cs * 0.7, cs * 0.06, 0, Math.PI * 2);
                     ctx.fill();
-                    continue;
-                } else {
-                    ctx.fillStyle = COLORS.TERRAIN.grass;
-                    ctx.fillRect(sx, sy, cs, cs);
-                    continue;
                 }
             }
         }
@@ -668,6 +771,7 @@ var Render = (function () {
 
         var i, cable, fromB, toB, fc, tc;
 
+        ctx.save();
         for (i = 0; i < cables.length; i++) {
             cable = cables[i];
             fromB = Buildings.getById(cable.from);
@@ -680,14 +784,13 @@ var Render = (function () {
             if (!_isInViewport(fc.x, fc.y, 200) && !_isInViewport(tc.x, tc.y, 200)) continue;
 
             var isHC = cable.type === 'high_capacity';
+            var usedShadow = false;
 
             // Check if energy is flowing through this cable
             var flowing = false;
             if (typeof Energy !== 'undefined' && Energy.isNodeFlowing) {
                 flowing = Energy.isNodeFlowing(cable.from) && Energy.isNodeFlowing(cable.to);
             }
-
-            ctx.save();
 
             if (flowing) {
                 var pulse = 0.5 + Math.sin(_animFrame * 0.15) * 0.5;
@@ -702,16 +805,23 @@ var Render = (function () {
                     ctx.strokeStyle = 'rgba(0,' + Math.floor(180 + pulse * 75) + ',' + Math.floor(220 + pulse * 35) + ',' + (0.7 + pulse * 0.3) + ')';
                     ctx.lineWidth = 2 + pulse;
                 }
+                usedShadow = true;
             } else {
                 var active = fromB.active && toB.active;
                 if (isHC) {
-                    ctx.shadowBlur = active ? 6 : 0;
-                    ctx.shadowColor = 'rgba(255,180,0,0.5)';
+                    if (active) {
+                        ctx.shadowBlur = 6;
+                        ctx.shadowColor = 'rgba(255,180,0,0.5)';
+                        usedShadow = true;
+                    }
                     ctx.strokeStyle = active ? 'rgba(255,180,0,0.7)' : 'rgba(180,120,0,0.4)';
                     ctx.lineWidth = 3;
                 } else {
-                    ctx.shadowBlur = active ? 4 : 0;
-                    ctx.shadowColor = COLORS.CABLE.glow;
+                    if (active) {
+                        ctx.shadowBlur = 4;
+                        ctx.shadowColor = COLORS.CABLE.glow;
+                        usedShadow = true;
+                    }
                     ctx.strokeStyle = active ? COLORS.CABLE.active : COLORS.CABLE.normal;
                     ctx.lineWidth = 2;
                 }
@@ -721,8 +831,12 @@ var Render = (function () {
             ctx.moveTo(fc.x, fc.y);
             ctx.lineTo(tc.x, tc.y);
             ctx.stroke();
-            ctx.restore();
+
+            if (usedShadow) {
+                ctx.shadowBlur = 0;
+            }
         }
+        ctx.restore();
     }
 
     // ------------------------------------------------------------------------
@@ -1426,19 +1540,39 @@ var Render = (function () {
         var size = MINIMAP_SIZE;
         var mx = Config.VIEWPORT_WIDTH - size - MINIMAP_PADDING;
         var my = Config.VIEWPORT_HEIGHT - size - MINIMAP_PADDING - MINIMAP_BOTTOM_OFFSET;
+
+        _minimapFrameCounter++;
+        if (_minimapFrameCounter < 12 && _minimapCanvas) {
+            ctx.drawImage(_minimapCanvas, mx - 5, my - 5);
+            return;
+        }
+        _minimapFrameCounter = 0;
+
+        if (!_minimapCanvas) {
+            _minimapCanvas = document.createElement('canvas');
+            _minimapCanvas.width = size + 20;
+            _minimapCanvas.height = size + 20;
+            _minimapCtx = _minimapCanvas.getContext('2d');
+        }
+
+        var mctx = _minimapCtx;
+        var ox = 5;  // offset within cache canvas
+        var oy = 5;
+        mctx.clearRect(0, 0, _minimapCanvas.width, _minimapCanvas.height);
+
         var scaleX = size / mapW;
         var scaleY = size / mapH;
 
         // Background
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(mx, my, size, size);
+        mctx.fillStyle = 'rgba(0,0,0,0.6)';
+        mctx.fillRect(ox, oy, size, size);
 
         // Terrain (simplified — sample every Nth cell)
         if (typeof Map !== 'undefined' && Map && typeof Map.getTerrain === 'function') {
             var cs = _cellSize();
             var cols = _gridCols();
             var rows = _gridRows();
-            var step = Math.max(1, Math.floor(cols / 50)); // ~50x50 minimap cells
+            var step = Math.max(1, Math.floor(cols / 50));
             var cellW = Math.ceil(size / (cols / step));
             var cellH = Math.ceil(size / (rows / step));
             var col, row, t;
@@ -1446,19 +1580,19 @@ var Render = (function () {
             for (col = 0; col < cols; col += step) {
                 for (row = 0; row < rows; row += step) {
                     t = Map.getTerrain(col, row);
-                    if (t === 0) ctx.fillStyle = COLORS.TERRAIN.grass;
-                    else if (t === 1) ctx.fillStyle = COLORS.TERRAIN.rock;
-                    else if (t === 2) ctx.fillStyle = COLORS.TERRAIN.water;
-                    else if (t === 3) ctx.fillStyle = COLORS.TERRAIN.deep_water;
-                    else if (t === 10) ctx.fillStyle = COLORS.DEPOSIT.iron;
-                    else if (t === 11) ctx.fillStyle = COLORS.DEPOSIT.coal;
-                    else if (t === 12) ctx.fillStyle = COLORS.DEPOSIT.uranium;
-                    else if (t === 13) ctx.fillStyle = COLORS.DEPOSIT.oil;
-                    else ctx.fillStyle = COLORS.TERRAIN.grass;
+                    if (t === 0) mctx.fillStyle = COLORS.TERRAIN.grass;
+                    else if (t === 1) mctx.fillStyle = COLORS.TERRAIN.rock;
+                    else if (t === 2) mctx.fillStyle = COLORS.TERRAIN.water;
+                    else if (t === 3) mctx.fillStyle = COLORS.TERRAIN.deep_water;
+                    else if (t === 10) mctx.fillStyle = COLORS.DEPOSIT.iron;
+                    else if (t === 11) mctx.fillStyle = COLORS.DEPOSIT.coal;
+                    else if (t === 12) mctx.fillStyle = COLORS.DEPOSIT.uranium;
+                    else if (t === 13) mctx.fillStyle = COLORS.DEPOSIT.oil;
+                    else mctx.fillStyle = COLORS.TERRAIN.grass;
 
-                    ctx.fillRect(
-                        mx + Math.floor(col * cs * scaleX),
-                        my + Math.floor(row * cs * scaleY),
+                    mctx.fillRect(
+                        ox + Math.floor(col * cs * scaleX),
+                        oy + Math.floor(row * cs * scaleY),
                         cellW + 1, cellH + 1
                     );
                 }
@@ -1473,10 +1607,10 @@ var Render = (function () {
                 b = bList[i];
                 def = Config.BUILDINGS[b.type];
                 bColor = def ? (COLORS.BUILDING[def.category] || '#888') : '#888';
-                ctx.fillStyle = bColor;
-                ctx.fillRect(
-                    mx + Math.floor(b.worldX * scaleX),
-                    my + Math.floor(b.worldY * scaleY),
+                mctx.fillStyle = bColor;
+                mctx.fillRect(
+                    ox + Math.floor(b.worldX * scaleX),
+                    oy + Math.floor(b.worldY * scaleY),
                     3, 3
                 );
             }
@@ -1485,25 +1619,22 @@ var Render = (function () {
             var blinkOn = (Math.floor(_animFrame / 30) % 2) === 0;
             for (i = 0; i < bList.length; i++) {
                 if (bList[i].type === 'core') {
-                    var coreX = mx + Math.floor(bList[i].worldX * scaleX);
-                    var coreY = my + Math.floor(bList[i].worldY * scaleY);
+                    var coreX = ox + Math.floor(bList[i].worldX * scaleX);
+                    var coreY = oy + Math.floor(bList[i].worldY * scaleY);
                     if (blinkOn) {
-                        // Outer glow
-                        ctx.fillStyle = 'rgba(255,255,100,0.3)';
-                        ctx.beginPath();
-                        ctx.arc(coreX + 1, coreY + 1, 6, 0, Math.PI * 2);
-                        ctx.fill();
-                        // Bright center
-                        ctx.fillStyle = '#ffff66';
-                        ctx.beginPath();
-                        ctx.arc(coreX + 1, coreY + 1, 3, 0, Math.PI * 2);
-                        ctx.fill();
+                        mctx.fillStyle = 'rgba(255,255,100,0.3)';
+                        mctx.beginPath();
+                        mctx.arc(coreX + 1, coreY + 1, 6, 0, Math.PI * 2);
+                        mctx.fill();
+                        mctx.fillStyle = '#ffff66';
+                        mctx.beginPath();
+                        mctx.arc(coreX + 1, coreY + 1, 3, 0, Math.PI * 2);
+                        mctx.fill();
                     } else {
-                        // Dim dot when off
-                        ctx.fillStyle = 'rgba(255,255,100,0.4)';
-                        ctx.beginPath();
-                        ctx.arc(coreX + 1, coreY + 1, 2, 0, Math.PI * 2);
-                        ctx.fill();
+                        mctx.fillStyle = 'rgba(255,255,100,0.4)';
+                        mctx.beginPath();
+                        mctx.arc(coreX + 1, coreY + 1, 2, 0, Math.PI * 2);
+                        mctx.fill();
                     }
                     break;
                 }
@@ -1513,12 +1644,12 @@ var Render = (function () {
         // Enemies as red dots
         if (typeof Enemies !== 'undefined' && Enemies && typeof Enemies.getAll === 'function') {
             var eList = Enemies.getAll();
-            ctx.fillStyle = '#ff3333';
+            mctx.fillStyle = '#ff3333';
             for (var ei = 0; ei < eList.length; ei++) {
                 if (eList[ei].hp <= 0) continue;
-                ctx.fillRect(
-                    mx + Math.floor(eList[ei].x * scaleX),
-                    my + Math.floor(eList[ei].y * scaleY),
+                mctx.fillRect(
+                    ox + Math.floor(eList[ei].x * scaleX),
+                    oy + Math.floor(eList[ei].y * scaleY),
                     2, 2
                 );
             }
@@ -1527,18 +1658,21 @@ var Render = (function () {
         // Viewport rectangle
         var vw = Config.VIEWPORT_WIDTH / _zoom;
         var vh = Config.VIEWPORT_HEIGHT / _zoom;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(
-            mx + Math.floor(_camera.x * scaleX),
-            my + Math.floor(_camera.y * scaleY),
+        mctx.strokeStyle = '#ffffff';
+        mctx.lineWidth = 1;
+        mctx.strokeRect(
+            ox + Math.floor(_camera.x * scaleX),
+            oy + Math.floor(_camera.y * scaleY),
             Math.floor(vw * scaleX),
             Math.floor(vh * scaleY)
         );
 
         // Minimap border
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.strokeRect(mx, my, size, size);
+        mctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        mctx.strokeRect(ox, oy, size, size);
+
+        // Blit to main canvas
+        ctx.drawImage(_minimapCanvas, mx - 5, my - 5);
     }
 
     function _drawDepositTooltip(ctx) {
@@ -1652,6 +1786,14 @@ var Render = (function () {
             _damageNumbers = [];
             _trails = {};
             _shieldFlashes = {};
+            _noiseCache = {};
+            _smoothNoiseCache = {};
+            _staticTerrainCanvas = null;
+            _staticTerrainCtx = null;
+            _staticCacheStartCol = -1;
+            _staticCacheStartRow = -1;
+            _staticCacheEndCol = -1;
+            _staticCacheEndRow = -1;
         },
 
         // --------------------------------------------------------------------
