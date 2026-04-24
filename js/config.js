@@ -518,7 +518,7 @@ var Config = {
             workersRequired: 5,
             energyGeneration: 0,
             energyConsumption: 0,
-            energyStorageCapacity: 450,
+            energyStorageCapacity: 675,
             maxChargeRate: 300,
             maxDischargeRate: 0,
             pollution: 0,
