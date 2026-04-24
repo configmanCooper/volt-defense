@@ -340,6 +340,9 @@ var Energy = (function() {
             _activeFlowNodes = {};
             _cableFlowThisTick = {};
 
+            // Track total charge received per building this tick (across all generators)
+            var _chargedThisTick = {};
+
             // For each generator, BFS to distribute energy
             for (var g = 0; g < generators.length; g++) {
                 var gen = generators[g];
@@ -461,7 +464,10 @@ var Energy = (function() {
                         var grpPathTP = minThroughputMap[grp.id] || (cableMaxThroughput / tps);
                         var grpMax = grpRemaining;
                         grpMax = Math.min(grpMax, grpPathTP);
-                        if (grpChargeRate > 0) grpMax = Math.min(grpMax, grpChargeRate);
+                        if (grpChargeRate > 0) {
+                            var alreadyCharged = _chargedThisTick[grp.id] || 0;
+                            grpMax = Math.min(grpMax, grpChargeRate - alreadyCharged);
+                        }
                         if (grpMax > 0) {
                             groupMembers.push({ building: grp, maxAccept: grpMax });
                         }
@@ -506,6 +512,7 @@ var Energy = (function() {
                         gen.energy -= transferable;
                         receiver.energy += transferable;
                         totalDischarged += transferable;
+                        _chargedThisTick[receiver.id] = (_chargedThisTick[receiver.id] || 0) + transferable;
                         _activeFlowNodes[gen.id] = true;
                         _activeFlowNodes[receiver.id] = true;
 
