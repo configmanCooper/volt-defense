@@ -138,7 +138,8 @@ var Engine = (function() {
                 paused: false,
                 gameOver: false,
                 rng: rng,
-                seed: seed
+                seed: seed,
+                wavesEnabled: true
             };
 
             // Generate map
@@ -189,7 +190,7 @@ var Engine = (function() {
             }
 
             // 7. Wave timer
-            if (_state.waveTimer > 0) {
+            if (_state.wavesEnabled && _state.waveTimer > 0) {
                 _state.waveTimer -= 1 / tps;
                 if (_state.waveTimer <= 0) {
                     _state.waveTimer = 0;
@@ -249,6 +250,9 @@ var Engine = (function() {
 
         setGodMode: function(on) { if (_state) _state.godMode = !!on; },
         isGodMode: function() { return _state ? !!_state.godMode : false; },
+
+        setWavesEnabled: function(on) { if (_state) _state.wavesEnabled = !!on; },
+        isWavesEnabled: function() { return _state ? _state.wavesEnabled !== false : true; },
 
         isPaused: function() { return _state ? _state.paused : false; },
 

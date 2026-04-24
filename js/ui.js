@@ -1243,7 +1243,9 @@ var UI = (function () {
 
             // God mode toggle
             var godActive = (typeof Engine !== 'undefined' && Engine.isGodMode) ? Engine.isGodMode() : false;
-            togglesEl.innerHTML = '<button class="debug-toggle' + (godActive ? ' active' : '') + '" id="debug-god-toggle">🛡️ God Mode</button>';
+            var wavesOn = (typeof Engine !== 'undefined' && Engine.isWavesEnabled) ? Engine.isWavesEnabled() : true;
+            togglesEl.innerHTML = '<button class="debug-toggle' + (godActive ? ' active' : '') + '" id="debug-god-toggle">🛡️ God Mode</button>' +
+                '<button class="debug-toggle' + (!wavesOn ? ' active' : '') + '" id="debug-wave-toggle">🚫 Stop Waves</button>';
             document.getElementById('debug-god-toggle').addEventListener('click', function () {
                 var isOn = (typeof Engine !== 'undefined' && Engine.isGodMode) ? Engine.isGodMode() : false;
                 if (typeof Engine !== 'undefined' && Engine.setGodMode) {
@@ -1252,6 +1254,17 @@ var UI = (function () {
                 this.classList.toggle('active');
                 if (typeof UI !== 'undefined' && UI.showToast) {
                     UI.showToast(!isOn ? '🛡️ God Mode ON — Core is invincible' : 'God Mode OFF', 'info', 2000);
+                }
+            });
+
+            document.getElementById('debug-wave-toggle').addEventListener('click', function () {
+                var isOn = (typeof Engine !== 'undefined' && Engine.isWavesEnabled) ? Engine.isWavesEnabled() : true;
+                if (typeof Engine !== 'undefined' && Engine.setWavesEnabled) {
+                    Engine.setWavesEnabled(!isOn);
+                }
+                this.classList.toggle('active');
+                if (typeof UI !== 'undefined' && UI.showToast) {
+                    UI.showToast(!isOn ? 'Waves resumed' : '🚫 Waves stopped', 'info', 2000);
                 }
             });
 
