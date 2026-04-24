@@ -161,10 +161,11 @@ var Buildings = (function() {
         }
     }
 
-    function _getRefundRatio() {
-        if (typeof Config !== 'undefined' && Config.SELL_REFUND_RATIO !== undefined) {
-            return Config.SELL_REFUND_RATIO;
-        }
+    function _getRefundRatio(building) {
+        var now = (typeof Engine !== 'undefined' && Engine.getGameTime) ? Engine.getGameTime() : 0;
+        var age = (building && building.placedAt != null) ? (now - building.placedAt) : Infinity;
+        if (age <= 5) return 1.0;
+        if (age <= 24) return 0.75;
         return 0.5;
     }
 
@@ -335,7 +336,9 @@ var Buildings = (function() {
                 // Consumer battery
                 sellReady: false,
                 // Cable flow rules: { 'neighborId': 'both'|'charge'|'discharge' }
-                cableRules: {}
+                cableRules: {},
+                // Track placement time for refund tiers
+                placedAt: (typeof Engine !== 'undefined' && Engine.getGameTime) ? Engine.getGameTime() : 0
             };
 
             // Link miner to deposit
@@ -395,7 +398,7 @@ var Buildings = (function() {
 
             // Refund (skip if destroyed)
             if (!noRefund && def && def.cost) {
-                _addRefund(def.cost, _getRefundRatio());
+                _addRefund(def.cost, _getRefundRatio(building));
             }
 
             // Hydro plant removal — invalidate water speed cache
@@ -432,7 +435,7 @@ var Buildings = (function() {
             if (!nextDef) return false;
 
             // Calculate upgrade cost: nextDef.cost - currentDef.cost * SELL_REFUND_RATIO
-            var refundRatio = _getRefundRatio();
+            var refundRatio = _getRefundRatio(building);
             var upgradeCost = {};
             var nextCost = _applyDifficultyToCost(nextDef.cost) || {};
             var currentCost = _applyDifficultyToCost(currentDef.cost) || {};
@@ -691,6 +694,11 @@ var Buildings = (function() {
             return _buildings.length;
         },
 
+        getRefundRatio: function(buildingId) {
+            var b = _getById(buildingId);
+            return _getRefundRatio(b);
+        },
+
         // ================================================================
         // Utility
         // ================================================================
@@ -759,7 +767,8 @@ var Buildings = (function() {
                     shieldMaxHP: b.shieldMaxHP,
                     shieldActive: b.shieldActive,
                     sellReady: b.sellReady,
-                    cableRules: b.cableRules || {}
+                    cableRules: b.cableRules || {},
+                    placedAt: b.placedAt || 0
                 });
             }
             var cableData = [];
@@ -811,7 +820,8 @@ var Buildings = (function() {
                         shieldActive: saved.shieldActive || false,
                         depositRef: null,
                         sellReady: saved.sellReady || false,
-                        cableRules: saved.cableRules || {}
+                        cableRules: saved.cableRules || {},
+                        placedAt: saved.placedAt || 0
                     };
 
                     // Re-link miner deposits

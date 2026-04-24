@@ -340,8 +340,8 @@ var UI = (function () {
         if (!building || typeof Config === 'undefined' || !Config.BUILDINGS) return 0;
         var def = Config.BUILDINGS[building.type];
         if (!def || !def.cost) return 0;
-        var ratio = (typeof Config !== 'undefined' && Config.SELL_REFUND_RATIO != null)
-            ? Config.SELL_REFUND_RATIO : 0.5;
+        var ratio = (typeof Buildings !== 'undefined' && Buildings.getRefundRatio)
+            ? Buildings.getRefundRatio(building.id) : 0.5;
         var cost = def.cost;
         if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
             cost = Engine.applyDifficultyToCost(def.cost);
@@ -408,6 +408,16 @@ var UI = (function () {
         var shieldText = document.getElementById('info-shield-text');
         if (shieldText) {
             shieldText.textContent = Math.floor(building.shieldHP || 0);
+        }
+
+        // Update sell amount (time-based refund)
+        var sellAmount = document.getElementById('info-sell-amount');
+        var sellPct = document.getElementById('info-sell-pct');
+        if (sellAmount) {
+            sellAmount.textContent = _getRefundAmount(building);
+        }
+        if (sellPct && typeof Buildings !== 'undefined' && Buildings.getRefundRatio) {
+            sellPct.textContent = Math.round(Buildings.getRefundRatio(building.id) * 100) + '%';
         }
     }
 
@@ -889,7 +899,9 @@ var UI = (function () {
             }
             if (building.type !== 'core') {
                 var refund = _getRefundAmount(building);
-                html += '<button class="info-btn sell" data-action="sell-building">💰 Sell ($' + refund + ') [Del]</button>';
+                var pct = (typeof Buildings !== 'undefined' && Buildings.getRefundRatio)
+                    ? Math.round(Buildings.getRefundRatio(building.id) * 100) : 50;
+                html += '<button class="info-btn sell" data-action="sell-building" id="info-sell-btn">💰 Sell ($<span id="info-sell-amount">' + refund + '</span>) <span id="info-sell-pct" style="font-size:10px;opacity:0.7;">' + pct + '%</span> [Del]</button>';
             }
             html += '</div>';
 
