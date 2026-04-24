@@ -1596,8 +1596,20 @@ var Render = (function () {
             var bList = Buildings.getAll();
             var closest = null;
             var closestDist = Infinity;
+            // Restricted categories can only connect to storage, grid, or core
+            var restrictedCats = { weapons: true, mining: true, defense: true };
+            var allowedCats = { storage: true, grid: true };
+            var placingCat = def.category || '';
+            var isRestricted = !!restrictedCats[placingCat];
             for (var bi = 0; bi < bList.length; bi++) {
-                var bc = Buildings.getBuildingCenter(bList[bi]);
+                var bOther = bList[bi];
+                // Filter by allowed connection types
+                if (isRestricted) {
+                    var otherDef = Config.BUILDINGS[bOther.type];
+                    var otherCat = otherDef ? otherDef.category : '';
+                    if (!allowedCats[otherCat] && bOther.type !== 'core') continue;
+                }
+                var bc = Buildings.getBuildingCenter(bOther);
                 var dx = bc.x - cx;
                 var dy = bc.y - cy;
                 var d = Math.sqrt(dx * dx + dy * dy);

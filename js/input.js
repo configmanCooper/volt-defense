@@ -75,9 +75,23 @@ var Input = (function () {
         var bestDist = Infinity;
         var bestId = null;
 
+        // Restricted categories can only connect to storage, grid, or core
+        var restrictedCats = { weapons: true, mining: true, defense: true };
+        var allowedCats = { storage: true, grid: true };
+        var placedDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[placedBuilding.type] : null;
+        var placedCat = placedDef ? placedDef.category : '';
+        var isRestricted = !!restrictedCats[placedCat];
+
         for (var i = 0; i < allBuildings.length; i++) {
             var other = allBuildings[i];
             if (other.id === placedBuilding.id) continue;
+
+            // Filter by allowed connection types
+            if (isRestricted) {
+                var otherDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[other.type] : null;
+                var otherCat = otherDef ? otherDef.category : '';
+                if (!allowedCats[otherCat] && other.type !== 'core') continue;
+            }
 
             var dist = Infinity;
             if (typeof Buildings.getDistance === 'function') {
@@ -98,11 +112,8 @@ var Input = (function () {
         if (bestId !== null) {
             // Capacitors auto-connect with HC cable
             var autoCableType = 'standard';
-            if (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[placedBuilding.type]) {
-                var pDef = Config.BUILDINGS[placedBuilding.type];
-                if (pDef.maxChargeRate >= 100 && pDef.maxDischargeRate >= 100) {
-                    autoCableType = 'high_capacity';
-                }
+            if (placedDef && placedDef.maxChargeRate >= 100 && placedDef.maxDischargeRate >= 100) {
+                autoCableType = 'high_capacity';
             }
             Buildings.addCable(placedBuilding.id, bestId, autoCableType);
         }
