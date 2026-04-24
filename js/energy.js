@@ -592,7 +592,22 @@ var Energy = (function() {
                 }
 
                 // Energy consumption
-                if (!def.energyConsumption || def.energyConsumption <= 0) continue;
+                if (!def.energyConsumption || def.energyConsumption <= 0) {
+                    // Activate buildings that don't consume energy (weapons, core_repair)
+                    // They manage their own energy draw in combat/other systems
+                    if (!building.active && building.hp > 0) {
+                        var wReq0 = def.workersRequired || 0;
+                        if (wReq0 > 0 && typeof Workers !== 'undefined' && Workers.canAllocate && Workers.allocateWorkers) {
+                            if (Workers.canAllocate(wReq0)) {
+                                Workers.allocateWorkers(wReq0);
+                                building.active = true;
+                            }
+                        } else {
+                            building.active = true;
+                        }
+                    }
+                    continue;
+                }
 
                 var consumePerTick = def.energyConsumption / tps;
                 consumePerTick = _applyDifficultyToEnergy(consumePerTick);
