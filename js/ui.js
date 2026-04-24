@@ -844,6 +844,25 @@ var UI = (function () {
             // Description
             html += '<div class="info-desc">' + (def.description || '') + '</div>';
 
+            // Core repair status
+            if (building.type === 'core_repair') {
+                var crEnergy = def.energyStorageCapacity || 10000;
+                var crReady = building.energy >= crEnergy;
+                var crUranium = (typeof Economy !== 'undefined' && Economy.getResources) ? Economy.getResources().uranium : 0;
+                var crNeedU = 10;
+                var crCoreHP = (typeof Engine !== 'undefined' && Engine.getCoreHP) ? Engine.getCoreHP() : 0;
+                var crCoreMax = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : 100;
+                if (crCoreHP >= crCoreMax) {
+                    html += '<div class="info-stat" style="color:#55ff55;">✅ Core at full HP</div>';
+                } else if (crReady && crUranium >= crNeedU) {
+                    html += '<div class="info-stat" style="color:#55ff55;">✅ Repairing core...</div>';
+                } else if (crReady && crUranium < crNeedU) {
+                    html += '<div class="info-stat" style="color:#ff5555;">⚠️ Needs ' + crNeedU + ' uranium to repair (have ' + Math.floor(crUranium) + ')</div>';
+                } else {
+                    html += '<div class="info-stat" style="color:#aaaaaa;">⏳ Charging... (' + Math.floor(building.energy) + '/' + crEnergy + ')</div>';
+                }
+            }
+
             // Connected cables section
             if (typeof Buildings !== 'undefined' && Buildings.getCablesForBuilding) {
                 var cables = Buildings.getCablesForBuilding(buildingId);
