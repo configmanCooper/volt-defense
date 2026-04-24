@@ -18,6 +18,13 @@ var Enemies = (function () {
     // ---- Helpers -----------------------------------------------------------
 
     /**
+     * Get the seeded RNG if available, otherwise return null (use Math.random).
+     */
+    function _getRng() {
+        return (typeof Engine !== 'undefined' && Engine.getRng) ? Engine.getRng() : null;
+    }
+
+    /**
      * Get the core building's world-center position.
      * Falls back to map centre if Buildings module isn't loaded yet.
      */
@@ -493,10 +500,44 @@ var Enemies = (function () {
                 count = Math.ceil(count * (1 + (waveNumber - 50) * scaling));
             }
 
-            for (var c = 0; c < count; c++) {
+            // Decide formation for this group
+            var formation = group.formation || null;
+            if (!formation) {
+                if (count <= 2) {
+                    formation = 'line';
+                } else {
+                    // 40% line, 15% cluster, 15% v_shape, 15% wave_front, 15% surround
+                    var rng = _getRng();
+                    var roll = rng ? rng.random() : Math.random();
+                    if (roll < 0.4) formation = 'line';
+                    else if (roll < 0.55) formation = 'cluster';
+                    else if (roll < 0.70) formation = 'v_shape';
+                    else if (roll < 0.85) formation = 'wave_front';
+                    else formation = 'surround';
+                }
+            }
+
+            if (formation === 'line') {
+                // Original behavior — one at a time
+                for (var c = 0; c < count; c++) {
+                    queue.push({
+                        typeKey: group.type,
+                        delay: waveDef.spawnDelay,
+                        formation: 'line',
+                        formationGroup: null
+                    });
+                }
+            } else {
+                // Group formation — spawn all at once
+                var formationGroup = [];
+                for (var c = 0; c < count; c++) {
+                    formationGroup.push(group.type);
+                }
                 queue.push({
                     typeKey: group.type,
-                    delay: waveDef.spawnDelay
+                    delay: waveDef.spawnDelay,
+                    formation: formation,
+                    formationGroup: formationGroup
                 });
             }
         }
@@ -835,6 +876,112 @@ var Enemies = (function () {
         }
     }
 
+    // ---- Formation Spawning ------------------------------------------------
+
+    /**
+     * Calculate position offsets for a formation type.
+     */
+    function _getFormationOffsets(formation, count) {
+        var offsets = [];
+        var rng = _getRng();
+
+        switch (formation) {
+            case 'cluster':
+                for (var i = 0; i < count; i++) {
+                    var angle = (rng ? rng.random() : Math.random()) * Math.PI * 2;
+                    var dist = (rng ? rng.random() : Math.random()) * 60;
+                    offsets.push({ x: Math.cos(angle) * dist, y: Math.sin(angle) * dist });
+                }
+                break;
+
+            case 'v_shape':
+                for (var i = 0; i < count; i++) {
+                    var side = (i % 2 === 0) ? 1 : -1;
+                    var row = Math.ceil(i / 2);
+                    offsets.push({ x: -row * 40, y: side * row * 30 });
+                }
+                offsets[0] = { x: 0, y: 0 };
+                break;
+
+            case 'wave_front':
+                var spacing = 40;
+                var startY = -((count - 1) * spacing) / 2;
+                for (var i = 0; i < count; i++) {
+                    offsets.push({ x: 0, y: startY + i * spacing });
+                }
+                break;
+
+            default:
+                for (var i = 0; i < count; i++) {
+                    offsets.push({ x: 0, y: 0 });
+                }
+        }
+
+        return offsets;
+    }
+
+    /**
+     * Spawn all enemies in a formation group at calculated offsets.
+     */
+    function _spawnFormationGroup(entry) {
+        var formation = entry.formation;
+        var types = entry.formationGroup;
+        var count = types.length;
+
+        var spawnPts = _spawnPoints.length > 0
+            ? _spawnPoints
+            : [{ x: 0, y: Config.MAP_HEIGHT / 2 }];
+
+        var rng = _getRng();
+
+        if (formation === 'surround') {
+            // Spawn at different spawn points
+            for (var i = 0; i < count; i++) {
+                var ptIdx = i % spawnPts.length;
+                var sp = spawnPts[ptIdx];
+                var enemy = _createEnemy(types[i], sp.x, sp.y, _currentWave);
+                if (enemy) {
+                    var path = _findPath(sp.x, sp.y, enemy.targetBuildingId);
+                    if (path) {
+                        enemy.path = path;
+                        enemy.pathIndex = 0;
+                    }
+                    _enemies.push(enemy);
+                }
+            }
+            return;
+        }
+
+        // For other formations, pick one spawn point
+        var ptIndex = rng && typeof rng.randomInt === 'function'
+            ? rng.randomInt(0, spawnPts.length - 1)
+            : Math.floor(Math.random() * spawnPts.length);
+        var baseSP = spawnPts[ptIndex];
+
+        var offsets = _getFormationOffsets(formation, count);
+
+        for (var i = 0; i < count; i++) {
+            var ox = offsets[i].x;
+            var oy = offsets[i].y;
+            var sx = baseSP.x + ox;
+            var sy = baseSP.y + oy;
+
+            // Clamp to map bounds
+            sx = Math.max(0, Math.min(Config.MAP_WIDTH, sx));
+            sy = Math.max(0, Math.min(Config.MAP_HEIGHT, sy));
+
+            var enemy = _createEnemy(types[i], sx, sy, _currentWave);
+            if (enemy) {
+                var path = _findPath(sx, sy, enemy.targetBuildingId);
+                if (path) {
+                    enemy.path = path;
+                    enemy.pathIndex = 0;
+                }
+                _enemies.push(enemy);
+            }
+        }
+    }
+
     // ---- Public API --------------------------------------------------------
 
     return {
@@ -846,53 +993,57 @@ var Enemies = (function () {
 
             if (_spawnTimer <= 0 && _spawnQueue.length > 0) {
                 var next = _spawnQueue.shift();
-                var eDef = Config.ENEMIES[next.typeKey];
-                var spawnPts;
-                if (eDef && eDef.special === 'river_spawn') {
-                    spawnPts = _getRiverSpawnPoints();
-                    if (spawnPts.length === 0) spawnPts = _spawnPoints;
+
+                if (next.formationGroup && next.formationGroup.length > 0) {
+                    // Formation spawn — spawn all at once
+                    _spawnFormationGroup(next);
                 } else {
-                    spawnPts = _spawnPoints;
-                }
-                if (spawnPts.length === 0) {
-                    spawnPts = [{ x: 0, y: Config.MAP_HEIGHT / 2 }];
-                }
+                    // Original single-spawn logic
+                    var eDef = Config.ENEMIES[next.typeKey];
+                    var spawnPts;
+                    if (eDef && eDef.special === 'river_spawn') {
+                        spawnPts = _getRiverSpawnPoints();
+                        if (spawnPts.length === 0) spawnPts = _spawnPoints;
+                    } else {
+                        spawnPts = _spawnPoints;
+                    }
+                    if (spawnPts.length === 0) {
+                        spawnPts = [{ x: 0, y: Config.MAP_HEIGHT / 2 }];
+                    }
 
-                // Pick random spawn point, validate path exists
-                var rngObj = (typeof Engine !== 'undefined' && Engine.getRng)
-                    ? Engine.getRng()
-                    : null;
-                var ptIndex = rngObj && typeof rngObj.randomInt === 'function'
-                    ? rngObj.randomInt(0, spawnPts.length - 1)
-                    : Math.floor(Math.random() * spawnPts.length);
+                    // Pick random spawn point, validate path exists
+                    var rngObj = _getRng();
+                    var ptIndex = rngObj && typeof rngObj.randomInt === 'function'
+                        ? rngObj.randomInt(0, spawnPts.length - 1)
+                        : Math.floor(Math.random() * spawnPts.length);
 
-                var sp = null;
-                var enemy = null;
-                // Try each spawn point to find one with a valid path
-                for (var si = 0; si < spawnPts.length; si++) {
-                    var tryIdx = (ptIndex + si) % spawnPts.length;
-                    var tryEnemy = _createEnemy(next.typeKey, spawnPts[tryIdx].x, spawnPts[tryIdx].y, _currentWave);
-                    if (tryEnemy) {
-                        // Check if the path is a real A* path (not a directPath fallback)
-                        var testPath = _findPath(spawnPts[tryIdx].x, spawnPts[tryIdx].y, tryEnemy.targetBuildingId);
-                        if (testPath) {
-                            sp = spawnPts[tryIdx];
-                            tryEnemy.path = testPath;
-                            tryEnemy.pathIndex = 0;
-                            enemy = tryEnemy;
-                            break;
+                    var sp = null;
+                    var enemy = null;
+                    // Try each spawn point to find one with a valid path
+                    for (var si = 0; si < spawnPts.length; si++) {
+                        var tryIdx = (ptIndex + si) % spawnPts.length;
+                        var tryEnemy = _createEnemy(next.typeKey, spawnPts[tryIdx].x, spawnPts[tryIdx].y, _currentWave);
+                        if (tryEnemy) {
+                            var testPath = _findPath(spawnPts[tryIdx].x, spawnPts[tryIdx].y, tryEnemy.targetBuildingId);
+                            if (testPath) {
+                                sp = spawnPts[tryIdx];
+                                tryEnemy.path = testPath;
+                                tryEnemy.pathIndex = 0;
+                                enemy = tryEnemy;
+                                break;
+                            }
                         }
                     }
-                }
 
-                // If no spawn point had a valid path, use the first one with fallback
-                if (!enemy) {
-                    sp = spawnPts[ptIndex];
-                    enemy = _createEnemy(next.typeKey, sp.x, sp.y, _currentWave);
-                }
+                    // If no spawn point had a valid path, use the first one with fallback
+                    if (!enemy) {
+                        sp = spawnPts[ptIndex];
+                        enemy = _createEnemy(next.typeKey, sp.x, sp.y, _currentWave);
+                    }
 
-                if (enemy) {
-                    _enemies.push(enemy);
+                    if (enemy) {
+                        _enemies.push(enemy);
+                    }
                 }
 
                 // Convert spawnDelay from ms to ticks
