@@ -81,12 +81,23 @@ var Combat = (function() {
 
         for (var i = 0; i < buildings.length; i++) {
             var b = buildings[i];
-            if (b.type !== 'core_repair' || !b.active || b.hp <= 0) continue;
+            if (b.type !== 'core_repair' || b.hp <= 0) continue;
             var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS.core_repair : null;
             var requiredEnergy = def ? (def.energyStorageCapacity || 10000) : 10000;
+            var requiredUranium = 10;
             if (b.energy >= requiredEnergy && core.hp < coreMaxHp) {
+                // Check uranium
+                var hasUranium = (typeof Economy !== 'undefined' && Economy.getResources)
+                    ? Economy.getResources().uranium >= requiredUranium : false;
+                if (!hasUranium) continue;
                 b.energy -= requiredEnergy;
+                if (typeof Economy !== 'undefined' && Economy.spendResource) {
+                    Economy.spendResource('uranium', requiredUranium);
+                }
                 core.hp = Math.min(core.hp + 1, coreMaxHp);
+                if (typeof UI !== 'undefined' && UI.showToast) {
+                    UI.showToast('🔧 Core repaired! (' + core.hp + '/' + coreMaxHp + ' HP)', 'success', 2000);
+                }
             }
         }
     }
