@@ -550,17 +550,20 @@ var Energy = (function() {
             }
 
             // ============================================================
-            // Step 2b: Snap energy to avoid floating point drift
+            // Step 2b: Round energy to prevent floating-point drift
             // ============================================================
             for (i = 0; i < allBuildings.length; i++) {
                 building = allBuildings[i];
                 def = _getDef(building.type);
                 if (!def) continue;
                 var cap = def.energyStorageCapacity || 0;
-                if (cap > 0 && building.energy > cap - 0.5) {
+                // Round to 1 decimal to prevent fractional accumulation
+                building.energy = Math.round(building.energy * 10) / 10;
+                // Clamp to capacity
+                if (cap > 0 && building.energy > cap) {
                     building.energy = cap;
                 }
-                if (building.energy < 0.01) {
+                if (building.energy < 0) {
                     building.energy = 0;
                 }
             }
