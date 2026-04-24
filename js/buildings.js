@@ -722,6 +722,19 @@ var Buildings = (function() {
             if (!b) return;
             if (!b.cableRules) b.cableRules = {};
             b.cableRules[neighborId] = rule;
+
+            // Mirror rule on the connected building
+            var nb = _getById(neighborId);
+            if (nb) {
+                if (!nb.cableRules) nb.cableRules = {};
+                if (rule === 'charge') {
+                    nb.cableRules[buildingId] = 'discharge';
+                } else if (rule === 'discharge') {
+                    nb.cableRules[buildingId] = 'charge';
+                } else {
+                    nb.cableRules[buildingId] = 'both';
+                }
+            }
         },
 
         getCablePriority: function(buildingId, neighborId) {
