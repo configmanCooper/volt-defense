@@ -91,10 +91,26 @@ var Combat = (function() {
         }
     }
 
+    // Check if any enemy is inside a shield's area
+    function _enemyInsideShield(building, def, enemies) {
+        var shieldRadius = (def.shieldDiameter || (typeof Config !== 'undefined' && Config.SHIELD_DIAMETER) || 400) / 2;
+        var center = _getBuildingCenter(building);
+        for (var j = 0; j < enemies.length; j++) {
+            var e = enemies[j];
+            if (!e || e.hp <= 0) continue;
+            var eDef = _getEnemyDef(e.type);
+            if (eDef && eDef.special === 'ignores_shields') continue;
+            var dist = _distance(center.x, center.y, e.x, e.y);
+            if (dist <= shieldRadius) return true;
+        }
+        return false;
+    }
+
     // ---- 1. Process Shields ----
 
     function _processShields() {
         var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
         var tps = _tps();
         var passiveDrain = (typeof Config !== 'undefined' && Config.SHIELD_PASSIVE_DRAIN != null)
             ? Config.SHIELD_PASSIVE_DRAIN : 20;
@@ -117,9 +133,11 @@ var Combat = (function() {
                 if (b.energy >= 1) {
                     b.shieldHP = Math.min((b.shieldHP || 0) + 1, shieldMaxHP);
                 }
-                // Reactivate once shield has recharged to 10%
+                // Reactivate once shield has recharged to 10%, but not if enemies are inside
                 if (b.shieldHP >= shieldMaxHP * 0.1) {
-                    b.shieldActive = true;
+                    if (!_enemyInsideShield(b, def, enemies)) {
+                        b.shieldActive = true;
+                    }
                 }
                 continue;
             }
@@ -127,6 +145,10 @@ var Combat = (function() {
             // Check passive energy drain
             if (b.energy >= drainPerTick) {
                 b.energy -= drainPerTick;
+                // Don't reactivate if enemies are inside the shield area
+                if (!b.shieldActive && _enemyInsideShield(b, def, enemies)) {
+                    continue;
+                }
                 b.shieldActive = true;
             } else {
                 b.shieldActive = false;
