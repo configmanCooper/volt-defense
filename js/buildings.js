@@ -559,6 +559,36 @@ var Buildings = (function() {
             return false;
         },
 
+        upgradeCable: function(fromId, toId) {
+            for (var i = 0; i < _cables.length; i++) {
+                var c = _cables[i];
+                if ((c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)) {
+                    if (c.type === 'high_capacity') {
+                        return { success: false, reason: 'Cable is already HC.' };
+                    }
+                    // Calculate upgrade cost (HC cost minus standard cost already paid)
+                    var fromB = _getById(fromId);
+                    var toB = _getById(toId);
+                    if (!fromB || !toB) return { success: false, reason: 'Building not found.' };
+                    var dist = _getDistance(fromB, toB);
+                    var costPerTile = (typeof Config !== 'undefined' && Config.HC_CABLE_COST_PER_TILE) ? Config.HC_CABLE_COST_PER_TILE : 50;
+                    var cellSize = _getCellSize();
+                    var tiles = Math.max(1, Math.round(dist / cellSize));
+                    var hcCost = costPerTile * tiles;
+                    var stdCost = (typeof Config !== 'undefined' && Config.CABLE_COST) ? Config.CABLE_COST : 25;
+                    var upgradeCost = Math.max(0, hcCost - stdCost);
+                    if (!_canAfford({ money: upgradeCost })) {
+                        return { success: false, reason: 'Cannot afford upgrade ($' + upgradeCost + ').' };
+                    }
+                    _deductCost({ money: upgradeCost });
+                    c.type = 'high_capacity';
+                    _adjacencyDirty = true;
+                    return { success: true, cost: upgradeCost };
+                }
+            }
+            return { success: false, reason: 'Cable not found.' };
+        },
+
         getCablesForBuilding: function(buildingId) {
             var result = [];
             for (var i = 0; i < _cables.length; i++) {

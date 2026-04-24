@@ -96,7 +96,15 @@ var Input = (function () {
         }
 
         if (bestId !== null) {
-            Buildings.addCable(placedBuilding.id, bestId);
+            // Capacitors auto-connect with HC cable
+            var autoCableType = 'standard';
+            if (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[placedBuilding.type]) {
+                var pDef = Config.BUILDINGS[placedBuilding.type];
+                if (pDef.maxChargeRate >= 100 && pDef.maxDischargeRate >= 100) {
+                    autoCableType = 'high_capacity';
+                }
+            }
+            Buildings.addCable(placedBuilding.id, bestId, autoCableType);
         }
     }
 

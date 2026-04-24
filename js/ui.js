@@ -834,29 +834,40 @@ var UI = (function () {
             // Description
             html += '<div class="info-desc">' + (def.description || '') + '</div>';
 
-            // Cable flow rules for storage buildings
-            if (def.category === 'storage' && typeof Buildings !== 'undefined' && Buildings.getCablesForBuilding) {
+            // Connected cables section
+            if (typeof Buildings !== 'undefined' && Buildings.getCablesForBuilding) {
                 var cables = Buildings.getCablesForBuilding(buildingId);
                 if (cables && cables.length > 0) {
+                    var isStorage = (def.category === 'storage');
                     html += '<div class="info-cable-rules">';
-                    html += '<div class="info-stat" style="font-weight:bold;margin-bottom:4px;">Cable Flow Rules</div>';
+                    html += '<div class="info-stat" style="font-weight:bold;margin-bottom:4px;">' + (isStorage ? 'Cable Flow Rules' : 'Connected Cables') + '</div>';
                     for (var ci = 0; ci < cables.length; ci++) {
                         var cable = cables[ci];
                         var neighborId = (cable.from === buildingId) ? cable.to : cable.from;
                         var neighbor = Buildings.getById(neighborId);
                         var neighborName = 'Building #' + neighborId;
+                        var neighborIcon = '';
                         if (neighbor) {
                             var nDef = Config.BUILDINGS[neighbor.type];
                             neighborName = nDef ? nDef.name : neighbor.type;
+                            neighborIcon = (nDef && nDef.icon) ? nDef.icon + ' ' : '';
                         }
-                        var currentRule = Buildings.getCableRule(buildingId, neighborId);
-                        html += '<div class="cable-rule-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">';
-                        html += '<span style="font-size:12px;">→ ' + (neighbor && Config.BUILDINGS[neighbor.type] ? Config.BUILDINGS[neighbor.type].icon || '' : '') + ' ' + neighborName + '</span>';
-                        html += '<select class="cable-rule-select" data-building-id="' + buildingId + '" data-neighbor-id="' + neighborId + '" style="font-size:11px;padding:2px 4px;background:#1a1a2e;color:#e0e0ff;border:1px solid #444;border-radius:3px;">';
-                        html += '<option value="both"' + (currentRule === 'both' ? ' selected' : '') + '>Both</option>';
-                        html += '<option value="charge"' + (currentRule === 'charge' ? ' selected' : '') + '>Charge Only</option>';
-                        html += '<option value="discharge"' + (currentRule === 'discharge' ? ' selected' : '') + '>Discharge Only</option>';
-                        html += '</select>';
+                        var cableLabel = cable.type === 'high_capacity' ? '⚡' : '🔌';
+                        html += '<div class="cable-rule-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;gap:4px;">';
+                        html += '<span style="font-size:12px;flex:1;">' + cableLabel + ' → ' + neighborIcon + neighborName + '</span>';
+                        // Flow rule dropdown for storage buildings
+                        if (isStorage) {
+                            var currentRule = Buildings.getCableRule(buildingId, neighborId);
+                            html += '<select class="cable-rule-select" data-building-id="' + buildingId + '" data-neighbor-id="' + neighborId + '" style="font-size:11px;padding:2px 4px;background:#1a1a2e;color:#e0e0ff;border:1px solid #444;border-radius:3px;">';
+                            html += '<option value="both"' + (currentRule === 'both' ? ' selected' : '') + '>Both</option>';
+                            html += '<option value="charge"' + (currentRule === 'charge' ? ' selected' : '') + '>Charge Only</option>';
+                            html += '<option value="discharge"' + (currentRule === 'discharge' ? ' selected' : '') + '>Discharge Only</option>';
+                            html += '</select>';
+                        }
+                        // Upgrade button for standard cables
+                        if (cable.type !== 'high_capacity') {
+                            html += '<button class="cable-upgrade-btn" data-from-id="' + cable.from + '" data-to-id="' + cable.to + '" style="font-size:10px;padding:2px 6px;background:#2a2a4e;color:#ffcc00;border:1px solid #555;border-radius:3px;cursor:pointer;">⚡ Upgrade</button>';
+                        }
                         html += '</div>';
                     }
                     html += '</div>';
@@ -895,6 +906,31 @@ var UI = (function () {
                         var rule = this.value;
                         if (typeof Buildings !== 'undefined' && Buildings.setCableRule) {
                             Buildings.setCableRule(bId, nId, rule);
+                        }
+                    });
+                }
+
+                // Wire up cable upgrade buttons
+                var upgBtns = _elements.infoPanel.querySelectorAll('.cable-upgrade-btn');
+                for (var ub = 0; ub < upgBtns.length; ub++) {
+                    upgBtns[ub].addEventListener('click', function () {
+                        var fId = parseInt(this.getAttribute('data-from-id'));
+                        var tId = parseInt(this.getAttribute('data-to-id'));
+                        if (typeof Buildings !== 'undefined' && Buildings.upgradeCable) {
+                            var res = Buildings.upgradeCable(fId, tId);
+                            if (res.success) {
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast('Cable upgraded to HC! ($' + res.cost + ')', 'success', 2000);
+                                }
+                                // Refresh info panel
+                                if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                    UI.showBuildingInfo(_selectedBuildingId);
+                                }
+                            } else {
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast(res.reason || 'Cannot upgrade.', 'error', 2000);
+                                }
+                            }
                         }
                     });
                 }
