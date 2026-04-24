@@ -1510,15 +1510,87 @@ var Render = (function () {
 
             if (!_isInViewport(center.x, center.y, def.range + 20)) continue;
 
+            var range = def.range || 150;
+            var enemies = [];
+            if (typeof Enemies !== 'undefined' && Enemies.getAll) {
+                var allEnemies = Enemies.getAll();
+                for (var j = 0; j < allEnemies.length; j++) {
+                    var e = allEnemies[j];
+                    if (e.hp <= 0) continue;
+                    var edx = e.x - center.x;
+                    var edy = e.y - center.y;
+                    if (edx * edx + edy * edy <= range * range) {
+                        enemies.push(e);
+                    }
+                }
+            }
+
             ctx.save();
-            // Outer glow
-            var gradient = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, def.range);
-            gradient.addColorStop(0, COLORS.FLAME.inner);
-            gradient.addColorStop(1, 'rgba(255, 140, 0, 0)');
-            ctx.fillStyle = gradient;
+
+            // Draw flame tongues toward each enemy in range
+            var time = Date.now() * 0.005;
+            for (var j = 0; j < enemies.length; j++) {
+                var ex = enemies[j].x;
+                var ey = enemies[j].y;
+                var fdx = ex - center.x;
+                var fdy = ey - center.y;
+                var dist = Math.sqrt(fdx * fdx + fdy * fdy);
+                if (dist < 1) continue;
+                var nx = fdx / dist;
+                var ny = fdy / dist;
+
+                // Draw 3 overlapping flame streams per enemy with slight spread
+                for (var f = -1; f <= 1; f++) {
+                    var spreadAngle = f * 0.15;
+                    var snx = nx * Math.cos(spreadAngle) - ny * Math.sin(spreadAngle);
+                    var sny = nx * Math.sin(spreadAngle) + ny * Math.cos(spreadAngle);
+
+                    // Flickering length
+                    var flicker = 0.85 + 0.15 * Math.sin(time * 3 + j * 2 + f * 5);
+                    var flameLen = dist * flicker;
+
+                    var endX = center.x + snx * flameLen;
+                    var endY = center.y + sny * flameLen;
+                    var midX = center.x + snx * flameLen * 0.5;
+                    var midY = center.y + sny * flameLen * 0.5;
+
+                    // Perpendicular for width
+                    var px = -sny;
+                    var py = snx;
+                    var baseWidth = 8 + Math.abs(f) * 3;
+                    var midWidth = 14 + Math.abs(f) * 4;
+
+                    var grad = ctx.createLinearGradient(center.x, center.y, endX, endY);
+                    if (f === 0) {
+                        grad.addColorStop(0, 'rgba(255, 255, 200, 0.9)');
+                        grad.addColorStop(0.3, 'rgba(255, 180, 0, 0.7)');
+                        grad.addColorStop(0.7, 'rgba(255, 80, 0, 0.4)');
+                        grad.addColorStop(1, 'rgba(200, 30, 0, 0)');
+                    } else {
+                        grad.addColorStop(0, 'rgba(255, 200, 50, 0.6)');
+                        grad.addColorStop(0.4, 'rgba(255, 120, 0, 0.4)');
+                        grad.addColorStop(1, 'rgba(180, 30, 0, 0)');
+                    }
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.moveTo(center.x + px * 4, center.y + py * 4);
+                    ctx.quadraticCurveTo(midX + px * midWidth, midY + py * midWidth, endX, endY);
+                    ctx.quadraticCurveTo(midX - px * midWidth, midY - py * midWidth, center.x - px * 4, center.y - py * 4);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // Inner glow at source
+            var glowGrad = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, 25);
+            glowGrad.addColorStop(0, 'rgba(255, 255, 200, 0.5)');
+            glowGrad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            ctx.fillStyle = glowGrad;
             ctx.beginPath();
-            ctx.arc(center.x, center.y, def.range, 0, Math.PI * 2);
+            ctx.arc(center.x, center.y, 25, 0, Math.PI * 2);
             ctx.fill();
+
             ctx.restore();
         }
     }
