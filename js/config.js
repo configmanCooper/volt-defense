@@ -999,7 +999,7 @@ var Config = {
             upgradeTo: null,
             buildable: false,
             description: 'Your base. If this falls, you lose. Acts as a high-capacity energy relay.',
-            icon: '🏛️'
+            icon: '⚫'
         },
         grid_connect: {
             name: 'Consumer Grid Connect',
