@@ -959,9 +959,10 @@ var Config = {
             energyStorageCapacity: 50,
             maxChargeRate: 500,
             maxDischargeRate: 500,
+            maxCableConnections: 6,
             pollution: 0,
             upgradeTo: null,
-            description: 'High-capacity relay. 500 energy/tick throughput for heavy power lines.',
+            description: 'High-capacity relay. 500 energy/tick throughput, 6 cable connections.',
             icon: '⚡'
         },
         core: {
