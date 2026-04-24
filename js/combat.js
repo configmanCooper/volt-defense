@@ -185,6 +185,10 @@ var Combat = (function() {
                 // Stop enemy movement this tick
                 e.blocked = true;
 
+                // Shield does slight contact damage to enemies touching it
+                var shieldContactDmg = 0.5 / tps;
+                e.hp -= shieldContactDmg;
+
                 // Shield break check
                 if (b.shieldHP <= 0) {
                     b.shieldHP = 0;
