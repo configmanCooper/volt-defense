@@ -12,6 +12,7 @@ var Combat = (function() {
     var _teslaChains = [];   // Current frame tesla chain data for rendering
     var _railShots = [];     // Active rail shot visual effects
     var _empBlasts = [];     // Active EMP blast visual effects
+    var _mortarImpacts = [];  // Active mortar impact visual effects
     var _drones = [];        // Active drones from drone bays
     var _nextDroneId = 1;
 
@@ -553,6 +554,7 @@ var Combat = (function() {
                             }
                         }
                     }
+                    _mortarImpacts.push({ x: p.x, y: p.y, radius: p.splashRadius, life: 1.0 });
                     continue; // Projectile consumed by explosion
                 }
 
@@ -857,6 +859,17 @@ var Combat = (function() {
             }
         }
         _empBlasts = activeBlasts;
+
+        // Decay mortar impact effects
+        var tps = (typeof Config !== 'undefined' && Config.TICKS_PER_SECOND) ? Config.TICKS_PER_SECOND : 10;
+        var activeImpacts = [];
+        for (var mi = 0; mi < _mortarImpacts.length; mi++) {
+            _mortarImpacts[mi].life -= 1.5 / tps;
+            if (_mortarImpacts[mi].life > 0) {
+                activeImpacts.push(_mortarImpacts[mi]);
+            }
+        }
+        _mortarImpacts = activeImpacts;
 
         for (var i = 0; i < buildings.length; i++) {
             var b = buildings[i];
@@ -1484,6 +1497,7 @@ var Combat = (function() {
         getTeslaChains: function() { return _teslaChains; },
         getRailShots: function() { return _railShots; },
         getEmpBlasts: function() { return _empBlasts; },
+        getMortarImpacts: function() { return _mortarImpacts; },
         getDrones: function() { return _drones; },
         getFusionBeams: function() { return _fusionBeams; },
 

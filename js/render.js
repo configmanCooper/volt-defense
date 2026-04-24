@@ -1329,6 +1329,24 @@ var Render = (function () {
     }
 
     // ------------------------------------------------------------------------
+    // Layer: Mortar impact effects
+    // ------------------------------------------------------------------------
+    function _drawMortarImpacts(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getMortarImpacts !== 'function') return;
+        var impacts = Combat.getMortarImpacts();
+        if (!impacts || !impacts.length) return;
+
+        for (var i = 0; i < impacts.length; i++) {
+            var imp = impacts[i];
+            var alpha = Math.min(imp.life, 0.35);
+            ctx.beginPath();
+            ctx.arc(Math.floor(imp.x), Math.floor(imp.y), imp.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 40, 20, ' + alpha.toFixed(3) + ')';
+            ctx.fill();
+        }
+    }
+
+    // ------------------------------------------------------------------------
     // Layer: Laser beams
     // ------------------------------------------------------------------------
     function _drawLaserBeams(ctx) {
@@ -2118,6 +2136,7 @@ var Render = (function () {
             _drawShields(_ctx);
             _drawEnemies(_ctx);
             _drawProjectiles(_ctx);
+            _drawMortarImpacts(_ctx);
             _drawLaserBeams(_ctx);
             _drawTeslaChains(_ctx);
             _drawRailShots(_ctx);
