@@ -1024,7 +1024,7 @@ var Config = {
         wall: {
             name: 'Wall',
             category: 'defense',
-            cost: { money: 100, iron: 1 },
+            cost: { money: 50, iron: 1 },
             size: [1, 1],
             hp: 200,
             workersRequired: 0,
