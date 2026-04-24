@@ -289,7 +289,7 @@ var Buildings = (function() {
                 laserRampTime: 0,
                 reloadTimer: 0,
                 // Shield-specific
-                shieldHP: def.shieldHP || 0,
+                shieldHP: Math.floor((def.shieldHP || 0) * 0.1),
                 shieldMaxHP: def.shieldHP || 0,
                 shieldActive: false,
                 // Mining-specific
