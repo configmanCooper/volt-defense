@@ -683,6 +683,9 @@ var UI = (function () {
                 if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
                     cost = Engine.applyDifficultyToCost(def.cost);
                 }
+                if (key === 'consumer_battery' && typeof Buildings !== 'undefined' && Buildings.getConsumerBatteryScaledCost) {
+                    cost = { money: Buildings.getConsumerBatteryScaledCost() };
+                }
                 var canAfford = (typeof Economy !== 'undefined' && Economy.canAfford)
                     ? Economy.canAfford(def.cost) : true;
                 var hasWorkers = (typeof Workers !== 'undefined' && Workers.canAllocate)
