@@ -366,6 +366,11 @@ var Buildings = (function() {
             _updateBuildingGrid(building, true);
             _categoryCacheDirty = true;
 
+            // Invalidate enemy path cache (walkability changed)
+            if (typeof Enemies !== 'undefined' && typeof Enemies.invalidatePathCache === 'function') {
+                Enemies.invalidatePathCache();
+            }
+
             // Allocate workers
             var workersNeeded = def.workersRequired || 0;
             if (workersNeeded > 0 && typeof Workers !== 'undefined' && typeof Workers.allocateWorkers === 'function') {
@@ -420,6 +425,11 @@ var Buildings = (function() {
                     _categoryCacheDirty = true;
                     break;
                 }
+            }
+
+            // Invalidate enemy path cache (walkability changed)
+            if (typeof Enemies !== 'undefined' && typeof Enemies.invalidatePathCache === 'function') {
+                Enemies.invalidatePathCache();
             }
 
             return true;

@@ -41,6 +41,14 @@ var Enemies = (function () {
     var _reachableSpawnsCache = null;  // cached list of spawn points that can reach core
     var _buildingCountAtCache = -1;    // building count when cache was computed
 
+    // ---- Path Cache --------------------------------------------------------
+    // Caches A* results by grid cell so nearby spawns reuse previous paths.
+    // Invalidated when buildings are placed/removed (walkability changes).
+    var _pathCache = {};               // key: 'gx,gy,targetKey' -> { path: [...] | null }
+    var _pathCacheRadius = 3;          // grid-cell search radius for cache hits
+    var _deferredPathQueue = [];       // enemies needing real A* (have direct path for now)
+    var _maxPathfindsPerTick = 2;      // limit expensive A* calls per game tick
+
     // ---- Helpers -----------------------------------------------------------
 
     /**
@@ -280,7 +288,10 @@ var Enemies = (function () {
      * targetBuildingId is optional — buildings on the path are blocked
      * unless they match this id.
      */
-    function _findPath(startX, startY, targetBuildingId) {
+    /**
+     * A* pathfinding from (startX, startY) world coords to the core (raw, no cache).
+     */
+    function _findPathRaw(startX, startY, targetBuildingId) {
         var corePos = _getCorePosition();
         var startGrid = _worldToGrid(startX, startY);
         var endGrid   = _worldToGrid(corePos.x, corePos.y);
@@ -361,6 +372,28 @@ var Enemies = (function () {
 
         // No valid path found — return null
         return null;
+    }
+
+    /**
+     * Cache-aware wrapper around _findPathRaw.
+     * Checks cache first; on miss, runs A* and stores result.
+     */
+    function _findPath(startX, startY, targetBuildingId) {
+        // Skip cache when temp blocked cells are active (placement validation)
+        var hasTempBlocks = false;
+        for (var k in _tempBlockedCells) { hasTempBlocks = true; break; }
+        if (hasTempBlocks) {
+            return _findPathRaw(startX, startY, targetBuildingId);
+        }
+        var grid = _worldToGrid(startX, startY);
+        var targetKey = targetBuildingId || 'core';
+        var cached = _getCachedPath(grid.gx, grid.gy, targetKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+        var result = _findPathRaw(startX, startY, targetBuildingId);
+        _setCachedPath(grid.gx, grid.gy, targetKey, result);
+        return result;
     }
 
     /**
@@ -500,6 +533,69 @@ var Enemies = (function () {
             waypoints.push({ x: sx + dx * i, y: sy + dy * i });
         }
         return waypoints;
+    }
+
+    // ---- Path Cache helpers ------------------------------------------------
+
+    function _pathCacheKey(gx, gy, targetKey) {
+        return gx + ',' + gy + ',' + (targetKey || 'core');
+    }
+
+    /**
+     * Look up a cached path from grid cell (gx,gy) or nearby cells within
+     * _pathCacheRadius. Returns the cached path array (cloned) or undefined.
+     */
+    function _getCachedPath(gx, gy, targetKey) {
+        // Exact match first
+        var exact = _pathCache[_pathCacheKey(gx, gy, targetKey)];
+        if (exact !== undefined) {
+            return exact ? exact.slice() : null;
+        }
+        // Search nearby cells
+        for (var dx = -_pathCacheRadius; dx <= _pathCacheRadius; dx++) {
+            for (var dy = -_pathCacheRadius; dy <= _pathCacheRadius; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                var entry = _pathCache[_pathCacheKey(gx + dx, gy + dy, targetKey)];
+                if (entry !== undefined) {
+                    if (!entry) return null; // nearby cell had no valid path
+                    // Prepend waypoints from our cell to the cached path's start
+                    var myWorld = _gridToWorld(gx, gy);
+                    var cloned = entry.slice();
+                    cloned.unshift(myWorld);
+                    return cloned;
+                }
+            }
+        }
+        return undefined; // cache miss
+    }
+
+    function _setCachedPath(gx, gy, targetKey, path) {
+        _pathCache[_pathCacheKey(gx, gy, targetKey)] = path;
+    }
+
+    function _clearPathCache() {
+        _pathCache = {};
+    }
+
+    /**
+     * Process deferred pathfinding queue — limited per tick for performance.
+     */
+    function _processDeferredPaths() {
+        var processed = 0;
+        while (_deferredPathQueue.length > 0 && processed < _maxPathfindsPerTick) {
+            var enemy = _deferredPathQueue.shift();
+            // Enemy may have been killed already
+            if (enemy.hp <= 0) continue;
+            var targetKey = enemy.targetBuildingId || 'core';
+            var path = _findPathRaw(enemy.x, enemy.y, enemy.targetBuildingId);
+            var grid = _worldToGrid(enemy.x, enemy.y);
+            _setCachedPath(grid.gx, grid.gy, targetKey, path);
+            if (path) {
+                enemy.path = path;
+                enemy.pathIndex = path.length > 1 ? 1 : 0;
+            }
+            processed++;
+        }
     }
 
     /**
@@ -767,9 +863,17 @@ var Enemies = (function () {
             enemy.isBoss = true;
         }
 
-        // Compute initial path
-        var path = _findPath(spawnX, spawnY, enemy.targetBuildingId);
-        enemy.path = path || _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
+        // Compute initial path — use cache, defer A* on miss
+        var grid = _worldToGrid(spawnX, spawnY);
+        var targetKey = enemy.targetBuildingId || 'core';
+        var cached = _getCachedPath(grid.gx, grid.gy, targetKey);
+        if (cached !== undefined) {
+            enemy.path = cached || _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
+        } else {
+            // Use direct path immediately, queue real A* for next tick
+            enemy.path = _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
+            _deferredPathQueue.push(enemy);
+        }
 
         return enemy;
     }
@@ -1150,6 +1254,9 @@ var Enemies = (function () {
         tick: function () {
             _rebuildSpatialGrid();
 
+            // 0. Process deferred pathfinding queue (budget-limited)
+            _processDeferredPaths();
+
             // 1. Process spawn queue
             if (_spawnTimer > 0) {
                 _spawnTimer--;
@@ -1526,6 +1633,10 @@ var Enemies = (function () {
                 _enemies.push(enemy);
             }
             return enemy;
+        },
+
+        invalidatePathCache: function () {
+            _clearPathCache();
         }
     };
 })();
