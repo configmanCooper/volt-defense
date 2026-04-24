@@ -411,9 +411,14 @@ var Energy = (function() {
                             reachable.push(nBuilding);
                         }
 
-                        // Only continue BFS through nodes that already have energy
-                        if (nBuilding.energy > 0 || nCapacity <= 0) {
-                            queue.push(nId);
+                        // Continue BFS through non-storage nodes that have energy.
+                        // Storage buildings (batteries/capacitors) are endpoints only:
+                        // they receive energy (charge) or send energy (discharge) but
+                        // don't allow pass-through, acting as proper bottlenecks.
+                        if (nDef.category !== 'storage') {
+                            if (nBuilding.energy > 0 || nCapacity <= 0) {
+                                queue.push(nId);
+                            }
                         }
                     }
                 }
@@ -461,28 +466,13 @@ var Energy = (function() {
                     _activeFlowNodes[receiver.id] = true;
 
                     // Record flow along the path for cable flow labels
-                    // Skip cables through intermediate storage buildings (they're pass-through,
-                    // not actually discharging — only the generator itself discharges)
                     var pathNode = receiver.id;
                     while (parentMap[pathNode] !== undefined) {
                         var parentNode = parentMap[pathNode];
-                        // Skip if parentNode is a storage building that isn't the generator
-                        var skipSegment = false;
-                        if (parentNode !== gen.id) {
-                            var pnBuilding = Buildings.getById(parentNode);
-                            if (pnBuilding) {
-                                var pnDef = _getDef(pnBuilding.type);
-                                if (pnDef && pnDef.category === 'storage') {
-                                    skipSegment = true;
-                                }
-                            }
-                        }
-                        if (!skipSegment) {
-                            var flowKey = parentNode < pathNode ? parentNode + '-' + pathNode : pathNode + '-' + parentNode;
-                            var flowDir = parentNode < pathNode ? 1 : -1;
-                            if (!_cableFlowThisTick[flowKey]) _cableFlowThisTick[flowKey] = 0;
-                            _cableFlowThisTick[flowKey] += transferable * flowDir;
-                        }
+                        var flowKey = parentNode < pathNode ? parentNode + '-' + pathNode : pathNode + '-' + parentNode;
+                        var flowDir = parentNode < pathNode ? 1 : -1;
+                        if (!_cableFlowThisTick[flowKey]) _cableFlowThisTick[flowKey] = 0;
+                        _cableFlowThisTick[flowKey] += transferable * flowDir;
                         pathNode = parentNode;
                     }
                 }
