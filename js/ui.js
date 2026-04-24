@@ -921,6 +921,15 @@ var UI = (function () {
             // Pollution
             if (def.pollution > 0) {
                 html += '<div class="info-stat">🏭 Pollution: +' + def.pollution + '/tick</div>';
+                // Manual shutdown toggle for polluting power plants
+                if (def.category === 'power') {
+                    var isOff = building.manualOff || false;
+                    html += '<div class="info-stat" style="margin:4px 0;">';
+                    html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">';
+                    html += '<input type="checkbox" class="plant-toggle-cb" data-building-id="' + buildingId + '"' + (isOff ? '' : ' checked') + '>';
+                    html += '<span style="color:' + (isOff ? '#ff6666' : '#66ff66') + ';">' + (isOff ? '⛔ Plant OFF' : '✅ Plant ON') + '</span>';
+                    html += '</label></div>';
+                }
             }
             if (def.pollutionReduction > 0) {
                 html += '<div class="info-stat">🌿 Cleans: -' + def.pollutionReduction + '/tick</div>';
@@ -1136,6 +1145,21 @@ var UI = (function () {
                             if (bldg) {
                                 if (!bldg.marketToggles) bldg.marketToggles = { coal: false, iron: false, oil: false, uranium: false };
                                 bldg.marketToggles[resource] = this.checked;
+                            }
+                        }
+                    });
+                }
+
+                // Plant on/off toggle for polluting power plants
+                var plantCbs = _elements.infoPanel.querySelectorAll('.plant-toggle-cb');
+                for (var pc = 0; pc < plantCbs.length; pc++) {
+                    plantCbs[pc].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        if (typeof Buildings !== 'undefined' && Buildings.toggleManualOff) {
+                            var isOff = Buildings.toggleManualOff(bId);
+                            // Refresh the panel to update label
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(bId);
                             }
                         }
                     });

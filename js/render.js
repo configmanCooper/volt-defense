@@ -985,8 +985,8 @@ var Render = (function () {
             ctx.lineWidth = 1;
             ctx.strokeRect(b.worldX, b.worldY, pw, ph);
 
-            // Inactive overlay (no power, no workers, or EMP disabled)
-            if (!b.active || empDisabled[b.id]) {
+            // Inactive overlay (no power, no workers, EMP disabled, or manually off)
+            if (!b.active || empDisabled[b.id] || b.manualOff) {
                 ctx.fillStyle = 'rgba(0,0,0,0.4)';
                 ctx.fillRect(b.worldX, b.worldY, pw, ph);
                 // Flashing indicator for EMP

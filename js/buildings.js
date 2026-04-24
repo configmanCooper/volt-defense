@@ -374,6 +374,8 @@ var Buildings = (function() {
                 cableRules: {},
                 // Cable priorities for pylons: { 'neighborId': 1-5, default 1 }
                 cablePriorities: {},
+                // Manual shutdown toggle for polluting power plants
+                manualOff: false,
                 // Track placement time for refund tiers
                 placedAt: (typeof Engine !== 'undefined' && Engine.getGameTime) ? Engine.getGameTime() : 0
             };
@@ -844,6 +846,13 @@ var Buildings = (function() {
             return _getRefundRatio(b);
         },
 
+        toggleManualOff: function(buildingId) {
+            var b = _getById(buildingId);
+            if (!b) return false;
+            b.manualOff = !b.manualOff;
+            return b.manualOff;
+        },
+
         // ================================================================
         // Utility
         // ================================================================
@@ -914,6 +923,7 @@ var Buildings = (function() {
                     sellReady: b.sellReady,
                     cableRules: b.cableRules || {},
                     cablePriorities: b.cablePriorities || {},
+                    manualOff: b.manualOff || false,
                     placedAt: b.placedAt || 0,
                     marketToggles: b.marketToggles || null,
                     marketTimer: b.marketTimer || 0
@@ -970,6 +980,7 @@ var Buildings = (function() {
                         sellReady: saved.sellReady || false,
                         cableRules: saved.cableRules || {},
                         cablePriorities: saved.cablePriorities || {},
+                        manualOff: saved.manualOff || false,
                         placedAt: saved.placedAt || 0,
                         marketToggles: saved.marketToggles || null,
                         marketTimer: saved.marketTimer || 0

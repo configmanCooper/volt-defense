@@ -235,12 +235,9 @@ var Energy = (function() {
                 if (!def || !def.energyGeneration || def.energyGeneration <= 0) continue;
                 if (building.hp <= 0) continue;
                 if (!building.active && building.type !== 'core') {
-                    // Generators activate if they have workers (checked externally)
-                    // Still allow generation if active flag not yet set but HP > 0
-                    // Workers module sets active based on staffing; we respect it here
-                    // For generators, active means staffed — skip if not active
                     continue;
                 }
+                if (building.manualOff) continue;
 
                 var genPerTick = def.energyGeneration / tps;
                 var actualGen = genPerTick;
