@@ -1093,7 +1093,6 @@ var Enemies = (function () {
                 _tempBlockedCells[blockedCells[i].x + ',' + blockedCells[i].y] = true;
             }
 
-            var reachable = true;
             var spawnPts = (typeof Map !== 'undefined' && Map.getSpawnPoints)
                 ? Map.getSpawnPoints() : [];
 
@@ -1109,17 +1108,19 @@ var Enemies = (function () {
                 ];
             }
 
+            // At least one spawn point must still be able to reach the core
+            var anyReachable = false;
             for (var s = 0; s < spawnPts.length; s++) {
                 var path = _findPath(spawnPts[s].x, spawnPts[s].y);
-                if (!path) {
-                    reachable = false;
+                if (path) {
+                    anyReachable = true;
                     break;
                 }
             }
 
             // Clear temporary blocked cells
             _tempBlockedCells = {};
-            return reachable;
+            return anyReachable;
         },
 
         // ---- Save / Load ------------------------------------------------------
