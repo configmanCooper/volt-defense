@@ -399,7 +399,12 @@ var Energy = (function() {
                         var nCapacity = nDef.energyStorageCapacity || 0;
                         var remaining = nCapacity - nBuilding.energy;
                         if (remaining > 0) {
-                            reachable.push(nBuilding);
+                            // Don't send energy to storage buildings that have >= energy as this generator
+                            // This prevents ping-pong between storage buildings
+                            var isStorageTarget = (nDef.category === 'storage' || nBuilding.type === 'pylon' || nBuilding.type === 'hc_pylon');
+                            if (!isStorageTarget || nBuilding.energy < gen.energy) {
+                                reachable.push(nBuilding);
+                            }
                         }
 
                         // Only continue BFS through nodes that already have energy
