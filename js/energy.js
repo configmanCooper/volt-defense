@@ -351,12 +351,20 @@ var Energy = (function() {
                 visited[gen.id] = true;
                 var reachable = [];
                 var minThroughputMap = {}; // buildingId -> min cable throughput along path
+                var pylonPriorityMap = {}; // buildingId -> max (worst) pylon cable priority along path
                 minThroughputMap[gen.id] = Infinity;
+                pylonPriorityMap[gen.id] = 1;
 
                 while (queue.length > 0) {
                     var currentId = queue.shift();
                     var currentMinTP = minThroughputMap[currentId] || Infinity;
+                    var currentPylonPri = pylonPriorityMap[currentId] || 1;
                     var neighbors = adjacency[currentId] || [];
+
+                    // Check if current node is a pylon with priorities
+                    var currentBuilding = Buildings.getById(currentId);
+                    var isPylon = (currentBuilding && (currentBuilding.type === 'pylon' || currentBuilding.type === 'hc_pylon'));
+
                     for (var n = 0; n < neighbors.length; n++) {
                         var nId = neighbors[n];
                         if (visited[nId]) continue;
@@ -369,19 +377,23 @@ var Energy = (function() {
                         if (!nDef) continue;
 
                         // Check cable flow rules
-                        // Current node discharging toward neighbor
-                        var currentBuilding = Buildings.getById(currentId);
                         if (currentBuilding && currentBuilding.cableRules && currentBuilding.cableRules[nId] === 'charge') {
-                            continue; // current only accepts charge from neighbor, won't discharge
+                            continue;
                         }
-                        // Neighbor accepting charge from current
                         if (nBuilding.cableRules && nBuilding.cableRules[currentId] === 'discharge') {
-                            continue; // neighbor only discharges to current, won't accept charge
+                            continue;
                         }
 
                         // Track min throughput along path
                         var cableTP = _cachedCableThroughput(currentId, nId) / tps;
                         minThroughputMap[nId] = Math.min(currentMinTP, cableTP);
+
+                        // Track worst pylon priority along path
+                        var edgePri = currentPylonPri;
+                        if (isPylon && currentBuilding.cablePriorities && currentBuilding.cablePriorities[nId]) {
+                            edgePri = Math.max(edgePri, currentBuilding.cablePriorities[nId]);
+                        }
+                        pylonPriorityMap[nId] = edgePri;
 
                         // Check if this building needs/accepts energy
                         var nCapacity = nDef.energyStorageCapacity || 0;
@@ -391,15 +403,17 @@ var Energy = (function() {
                         }
 
                         // Only continue BFS through nodes that already have energy
-                        // This prevents energy from "teleporting" through empty relays
                         if (nBuilding.energy > 0 || nCapacity <= 0) {
                             queue.push(nId);
                         }
                     }
                 }
 
-                // Sort reachable by priority
+                // Sort reachable by pylon priority first, then by type priority
                 reachable.sort(function(a, b) {
+                    var priA = pylonPriorityMap[a.id] || 1;
+                    var priB = pylonPriorityMap[b.id] || 1;
+                    if (priA !== priB) return priA - priB;
                     return _priorityMap[a.id] - _priorityMap[b.id];
                 });
 

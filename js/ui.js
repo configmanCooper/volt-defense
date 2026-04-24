@@ -849,8 +849,10 @@ var UI = (function () {
                 var cables = Buildings.getCablesForBuilding(buildingId);
                 if (cables && cables.length > 0) {
                     var isStorage = (def.category === 'storage');
+                    var isPylon = (building.type === 'pylon' || building.type === 'hc_pylon');
+                    var sectionTitle = isStorage ? 'Cable Flow Rules' : (isPylon ? 'Cable Priorities' : 'Connected Cables');
                     html += '<div class="info-cable-rules">';
-                    html += '<div class="info-stat" style="font-weight:bold;margin-bottom:4px;">' + (isStorage ? 'Cable Flow Rules' : 'Connected Cables') + '</div>';
+                    html += '<div class="info-stat" style="font-weight:bold;margin-bottom:4px;">' + sectionTitle + '</div>';
                     for (var ci = 0; ci < cables.length; ci++) {
                         var cable = cables[ci];
                         var neighborId = (cable.from === buildingId) ? cable.to : cable.from;
@@ -872,6 +874,15 @@ var UI = (function () {
                             html += '<option value="both"' + (currentRule === 'both' ? ' selected' : '') + '>Both</option>';
                             html += '<option value="charge"' + (currentRule === 'charge' ? ' selected' : '') + '>Charge Only</option>';
                             html += '<option value="discharge"' + (currentRule === 'discharge' ? ' selected' : '') + '>Discharge Only</option>';
+                            html += '</select>';
+                        }
+                        // Priority dropdown for pylons
+                        if (isPylon) {
+                            var curPri = Buildings.getCablePriority(buildingId, neighborId);
+                            html += '<select class="cable-priority-select" data-building-id="' + buildingId + '" data-neighbor-id="' + neighborId + '" style="font-size:11px;padding:2px 4px;background:#1a1a2e;color:#e0e0ff;border:1px solid #444;border-radius:3px;">';
+                            for (var pi = 1; pi <= 5; pi++) {
+                                html += '<option value="' + pi + '"' + (curPri === pi ? ' selected' : '') + '>P' + pi + '</option>';
+                            }
                             html += '</select>';
                         }
                         // Upgrade button for standard cables
@@ -943,6 +954,18 @@ var UI = (function () {
                                     UI.showToast(res.reason || 'Cannot upgrade.', 'error', 2000);
                                 }
                             }
+                        }
+                    });
+                }
+                // Wire up cable priority dropdowns
+                var priSelects = _elements.infoPanel.querySelectorAll('.cable-priority-select');
+                for (var ps = 0; ps < priSelects.length; ps++) {
+                    priSelects[ps].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'));
+                        var nId = parseInt(this.getAttribute('data-neighbor-id'));
+                        var pri = parseInt(this.value);
+                        if (typeof Buildings !== 'undefined' && Buildings.setCablePriority) {
+                            Buildings.setCablePriority(bId, nId, pri);
                         }
                     });
                 }

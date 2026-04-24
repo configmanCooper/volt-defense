@@ -337,6 +337,8 @@ var Buildings = (function() {
                 sellReady: false,
                 // Cable flow rules: { 'neighborId': 'both'|'charge'|'discharge' }
                 cableRules: {},
+                // Cable priorities for pylons: { 'neighborId': 1-5, default 1 }
+                cablePriorities: {},
                 // Track placement time for refund tiers
                 placedAt: (typeof Engine !== 'undefined' && Engine.getGameTime) ? Engine.getGameTime() : 0
             };
@@ -690,6 +692,19 @@ var Buildings = (function() {
             b.cableRules[neighborId] = rule;
         },
 
+        getCablePriority: function(buildingId, neighborId) {
+            var b = _getById(buildingId);
+            if (!b || !b.cablePriorities) return 1;
+            return b.cablePriorities[neighborId] || 1;
+        },
+
+        setCablePriority: function(buildingId, neighborId, priority) {
+            var b = _getById(buildingId);
+            if (!b) return;
+            if (!b.cablePriorities) b.cablePriorities = {};
+            b.cablePriorities[neighborId] = priority;
+        },
+
         getCount: function() {
             return _buildings.length;
         },
@@ -768,6 +783,7 @@ var Buildings = (function() {
                     shieldActive: b.shieldActive,
                     sellReady: b.sellReady,
                     cableRules: b.cableRules || {},
+                    cablePriorities: b.cablePriorities || {},
                     placedAt: b.placedAt || 0
                 });
             }
@@ -821,6 +837,7 @@ var Buildings = (function() {
                         depositRef: null,
                         sellReady: saved.sellReady || false,
                         cableRules: saved.cableRules || {},
+                        cablePriorities: saved.cablePriorities || {},
                         placedAt: saved.placedAt || 0
                     };
 
