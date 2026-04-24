@@ -725,7 +725,7 @@ var Config = {
             maxDischargeRate: 0,
             pollution: 8,
             range: 1200,
-            baseDPS: 20,
+            baseDPS: 40,
             energyDraw: 80,
             uraniumPerSecond: 0.5,
             upgradeTo: null,
