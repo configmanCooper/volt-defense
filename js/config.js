@@ -301,7 +301,7 @@ var Config = {
             workersRequired: 1,
             energyGeneration: 0,
             energyConsumption: 0,
-            energyStorageCapacity: 5000,
+            energyStorageCapacity: 3750,
             maxChargeRate: 50,
             maxDischargeRate: 0,
             pollution: 0,
@@ -1014,9 +1014,9 @@ var Config = {
             maxChargeRate: 20,
             maxDischargeRate: 0,
             pollution: 0,
-            moneyPerSecond: 3,
+            moneyPerSecond: 4,
             upgradeTo: null,
-            description: 'Sells power to the consumer grid. Slowly earns $3/s while powered.',
+            description: 'Sells power to the consumer grid. Slowly earns $4/s while powered.',
             icon: '🔌'
         },
 
