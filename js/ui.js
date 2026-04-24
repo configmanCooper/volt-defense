@@ -1341,9 +1341,11 @@ var UI = (function () {
             html += '<th style="padding:6px;">Special</th>';
             html += '</tr></thead><tbody>';
 
+            var isDebug = (typeof Input !== 'undefined' && Input.isDebugMode && Input.isDebugMode());
+
             for (var j = 0; j < entries.length; j++) {
                 var e = entries[j];
-                var seen = currentWave >= (e.def.firstWave || 1);
+                var seen = isDebug || currentWave >= (e.def.firstWave || 1);
                 var rowId = 'glossary-row-' + j;
                 var descId = 'glossary-desc-' + j;
                 html += '<tr id="' + rowId + '" style="border-bottom:1px solid #333;' + (seen ? 'cursor:pointer;' : '') + '"' +
