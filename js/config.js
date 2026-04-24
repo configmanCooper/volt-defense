@@ -675,7 +675,7 @@ var Config = {
             pollution: 0,
             maxDrones: 3,
             droneSpawnTicks: 240,
-            droneIronCost: 10,
+            droneIronCost: 20,
             droneEnergyCost: 500,
             droneHP: 50,
             droneDPS: 24,
