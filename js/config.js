@@ -1031,7 +1031,7 @@ var Config = {
             energyGeneration: 0,
             energyConsumption: 0,
             energyStorageCapacity: 10000,
-            maxChargeRate: 200,
+            maxChargeRate: 50,
             maxDischargeRate: 0,
             pollution: 0,
             requiresAdjacentCore: true,
