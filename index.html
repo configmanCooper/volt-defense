@@ -50,10 +50,12 @@
 
         <div id="menu-buttons">
             <button class="menu-btn" data-action="newGame">New Game</button>
+            <button class="menu-btn" data-action="show-load-menu" id="btn-load-game">Load Game</button>
         </div>
-        <div id="save-slots">
-            <h2>Save Slots</h2>
+        <div id="load-game-panel" style="display: none;">
+            <h2>Load Game</h2>
             <div id="save-slot-list"></div>
+            <button class="menu-btn" data-action="hide-load-menu" style="margin-top:12px;">Back</button>
         </div>
     </div>
 
@@ -167,7 +169,13 @@
                 <div class="pause-slot-info">Slot <span id="pause-slot-num">1</span></div>
                 <button class="menu-btn" data-action="resume">Resume</button>
                 <button class="menu-btn" data-action="save-game">Save Game</button>
+                <button class="menu-btn" data-action="show-load-ingame">Load Game</button>
                 <button class="menu-btn" data-action="quit-to-menu">Quit to Menu</button>
+            </div>
+            <div class="pause-load-panel" id="pause-load-panel" style="display: none;">
+                <h3>Load Game</h3>
+                <div id="pause-slot-list"></div>
+                <button class="menu-btn" data-action="hide-load-ingame" style="margin-top:12px;">Back</button>
             </div>
         </div>
     </div>

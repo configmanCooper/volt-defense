@@ -326,9 +326,8 @@ var UI = (function () {
                 break;
 
             case 'save-game':
-                if (typeof Save !== 'undefined' && Save.saveGame) {
-                    Save.saveGame();
-                    UI.showToast('Game saved!', 'success');
+                if (typeof Save !== 'undefined' && Save.save) {
+                    Save.save();
                 }
                 break;
 
@@ -458,7 +457,7 @@ var UI = (function () {
                 wind: document.getElementById('hud-wind')
             };
 
-            // Music HUD controls
+            // Music HUD controls (only bind once)
             var musicToggleBtn = document.getElementById('btn-music-toggle');
             var musicVolumeSlider = document.getElementById('hud-music-volume');
 
@@ -466,35 +465,42 @@ var UI = (function () {
                 if (typeof Music !== 'undefined') {
                     musicToggleBtn.textContent = Music.isEnabled() ? '🔊' : '🔇';
                 }
-                musicToggleBtn.addEventListener('click', function () {
-                    if (typeof Music === 'undefined') return;
-                    var enabled = Music.toggle();
-                    musicToggleBtn.textContent = enabled ? '🔊' : '🔇';
-                    // Also sync menu button if it exists
-                    var menuBtn = document.getElementById('menu-music-toggle');
-                    if (menuBtn) menuBtn.textContent = enabled ? '🔊 Music On' : '🔇 Music Off';
-                });
+                if (!musicToggleBtn._bound) {
+                    musicToggleBtn._bound = true;
+                    musicToggleBtn.addEventListener('click', function () {
+                        if (typeof Music === 'undefined') return;
+                        var enabled = Music.toggle();
+                        musicToggleBtn.textContent = enabled ? '🔊' : '🔇';
+                        var menuBtn = document.getElementById('menu-music-toggle');
+                        if (menuBtn) menuBtn.textContent = enabled ? '🔊 Music On' : '🔇 Music Off';
+                    });
+                }
             }
 
             if (musicVolumeSlider) {
                 if (typeof Music !== 'undefined') {
                     musicVolumeSlider.value = Math.round(Music.getVolume() * 100);
                 }
-                musicVolumeSlider.addEventListener('input', function () {
-                    if (typeof Music === 'undefined') return;
-                    Music.setVolume(parseInt(musicVolumeSlider.value, 10) / 100);
-                    // Sync menu slider if it exists
-                    var menuSlider = document.getElementById('menu-music-volume');
-                    if (menuSlider) menuSlider.value = musicVolumeSlider.value;
-                });
+                if (!musicVolumeSlider._bound) {
+                    musicVolumeSlider._bound = true;
+                    musicVolumeSlider.addEventListener('input', function () {
+                        if (typeof Music === 'undefined') return;
+                        Music.setVolume(parseInt(musicVolumeSlider.value, 10) / 100);
+                        var menuSlider = document.getElementById('menu-music-volume');
+                        if (menuSlider) menuSlider.value = musicVolumeSlider.value;
+                    });
+                }
             }
 
-            document.addEventListener('click', function (e) {
-                var target = e.target.closest('[data-action]');
-                if (!target) return;
-                var action = target.getAttribute('data-action');
-                _handleAction(action, target, e);
-            });
+            if (!UI._clickListenerAdded) {
+                UI._clickListenerAdded = true;
+                document.addEventListener('click', function (e) {
+                    var target = e.target.closest('[data-action]');
+                    if (!target) return;
+                    var action = target.getAttribute('data-action');
+                    _handleAction(action, target, e);
+                });
+            }
         },
 
         update: function () {

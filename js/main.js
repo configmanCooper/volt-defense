@@ -206,46 +206,45 @@ var Main = (function () {
 
     // ---- Save slot UI -------------------------------------------------------
 
-    function _refreshSlotList() {
-        var container = document.getElementById('save-slot-list');
+    function _buildSlotListHTML(containerId, includeAutosaves) {
+        var container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = '';
 
-        var i;
+        var i, info, entry, label, actions, loadBtn, delBtn, d, dateStr, diffName;
+
+        // Regular save slots
         for (i = 1; i <= 5; i++) {
-            var info = (typeof Save !== 'undefined' && Save.getSlotInfo) ? Save.getSlotInfo(i) : null;
-            var entry = document.createElement('div');
+            info = (typeof Save !== 'undefined' && Save.getSlotInfo) ? Save.getSlotInfo(i) : null;
+            entry = document.createElement('div');
             entry.className = 'save-slot-entry';
 
-            var label = document.createElement('div');
+            label = document.createElement('div');
             label.className = 'save-slot-label';
 
             if (info) {
-                var d = new Date(info.timestamp);
-                var dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
-                var diffName = info.difficulty.charAt(0).toUpperCase() + info.difficulty.slice(1);
+                d = new Date(info.timestamp);
+                dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+                diffName = info.difficulty.charAt(0).toUpperCase() + info.difficulty.slice(1);
                 label.innerHTML = '<strong>Slot ' + i + '</strong> — Wave ' + info.wave +
                     ' · ' + diffName + '<br><span class="save-slot-date">' + dateStr + '</span>';
             } else {
                 label.innerHTML = '<strong>Slot ' + i + '</strong> — <span class="save-slot-empty">Empty</span>';
             }
 
-            var actions = document.createElement('div');
+            actions = document.createElement('div');
             actions.className = 'save-slot-actions';
 
-            var loadBtn = document.createElement('button');
+            loadBtn = document.createElement('button');
             loadBtn.className = 'menu-btn save-slot-btn';
             loadBtn.textContent = 'Load';
             loadBtn.setAttribute('data-action', 'load-slot');
             loadBtn.setAttribute('data-slot', i);
-            if (!info) {
-                loadBtn.disabled = true;
-            }
-
+            if (!info) loadBtn.disabled = true;
             actions.appendChild(loadBtn);
 
             if (info) {
-                var delBtn = document.createElement('button');
+                delBtn = document.createElement('button');
                 delBtn.className = 'menu-btn save-slot-btn save-slot-del';
                 delBtn.textContent = '🗑';
                 delBtn.setAttribute('data-action', 'delete-slot');
@@ -257,6 +256,49 @@ var Main = (function () {
             entry.appendChild(actions);
             container.appendChild(entry);
         }
+
+        // Autosave slots
+        if (includeAutosaves) {
+            for (i = 1; i <= 2; i++) {
+                info = (typeof Save !== 'undefined' && Save.getAutosaveInfo) ? Save.getAutosaveInfo(i) : null;
+                if (!info) continue;
+
+                entry = document.createElement('div');
+                entry.className = 'save-slot-entry save-slot-autosave';
+
+                label = document.createElement('div');
+                label.className = 'save-slot-label';
+
+                d = new Date(info.timestamp);
+                dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+                diffName = info.difficulty.charAt(0).toUpperCase() + info.difficulty.slice(1);
+                var ageLabel = (i === 1) ? '~5 min ago' : '~10 min ago';
+                label.innerHTML = '<strong>Autosave ' + i + '</strong> <span class="save-slot-date">(' + ageLabel + ')</span> — Wave ' + info.wave +
+                    ' · ' + diffName + '<br><span class="save-slot-date">' + dateStr + '</span>';
+
+                actions = document.createElement('div');
+                actions.className = 'save-slot-actions';
+
+                loadBtn = document.createElement('button');
+                loadBtn.className = 'menu-btn save-slot-btn';
+                loadBtn.textContent = 'Load';
+                loadBtn.setAttribute('data-action', 'load-autosave');
+                loadBtn.setAttribute('data-slot', i);
+                actions.appendChild(loadBtn);
+
+                entry.appendChild(label);
+                entry.appendChild(actions);
+                container.appendChild(entry);
+            }
+        }
+    }
+
+    function _refreshSlotList() {
+        _buildSlotListHTML('save-slot-list', true);
+    }
+
+    function _refreshPauseSlotList() {
+        _buildSlotListHTML('pause-slot-list', true);
     }
 
     function _showSlotPicker(callback) {
@@ -312,6 +354,56 @@ var Main = (function () {
         }
     }
 
+    // ---- Load game from autosave or slot (in-game) ----------------------------
+
+    function _loadGameFromAutosave(n) {
+        if (typeof Save === 'undefined' || !Save.loadAutosave) return;
+        _stopLoops();
+        if (Save.loadAutosave(n)) {
+            if (typeof Render !== 'undefined' && typeof Render.init === 'function') Render.init();
+            if (typeof UI !== 'undefined' && typeof UI.init === 'function') UI.init();
+            if (typeof Input !== 'undefined' && typeof Input.init === 'function') Input.init();
+            _hidePauseLoadPanel();
+            var po = document.getElementById('pause-overlay');
+            if (po) po.style.display = 'none';
+            if (typeof Engine !== 'undefined' && Engine.setPaused) Engine.setPaused(false);
+            _startLoops();
+            _initialized = true;
+        } else {
+            _startLoops();
+        }
+    }
+
+    function _showLoadPanel() {
+        var panel = document.getElementById('load-game-panel');
+        if (panel) {
+            _refreshSlotList();
+            panel.style.display = '';
+        }
+    }
+
+    function _hideLoadPanel() {
+        var panel = document.getElementById('load-game-panel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    function _showPauseLoadPanel() {
+        var panel = document.getElementById('pause-load-panel');
+        var content = document.querySelector('.pause-content');
+        if (panel) {
+            _refreshPauseSlotList();
+            panel.style.display = '';
+        }
+        if (content) content.style.display = 'none';
+    }
+
+    function _hidePauseLoadPanel() {
+        var panel = document.getElementById('pause-load-panel');
+        var content = document.querySelector('.pause-content');
+        if (panel) panel.style.display = 'none';
+        if (content) content.style.display = '';
+    }
+
     // ---- DOM Ready & delegation ---------------------------------------------
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -336,13 +428,42 @@ var Main = (function () {
                 if (_selectedDifficulty) {
                     _showSlotPicker(function (slot) {
                         if (typeof Save !== 'undefined') Save.setSlot(slot);
+                        _hideLoadPanel();
                         _startGame(_selectedDifficulty);
                     });
                 }
+            } else if (action === 'show-load-menu') {
+                _showLoadPanel();
+            } else if (action === 'hide-load-menu') {
+                _hideLoadPanel();
+            } else if (action === 'show-load-ingame') {
+                _showPauseLoadPanel();
+            } else if (action === 'hide-load-ingame') {
+                _hidePauseLoadPanel();
             } else if (action === 'load-slot') {
                 var loadSlot = parseInt(target.getAttribute('data-slot'), 10);
                 if (loadSlot >= 1 && loadSlot <= 5) {
+                    _hideLoadPanel();
+                    _hidePauseLoadPanel();
                     _loadGame(loadSlot);
+                }
+            } else if (action === 'load-autosave') {
+                var autoSlot = parseInt(target.getAttribute('data-slot'), 10);
+                if (autoSlot >= 1 && autoSlot <= 2) {
+                    if (_initialized) {
+                        _loadGameFromAutosave(autoSlot);
+                    } else {
+                        // From main menu
+                        if (typeof Save !== 'undefined' && Save.loadAutosave && Save.loadAutosave(autoSlot)) {
+                            _hideLoadPanel();
+                            if (typeof Render !== 'undefined' && typeof Render.init === 'function') Render.init();
+                            if (typeof UI !== 'undefined' && typeof UI.init === 'function') UI.init();
+                            if (typeof Input !== 'undefined' && typeof Input.init === 'function') Input.init();
+                            _showScreen('game');
+                            _startLoops();
+                            _initialized = true;
+                        }
+                    }
                 }
             } else if (action === 'delete-slot') {
                 var delSlot = parseInt(target.getAttribute('data-slot'), 10);
@@ -350,6 +471,7 @@ var Main = (function () {
                     if (typeof Save !== 'undefined' && Save.deleteSlot) {
                         Save.deleteSlot(delSlot);
                         _refreshSlotList();
+                        _refreshPauseSlotList();
                     }
                 }
             } else if (action === 'saveGame' || action === 'save-game') {
@@ -359,13 +481,15 @@ var Main = (function () {
             } else if (action === 'quitToMenu' || action === 'quit-to-menu' || action === 'return-menu') {
                 _stopLoops();
                 _initialized = false;
+                _hidePauseLoadPanel();
+                var po = document.getElementById('pause-overlay');
+                if (po) po.style.display = 'none';
                 _showScreen('menu');
-                _refreshSlotList();
             }
         });
 
         // Initial screen state
-        _refreshSlotList();
+        _hideLoadPanel();
         _initMenuMusic();
         _showScreen('menu');
     });
