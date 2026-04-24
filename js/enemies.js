@@ -1517,6 +1517,15 @@ var Enemies = (function () {
             _totalKills    = data.totalKills    || 0;
             _totalEscaped  = data.totalEscaped  || 0;
             _spawnPoints   = data.spawnPoints   || [];
+        },
+
+        debugSpawn: function (typeKey, worldX, worldY) {
+            var wave = _currentWave || 1;
+            var enemy = _createEnemy(typeKey, worldX, worldY, wave);
+            if (enemy) {
+                _enemies.push(enemy);
+            }
+            return enemy;
         }
     };
 })();

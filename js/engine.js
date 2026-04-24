@@ -224,6 +224,7 @@ var Engine = (function() {
 
         damageCoreHP: function(amount) {
             if (!_state) { return; }
+            if (_state.godMode) { return; }
             _state.coreHP -= amount;
             if (_state.coreHP <= 0) {
                 _state.coreHP = 0;
@@ -234,6 +235,9 @@ var Engine = (function() {
         getGameTime: function() { return _state ? _state.gameTime : 0; },
 
         isGameOver: function() { return _state ? _state.gameOver : false; },
+
+        setGodMode: function(on) { if (_state) _state.godMode = !!on; },
+        isGodMode: function() { return _state ? !!_state.godMode : false; },
 
         isPaused: function() { return _state ? _state.paused : false; },
 

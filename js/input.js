@@ -20,6 +20,12 @@ var Input = (function () {
     var _initialized = false;
     var _lastMouseGrid = { x: -1, y: -1 };
 
+    // Debug mode
+    var _debugMode = false;
+    var _debugSpawnType = null;
+    var _debugKeyBuffer = '';
+    var _debugKeyTimer = null;
+
     // Deposit hover tooltip
     var _hoverGrid = { x: -1, y: -1 };
     var _hoverStartTime = 0;
@@ -316,6 +322,14 @@ var Input = (function () {
                     }
                     if (_state === 'placing') {
                         _attemptPlacement();
+                    } else if (_debugMode && _debugSpawnType) {
+                        // Debug: spawn enemy at click position
+                        if (typeof Enemies !== 'undefined' && Enemies.debugSpawn) {
+                            Enemies.debugSpawn(_debugSpawnType, _mouseWorld.x, _mouseWorld.y);
+                            if (typeof UI !== 'undefined' && UI.showToast) {
+                                UI.showToast('Spawned: ' + _debugSpawnType, 'info', 1000);
+                            }
+                        }
                     } else if (_state === 'cable') {
                         _attemptCableConnection();
                     } else {
@@ -421,6 +435,25 @@ var Input = (function () {
             // ---- Keyboard down ----
             document.addEventListener('keydown', function (e) {
                 _keysDown[e.key.toLowerCase()] = true;
+
+                // Debug mode activation: type "volt"
+                if (e.key.length === 1 && /[a-z]/i.test(e.key)) {
+                    _debugKeyBuffer += e.key.toLowerCase();
+                    if (_debugKeyTimer) clearTimeout(_debugKeyTimer);
+                    _debugKeyTimer = setTimeout(function() { _debugKeyBuffer = ''; }, 1500);
+                    if (_debugKeyBuffer.indexOf('volt') !== -1) {
+                        _debugKeyBuffer = '';
+                        _debugMode = !_debugMode;
+                        _debugSpawnType = null;
+                        if (typeof UI !== 'undefined' && UI.toggleDebugBar) {
+                            UI.toggleDebugBar(_debugMode);
+                        }
+                        if (typeof UI !== 'undefined' && UI.showToast) {
+                            UI.showToast(_debugMode ? '⚡ Debug mode ON' : 'Debug mode OFF', 'info', 2000);
+                        }
+                        return;
+                    }
+                }
 
                 // Escape — cancel current action or toggle pause
                 if (e.key === 'Escape') {
@@ -539,6 +572,11 @@ var Input = (function () {
         getPlacingType: function () { return _placingType; },
         getSelectedBuildingId: function () { return _selectedBuildingId; },
         getDepositTooltip: function () { return _getDepositTooltip(); },
+
+        // ---- debug mode ----
+        isDebugMode: function () { return _debugMode; },
+        setDebugSpawnType: function (typeKey) { _debugSpawnType = typeKey; },
+        getDebugSpawnType: function () { return _debugSpawnType; },
 
         // ---- placement mode ----
 

@@ -1106,6 +1106,97 @@ var UI = (function () {
             UI.showModal('📖 Enemy Glossary', html, [
                 { label: 'Close', action: 'close-modal', className: 'menu-btn' }
             ]);
+        },
+
+        // ---- Debug Mode ----
+
+        toggleDebugBar: function (show) {
+            var bar = document.getElementById('debug-bar');
+            if (!bar) return;
+            bar.style.display = show ? 'block' : 'none';
+            if (show) {
+                UI._buildDebugBar();
+            } else {
+                // Clear debug spawn selection
+                if (typeof Input !== 'undefined' && Input.setDebugSpawnType) {
+                    Input.setDebugSpawnType(null);
+                }
+            }
+        },
+
+        _buildDebugBar: function () {
+            var togglesEl = document.getElementById('debug-toggles');
+            var catsEl = document.getElementById('debug-categories');
+            var optsEl = document.getElementById('debug-options');
+            if (!togglesEl || !catsEl || !optsEl) return;
+
+            // God mode toggle
+            var godActive = (typeof Engine !== 'undefined' && Engine.isGodMode) ? Engine.isGodMode() : false;
+            togglesEl.innerHTML = '<button class="debug-toggle' + (godActive ? ' active' : '') + '" id="debug-god-toggle">🛡️ God Mode</button>';
+            document.getElementById('debug-god-toggle').addEventListener('click', function () {
+                var isOn = (typeof Engine !== 'undefined' && Engine.isGodMode) ? Engine.isGodMode() : false;
+                if (typeof Engine !== 'undefined' && Engine.setGodMode) {
+                    Engine.setGodMode(!isOn);
+                }
+                this.classList.toggle('active');
+                if (typeof UI !== 'undefined' && UI.showToast) {
+                    UI.showToast(!isOn ? '🛡️ God Mode ON — Core is invincible' : 'God Mode OFF', 'info', 2000);
+                }
+            });
+
+            // Debug categories
+            catsEl.innerHTML = '<button class="debug-cat-btn" data-debug-cat="enemies">👾 Enemies</button>';
+            var catBtns = catsEl.querySelectorAll('.debug-cat-btn');
+            for (var i = 0; i < catBtns.length; i++) {
+                catBtns[i].addEventListener('click', function () {
+                    var allCats = catsEl.querySelectorAll('.debug-cat-btn');
+                    for (var j = 0; j < allCats.length; j++) allCats[j].classList.remove('active');
+                    this.classList.add('active');
+                    var cat = this.getAttribute('data-debug-cat');
+                    UI._renderDebugCategory(cat);
+                });
+            }
+
+            optsEl.innerHTML = '<span style="color:#666;">Select a category above</span>';
+        },
+
+        _renderDebugCategory: function (cat) {
+            var optsEl = document.getElementById('debug-options');
+            if (!optsEl) return;
+
+            if (cat === 'enemies') {
+                if (typeof Config === 'undefined' || !Config.ENEMIES) {
+                    optsEl.innerHTML = '<span style="color:#666;">No enemy data</span>';
+                    return;
+                }
+                var html = '';
+                var keys = Object.keys(Config.ENEMIES);
+                for (var i = 0; i < keys.length; i++) {
+                    if (keys[i].indexOf('proc_') === 0) continue;
+                    var eDef = Config.ENEMIES[keys[i]];
+                    var selected = (typeof Input !== 'undefined' && Input.getDebugSpawnType && Input.getDebugSpawnType() === keys[i]);
+                    html += '<button class="debug-enemy-btn' + (selected ? ' selected' : '') + '" data-enemy-type="' + keys[i] + '">';
+                    html += (eDef.icon || '👾') + ' ' + (eDef.name || keys[i]);
+                    html += '</button>';
+                }
+                optsEl.innerHTML = html;
+
+                var btns = optsEl.querySelectorAll('.debug-enemy-btn');
+                for (var j = 0; j < btns.length; j++) {
+                    btns[j].addEventListener('click', function () {
+                        var typeKey = this.getAttribute('data-enemy-type');
+                        var allBtns = optsEl.querySelectorAll('.debug-enemy-btn');
+                        for (var k = 0; k < allBtns.length; k++) allBtns[k].classList.remove('selected');
+                        this.classList.add('selected');
+                        if (typeof Input !== 'undefined' && Input.setDebugSpawnType) {
+                            Input.setDebugSpawnType(typeKey);
+                        }
+                        if (typeof UI !== 'undefined' && UI.showToast) {
+                            UI.showToast('Click on map to spawn: ' + typeKey, 'info', 2000);
+                        }
+                    });
+                }
+            }
         }
     };
 })();
