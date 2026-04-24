@@ -470,9 +470,28 @@ var Energy = (function() {
 
                 if (building.energy >= consumePerTick) {
                     building.energy -= consumePerTick;
-                    building.active = true;
+                    if (!building.active) {
+                        // Reactivating — re-allocate workers
+                        var wReq = def.workersRequired || 0;
+                        if (wReq > 0 && typeof Workers !== 'undefined' && Workers.canAllocate && Workers.allocateWorkers) {
+                            if (Workers.canAllocate(wReq)) {
+                                Workers.allocateWorkers(wReq);
+                                building.active = true;
+                            }
+                            // Not enough workers — stay inactive
+                        } else {
+                            building.active = true;
+                        }
+                    }
                     totalConsumption += consumePerTick;
                 } else {
+                    if (building.active) {
+                        // Deactivating — free workers
+                        var wFree = def.workersRequired || 0;
+                        if (wFree > 0 && typeof Workers !== 'undefined' && Workers.freeWorkers) {
+                            Workers.freeWorkers(wFree);
+                        }
+                    }
                     building.active = false;
                     if (def.category === 'weapons') {
                         building.laserRampTime = 0;
