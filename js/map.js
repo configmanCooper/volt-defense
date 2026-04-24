@@ -19,6 +19,7 @@ var Map = (function() {
     // ---- private state ----
     var _grid = null;
     var _rivers = [];
+    var _riverLookup = {};  // 'gx,gy' -> river tile index for O(1) lookup
     var _deposits = [];
     var _spawnPoints = [];
     var _gridWidth = 0;
@@ -42,6 +43,14 @@ var Map = (function() {
         var dx = x1 - x2;
         var dy = y1 - y2;
         return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function _buildRiverLookup() {
+        _riverLookup = {};
+        for (var i = 0; i < _rivers.length; i++) {
+            var key = _rivers[i].gridX + ',' + _rivers[i].gridY;
+            _riverLookup[key] = i;
+        }
     }
 
     // ---- river generation ----
@@ -325,6 +334,7 @@ var Map = (function() {
 
             // 2. Rivers
             _rivers = _generateRivers(rng, _grid);
+            _buildRiverLookup();
 
             // 3. Scattered rocks (before deposits so deposits overwrite rocks)
             _scatterRocks(rng, _grid);
@@ -428,19 +438,19 @@ var Map = (function() {
         },
 
         getRiverCurrentSpeed: function(gx, gy) {
-            for (var i = 0; i < _rivers.length; i++) {
-                if (_rivers[i].gridX === gx && _rivers[i].gridY === gy) {
-                    return _rivers[i].currentSpeed;
-                }
+            var key = gx + ',' + gy;
+            var idx = _riverLookup[key];
+            if (idx !== undefined && _rivers[idx]) {
+                return _rivers[idx].currentSpeed;
             }
             return 0;
         },
 
         getFlowDirection: function(gx, gy) {
-            for (var i = 0; i < _rivers.length; i++) {
-                if (_rivers[i].gridX === gx && _rivers[i].gridY === gy) {
-                    return { dx: _rivers[i].flowDirX || 0, dy: _rivers[i].flowDirY || 0 };
-                }
+            var key = gx + ',' + gy;
+            var idx = _riverLookup[key];
+            if (idx !== undefined && _rivers[idx]) {
+                return { dx: _rivers[idx].flowDirX || 0, dy: _rivers[idx].flowDirY || 0 };
             }
             return { dx: 0, dy: 0 };
         },
@@ -456,14 +466,13 @@ var Map = (function() {
             var baseSpeed = 0;
             var riverId = -1;
             var flowDx = 0, flowDy = 0;
-            for (var i = 0; i < _rivers.length; i++) {
-                if (_rivers[i].gridX === gx && _rivers[i].gridY === gy) {
-                    baseSpeed = _rivers[i].currentSpeed;
-                    riverId = _rivers[i].riverId;
-                    flowDx = _rivers[i].flowDirX || 0;
-                    flowDy = _rivers[i].flowDirY || 0;
-                    break;
-                }
+            var key = gx + ',' + gy;
+            var idx = _riverLookup[key];
+            if (idx !== undefined && _rivers[idx]) {
+                baseSpeed = _rivers[idx].currentSpeed;
+                riverId = _rivers[idx].riverId;
+                flowDx = _rivers[idx].flowDirX || 0;
+                flowDy = _rivers[idx].flowDirY || 0;
             }
             if (riverId < 0) return 0;
 
@@ -616,6 +625,7 @@ var Map = (function() {
 
             // Restore rivers
             _rivers = data.rivers || [];
+            _buildRiverLookup();
             for (var i = 0; i < _rivers.length; i++) {
                 var r = _rivers[i];
                 if (r.gridX >= 0 && r.gridX < _gridWidth && r.gridY >= 0 && r.gridY < _gridHeight) {
