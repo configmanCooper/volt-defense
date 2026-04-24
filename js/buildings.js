@@ -564,6 +564,23 @@ var Buildings = (function() {
             _cables.push({ from: fromId, to: toId, type: cableType });
             _adjacencyDirty = true;
 
+            // Auto-set cable rules for capacitors: 1st cable = charge, 2nd = discharge
+            var endpoints = [fromId, toId];
+            for (var ei = 0; ei < endpoints.length; ei++) {
+                var bId = endpoints[ei];
+                var b = _getById(bId);
+                if (!b) continue;
+                if (b.type !== 'capacitor') continue;
+                if (!b.cableRules) b.cableRules = {};
+                var cableCount = _cableCountForBuilding(bId);
+                var neighborId = (bId === fromId) ? toId : fromId;
+                if (cableCount === 1) {
+                    b.cableRules[neighborId] = 'charge';
+                } else if (cableCount === 2) {
+                    b.cableRules[neighborId] = 'discharge';
+                }
+            }
+
             return { success: true };
         },
 
