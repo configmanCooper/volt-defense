@@ -339,6 +339,10 @@ var UI = (function () {
                 UI.showGlossary();
                 break;
 
+            case 'show-weapons-glossary':
+                UI.showWeaponsGlossary();
+                break;
+
             case 'save-game':
                 if (typeof Main !== 'undefined' && Main.showSavePanel) {
                     Main.showSavePanel();
@@ -1432,6 +1436,139 @@ var UI = (function () {
                     if (!row) return;
                     var idx = row.getAttribute('data-glossary-idx');
                     var descRow = document.getElementById('glossary-desc-' + idx);
+                    if (descRow) {
+                        var isVisible = descRow.style.display !== 'none';
+                        descRow.style.display = isVisible ? 'none' : 'table-row';
+                        row.style.background = isVisible ? '' : '#222244';
+                    }
+                });
+            }
+        },
+
+        showWeaponsGlossary: function () {
+            if (typeof Config === 'undefined' || !Config.BUILDINGS) return;
+
+            var weaponDescriptions = {
+                laser_t1: 'The workhorse of early defense. The T1 Laser fires a continuous beam that locks onto the nearest enemy, dealing 5 DPS that doubles every second up to 8x (40 DPS max). Energy draw ramps similarly from 30/s to 120/s. Perfect accuracy — never misses as long as it has energy. The catch: switching targets resets the ramp. Best against slow, tanky enemies like Grunts and Tanks where sustained fire pays off. Struggles against fast-moving Runners and large Swarms.',
+                laser_t2: 'A significant upgrade over the T1 with more than double the base DPS (12/s), longer range (400px vs 300), and the same 8x damage ramp reaching 96 DPS at full power. Energy storage of 270 lets it fire longer before draining. Perfect accuracy. Excellent mid-game backbone weapon — handles most threats when given time to ramp. Place behind shields for maximum uptime on single targets.',
+                laser_t3: 'The ultimate laser platform. Starts at 25 DPS and ramps up to an incredible 16x multiplier, reaching 400 DPS — enough to melt even Siege Engines. The energy cost is enormous: 100/s base ramping to 800/s at max. Requires serious power infrastructure to sustain. Perfect accuracy. The go-to weapon for late-game boss threats. Pair with high-capacity cables and large batteries. 500px range gives excellent coverage.',
+                missile_t1: 'A reliable early-to-mid game weapon that fires homing missiles at the farthest enemy in range. Deals 40 damage per hit with a 2-second reload. Good accuracy with 20°/s homing turn rate, but fast enemies can occasionally dodge. Costs 1 iron per shot — ensure a steady iron supply. 500px range lets it engage threats early. Best against groups of medium enemies approaching from distance.',
+                missile_t2: 'An upgraded launcher dealing 100 damage per missile with improved 350 speed and 650px range. The 2.5-second reload and 2 iron per shot make it more expensive to operate. Good homing accuracy. Excellent against mid-game threats like Shielded Grunts and Bombers. The long range means it often gets multiple shots before enemies reach your inner defenses.',
+                missile_t3: 'The heaviest missile platform, dealing a devastating 250 damage per hit at 800px range. With 400 speed projectiles, these missiles track targets effectively. Costs 5 iron per shot and reloads in 3 seconds. Best reserved for high-value targets like Heavy Tanks and Siege Engines. The extreme range means it can soften threats long before they reach your walls. Good homing accuracy.',
+                tesla_coil: 'An area-denial weapon that fires chain lightning at the nearest enemy, then jumps to up to 3 additional targets within 150px. Base damage is 11/s with each chain jump dealing 70% of the previous. Perfect accuracy — lightning always hits. Draws 50 energy/s continuously while firing. Short 250px range means it must be placed aggressively. Devastating against Swarms and clustered enemies. Store 150 energy for quick bursts.',
+                flamethrower: 'A short-range area weapon that bathes all enemies within 150px in fire, dealing 8 DPS to everything in range simultaneously. Applies a burning DOT of 3 DPS for 3 seconds. Perfect accuracy — hits everything in range. Consumes oil (1 per 50 ticks) in addition to 20 energy/s. Cheap to build at $600 but requires oil infrastructure. Exceptional against Swarms and dense waves. Place at chokepoints behind walls.',
+                railgun: 'A precision sniper weapon that fires a piercing beam through ALL enemies in a line. Deals 100 damage per shot with a 4-second reload and 800px range. Perfect accuracy — the beam is instant and cannot miss. Costs 375 energy and 3 iron per shot. Excellent against lined-up enemies approaching through corridors. The piercing effect makes it uniquely effective against waves of armored enemies. High skill ceiling weapon.',
+                emp_tower: 'A utility weapon that deals zero damage but stuns ALL enemies within 400px for 5 seconds. 10-second cooldown between activations, costs 500 energy per use (stores 1500, can fire 3 times). No accuracy concerns — affects all enemies in range. Invaluable for buying time when defenses are overwhelmed. Pairs perfectly with damage-dealing weapons. Place at critical chokepoints.',
+                mortar: 'An indirect-fire weapon that lobs explosive shells at enemies, dealing 60 splash damage in an 80px radius. 3-second reload, 600px range with a 100px minimum range dead zone. Moderate homing — shells travel at 200 speed and can miss fast enemies. Costs 200 energy and 2 iron per shot. The splash makes it excellent against clustered enemies and Swarms. Cover the dead zone with short-range weapons.',
+                drone_bay: 'Deploys up to 3 autonomous combat drones that seek and engage enemies independently. Each drone has 50 HP, deals 24 DPS, moves at 120 speed, and operates within 500px range for 60 seconds. Spawning a drone costs 500 energy and 20 iron with a 24-second spawn cooldown. Drones have perfect accuracy. Expensive to maintain but provides flexible, mobile defense coverage. Drones die when their lifetime expires.',
+                plasma_cannon: 'An advanced uranium-powered weapon firing superheated plasma bolts that completely bypass enemy armor. Deals 400 damage per shot with a 1.5-second reload — the highest single-shot DPS of any projectile weapon at 267/s. Costs 250 energy and 1 uranium per shot. Good homing accuracy. Generates 5 pollution per tick while firing. The ultimate answer to heavily armored enemies like Siege Engines and Heavy Tanks.',
+                fusion_beam: 'The most powerful weapon in the game. A continuous beam with 1200px range that starts at 25 DPS and ramps up 32x to a staggering 800 DPS — enough to destroy anything. Energy draw ramps from 60/s to 480/s. Consumes 0.5 uranium per second. Perfect accuracy. Generates 8 pollution per tick. The 2x2 size requires careful placement. Demands massive power infrastructure but nothing survives sustained fusion beam fire. Pair with nuclear plants and HC cables.'
+            };
+
+            var weaponStats = {
+                laser_t1:      { type: 'Continuous',  range: '300px',  dps: '5/s (ramps 8x → 40)',       energy: '30/s (ramps 4x → 120)',  special: 'Ramp resets on target switch' },
+                laser_t2:      { type: 'Continuous',  range: '400px',  dps: '12/s (ramps 8x → 96)',      energy: '60/s (ramps 4x → 240)',  special: 'Ramp resets on target switch' },
+                laser_t3:      { type: 'Continuous',  range: '500px',  dps: '25/s (ramps 16x → 400)',    energy: '100/s (ramps 8x → 800)', special: 'Ramp resets on target switch' },
+                missile_t1:    { type: 'Projectile',  range: '500px',  dps: '20/s (40 dmg/2s)',          energy: '100/shot',               special: '1 iron/shot, homing' },
+                missile_t2:    { type: 'Projectile',  range: '650px',  dps: '40/s (100 dmg/2.5s)',       energy: '100/shot',               special: '2 iron/shot, homing' },
+                missile_t3:    { type: 'Projectile',  range: '800px',  dps: '83/s (250 dmg/3s)',         energy: '100/shot',               special: '5 iron/shot, homing' },
+                tesla_coil:    { type: 'Chain',       range: '250px',  dps: '11/s (chains to 3)',        energy: '50/s',                   special: '70% dmg per chain jump' },
+                flamethrower:  { type: 'AoE Cone',    range: '150px',  dps: '8/s + 3 burn',              energy: '20/s',                   special: 'Uses oil, hits all in range' },
+                railgun:       { type: 'Piercing',    range: '800px',  dps: '25/s (100 dmg/4s)',         energy: '375/shot',               special: '3 iron/shot, pierces all' },
+                emp_tower:     { type: 'Stun',        range: '400px',  dps: '0 (utility)',               energy: '500/activation',         special: '5s stun, 10s cooldown' },
+                mortar:        { type: 'Splash',      range: '600px (min 100)', dps: '20/s (60 dmg/3s)', energy: '200/shot',               special: '2 iron/shot, 80px splash' },
+                drone_bay:     { type: 'Autonomous',  range: '500px',  dps: '24/s per drone (3 max)',    energy: '500/drone spawn',        special: '20 iron/drone, 60s lifetime' },
+                plasma_cannon: { type: 'Projectile',  range: '500px',  dps: '267/s (400 dmg/1.5s)',      energy: '250/shot',               special: '1 uranium/shot, ignores armor' },
+                fusion_beam:   { type: 'Continuous',  range: '1200px', dps: '25/s (ramps 32x → 800)',    energy: '60/s (ramps 8x → 480)', special: '0.5 uranium/s, 2x2 size' }
+            };
+
+            // Collect weapon entries from Config.BUILDINGS
+            var entries = [];
+            var keys = Object.keys(Config.BUILDINGS);
+            for (var i = 0; i < keys.length; i++) {
+                var bDef = Config.BUILDINGS[keys[i]];
+                if (bDef.category !== 'weapons') continue;
+                entries.push({ key: keys[i], def: bDef });
+            }
+            entries.sort(function (a, b) {
+                var costA = (a.def.cost && a.def.cost.money) ? a.def.cost.money : 0;
+                var costB = (b.def.cost && b.def.cost.money) ? b.def.cost.money : 0;
+                return costA - costB;
+            });
+
+            var html = '<div style="max-height:60vh;overflow-y:auto;">';
+            html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+            html += '<thead><tr style="border-bottom:2px solid #555;text-align:left;">';
+            html += '<th style="padding:6px;">Icon</th>';
+            html += '<th style="padding:6px;">Name</th>';
+            html += '<th style="padding:6px;">Type</th>';
+            html += '<th style="padding:6px;">Range</th>';
+            html += '<th style="padding:6px;">DPS</th>';
+            html += '<th style="padding:6px;">Energy</th>';
+            html += '<th style="padding:6px;">Cost</th>';
+            html += '<th style="padding:6px;">Special</th>';
+            html += '</tr></thead><tbody>';
+
+            for (var j = 0; j < entries.length; j++) {
+                var w = entries[j];
+                var ws = weaponStats[w.key] || {};
+                var rowId = 'wglossary-row-' + j;
+                var descId = 'wglossary-desc-' + j;
+
+                // Build cost string
+                var costParts = [];
+                if (w.def.cost) {
+                    if (w.def.cost.money) costParts.push('$' + w.def.cost.money);
+                    if (w.def.cost.iron) costParts.push('+' + w.def.cost.iron + ' iron');
+                    if (w.def.cost.oil) costParts.push('+' + w.def.cost.oil + ' oil');
+                    if (w.def.cost.uranium) costParts.push('+' + w.def.cost.uranium + ' uranium');
+                }
+                var costStr = costParts.join(' ') || '—';
+
+                html += '<tr id="' + rowId + '" style="border-bottom:1px solid #333;cursor:pointer;" data-weapons-glossary-idx="' + j + '">';
+                html += '<td style="padding:6px;font-size:18px;">' + (w.def.icon || '') + '</td>';
+                html += '<td style="padding:6px;font-weight:bold;">' + (w.def.name || w.key) + '</td>';
+                html += '<td style="padding:6px;">' + (ws.type || '—') + '</td>';
+                html += '<td style="padding:6px;">' + (ws.range || (w.def.range || '—')) + '</td>';
+                html += '<td style="padding:6px;">' + (ws.dps || (w.def.baseDPS || '—')) + '</td>';
+                html += '<td style="padding:6px;">' + (ws.energy || (w.def.baseEnergyDraw || '—')) + '</td>';
+                html += '<td style="padding:6px;font-size:11px;">' + costStr + '</td>';
+                html += '<td style="padding:6px;font-size:11px;">' + (ws.special || '—') + '</td>';
+                html += '</tr>';
+
+                // Description row (hidden by default)
+                var desc = weaponDescriptions[w.key] || w.def.description || '';
+                if (desc) {
+                    html += '<tr id="' + descId + '" style="display:none;">';
+                    html += '<td colspan="8" style="padding:8px 12px 12px;background:#1a1a2e;border-bottom:2px solid #444;">';
+                    html += '<div style="font-size:12px;line-height:1.5;color:#ccc;max-width:700px;">' + desc + '</div>';
+                    html += '<div style="margin-top:6px;font-size:11px;color:#888;">';
+                    html += '<span style="color:#66ccff;">Storage: ' + (w.def.energyStorageCapacity || 0) + '</span>';
+                    html += ' &nbsp;|&nbsp; <span style="color:#88ff88;">Charge Rate: ' + (w.def.maxChargeRate || 0) + '</span>';
+                    html += ' &nbsp;|&nbsp; <span style="color:#ffaa44;">Workers: ' + (w.def.workersRequired || 0) + '</span>';
+                    html += ' &nbsp;|&nbsp; <span style="color:#ffcc00;">Cost: ' + costStr + '</span>';
+                    if (w.def.maxRamp && w.def.baseDPS) {
+                        html += ' &nbsp;|&nbsp; <span style="color:#ff6666;">Ramps from ' + w.def.baseDPS + ' to ' + (w.def.baseDPS * w.def.maxRamp) + ' DPS</span>';
+                    }
+                    html += '</div>';
+                    html += '</td></tr>';
+                }
+            }
+
+            html += '</tbody></table></div>';
+
+            UI.showModal('⚔️ Weapons Glossary', html, [
+                { label: 'Close', action: 'close-modal', className: 'menu-btn' }
+            ]);
+
+            // Attach click handlers for toggling descriptions
+            var modalBody = document.querySelector('.modal-body');
+            if (modalBody) {
+                modalBody.addEventListener('click', function (evt) {
+                    var row = evt.target.closest('tr[data-weapons-glossary-idx]');
+                    if (!row) return;
+                    var idx = row.getAttribute('data-weapons-glossary-idx');
+                    var descRow = document.getElementById('wglossary-desc-' + idx);
                     if (descRow) {
                         var isVisible = descRow.style.display !== 'none';
                         descRow.style.display = isVisible ? 'none' : 'table-row';
