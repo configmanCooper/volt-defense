@@ -810,10 +810,10 @@ var Config = {
             maxDischargeRate: 0,
             pollution: 0,
             shieldHP: 1200,
-            shieldDiameter: 400,
+            shieldDiameter: 560,
             shieldEnergyCostPerDamage: 40,
             upgradeTo: null,
-            description: 'Upgraded shield. More HP and efficient energy use.',
+            description: 'Upgraded shield. More HP, range, and efficient energy use.',
             icon: '🛡️'
         },
 

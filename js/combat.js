@@ -150,8 +150,6 @@ var Combat = (function() {
         var buildings = _getAllBuildings();
         var enemies = _getAllEnemies();
         var tps = _tps();
-        var shieldRadius = (typeof Config !== 'undefined' && Config.SHIELD_DIAMETER != null)
-            ? Config.SHIELD_DIAMETER / 2 : 200;
 
         for (var i = 0; i < buildings.length; i++) {
             var b = buildings[i];
@@ -159,6 +157,7 @@ var Combat = (function() {
             if (!def || def.category !== 'defense') { continue; }
             if (!b.shieldActive) { continue; }
 
+            var shieldRadius = (def.shieldDiameter || (typeof Config !== 'undefined' && Config.SHIELD_DIAMETER) || 400) / 2;
             var center = _getBuildingCenter(b);
             var energyCostPerDmg = def.shieldEnergyCostPerDamage || 50;
 
