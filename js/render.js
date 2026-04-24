@@ -996,13 +996,24 @@ var Render = (function () {
                 if (!_isInViewport(mx, my, 100)) continue;
 
                 var isHC = cable.type === 'high_capacity';
-                var maxTP = isHC ? (Config.HC_CABLE_MAX_THROUGHPUT || 500) : (Config.CABLE_MAX_THROUGHPUT || 50);
 
-                // Show actual energy difference as indicator of flow direction
-                var fromE = Math.floor(fromB.energy || 0);
-                var toE = Math.floor(toB.energy || 0);
-                var flowDir = fromE > toE ? '→' : (toE > fromE ? '←' : '=');
-                var flowLabel = Math.abs(fromE - toE) + flowDir;
+                // Show actual energy flow rate per second
+                var flowData = (typeof Energy !== 'undefined' && Energy.getCableFlowDisplay) ? Energy.getCableFlowDisplay() : {};
+                var flowKey = cable.from < cable.to ? cable.from + '-' + cable.to : cable.to + '-' + cable.from;
+                var flowAmt = flowData[flowKey] || 0;
+                var flowDir, flowLabel;
+                if (flowAmt === 0) {
+                    flowLabel = '0=';
+                } else {
+                    // Positive means from lower ID to higher ID
+                    var lowerIsFrom = cable.from < cable.to;
+                    if (flowAmt > 0) {
+                        flowDir = lowerIsFrom ? '→' : '←';
+                    } else {
+                        flowDir = lowerIsFrom ? '←' : '→';
+                    }
+                    flowLabel = Math.abs(flowAmt) + flowDir;
+                }
 
                 var tw2 = ctx.measureText(flowLabel).width + 4;
                 ctx.fillStyle = 'rgba(0,0,0,0.65)';

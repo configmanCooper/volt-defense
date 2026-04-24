@@ -31,6 +31,12 @@ var Energy = (function() {
     // Set of building IDs that transferred energy this tick (for cable glow)
     var _activeFlowNodes = {};
 
+    // Actual energy flow per cable per second (accumulated over ticks, reset each second)
+    var _cableFlowThisTick = {};   // "fromId-toId" -> amount this tick
+    var _cableFlowDisplay = {};    // "fromId-toId" -> { amount, direction } shown to render
+    var _flowAccumulator = {};     // accumulates over tps ticks
+    var _flowTickCount = 0;
+
     function _getTicksPerSecond() {
         return (typeof Config !== 'undefined' && Config.TICKS_PER_SECOND) ? Config.TICKS_PER_SECOND : 10;
     }
@@ -332,6 +338,7 @@ var Energy = (function() {
             // Track energy transferred through each cable this tick
             var cableFlow = {};
             _activeFlowNodes = {};
+            _cableFlowThisTick = {};
 
             // For each generator, BFS to distribute energy
             for (var g = 0; g < generators.length; g++) {
@@ -352,6 +359,7 @@ var Energy = (function() {
                 var reachable = [];
                 var minThroughputMap = {}; // buildingId -> min cable throughput along path
                 var pylonPriorityMap = {}; // buildingId -> max (worst) pylon cable priority along path
+                var parentMap = {};        // buildingId -> parent buildingId for path reconstruction
                 minThroughputMap[gen.id] = Infinity;
                 pylonPriorityMap[gen.id] = 1;
 
@@ -387,6 +395,7 @@ var Energy = (function() {
                         // Track min throughput along path
                         var cableTP = _cachedCableThroughput(currentId, nId) / tps;
                         minThroughputMap[nId] = Math.min(currentMinTP, cableTP);
+                        parentMap[nId] = currentId;
 
                         // Track worst pylon priority along path
                         var edgePri = currentPylonPri;
@@ -450,7 +459,37 @@ var Energy = (function() {
                     // Mark both nodes for cable glow
                     _activeFlowNodes[gen.id] = true;
                     _activeFlowNodes[receiver.id] = true;
+
+                    // Record flow along the path for cable flow labels
+                    var pathNode = receiver.id;
+                    while (parentMap[pathNode] !== undefined) {
+                        var parentNode = parentMap[pathNode];
+                        var flowKey = parentNode < pathNode ? parentNode + '-' + pathNode : pathNode + '-' + parentNode;
+                        var flowDir = parentNode < pathNode ? 1 : -1; // positive = from lower to higher id
+                        if (!_cableFlowThisTick[flowKey]) _cableFlowThisTick[flowKey] = 0;
+                        _cableFlowThisTick[flowKey] += transferable * flowDir;
+                        pathNode = parentNode;
+                    }
                 }
+            }
+
+            // Accumulate cable flow data and update display each second
+            _flowTickCount++;
+            var key;
+            for (key in _cableFlowThisTick) {
+                if (!_flowAccumulator[key]) _flowAccumulator[key] = 0;
+                _flowAccumulator[key] += _cableFlowThisTick[key];
+            }
+            if (_flowTickCount >= tps) {
+                _cableFlowDisplay = {};
+                for (key in _flowAccumulator) {
+                    var amt = _flowAccumulator[key];
+                    if (Math.abs(amt) > 0.01) {
+                        _cableFlowDisplay[key] = Math.round(amt);
+                    }
+                }
+                _flowAccumulator = {};
+                _flowTickCount = 0;
             }
 
             // ============================================================
@@ -547,6 +586,10 @@ var Energy = (function() {
         // Returns true if a building was part of an energy transfer this tick
         isNodeFlowing: function(buildingId) {
             return !!_activeFlowNodes[buildingId];
+        },
+
+        getCableFlowDisplay: function() {
+            return _cableFlowDisplay;
         },
 
         // Day/Night and Wind queries
