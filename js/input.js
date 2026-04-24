@@ -446,6 +446,24 @@ var Input = (function () {
             // Prevent context menu on canvas
             canvas.addEventListener('contextmenu', function (e) {
                 e.preventDefault();
+                if (!_debugMode) return;
+                // Debug: right-click to kill enemy
+                var rect = canvas.getBoundingClientRect();
+                var sx = e.clientX - rect.left;
+                var sy = e.clientY - rect.top;
+                var wx = sx, wy = sy;
+                if (typeof Render !== 'undefined' && Render.screenToWorld) {
+                    var w = Render.screenToWorld(sx, sy);
+                    wx = w.x;
+                    wy = w.y;
+                }
+                var enemy = _getEnemyAtWorld(wx, wy);
+                if (enemy && typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                    Enemies.damageEnemy(enemy.id, enemy.hp + 1000, 1.0);
+                    if (typeof UI !== 'undefined' && UI.showToast) {
+                        UI.showToast('💀 Killed ' + (enemy.type || 'enemy'), 'info', 1000);
+                    }
+                }
             });
 
             // ---- Mouse wheel (zoom placeholder) ----
