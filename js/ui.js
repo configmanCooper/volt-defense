@@ -341,7 +341,22 @@ var UI = (function () {
 
             case 'save-game':
                 if (typeof Save !== 'undefined' && Save.save) {
-                    Save.save();
+                    var currentSlot = Save.getSlot ? Save.getSlot() : 0;
+                    if (currentSlot >= 1 && currentSlot <= 5) {
+                        Save.save();
+                    } else {
+                        // No slot assigned yet — prompt user to pick one
+                        var pick = prompt('Choose a save slot (1-5):', '1');
+                        if (pick !== null) {
+                            var sn = parseInt(pick, 10);
+                            if (!isNaN(sn) && sn >= 1 && sn <= 5) {
+                                Save.setSlot(sn);
+                                Save.save();
+                                var slotEl = document.getElementById('pause-slot-num');
+                                if (slotEl) slotEl.textContent = sn;
+                            }
+                        }
+                    }
                 }
                 break;
 

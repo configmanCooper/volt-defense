@@ -315,7 +315,8 @@ var Main = (function () {
     function _updatePauseSlotIndicator() {
         var el = document.getElementById('pause-slot-num');
         if (el && typeof Save !== 'undefined' && Save.getSlot) {
-            el.textContent = Save.getSlot();
+            var slot = Save.getSlot();
+            el.textContent = (slot >= 1 && slot <= 5) ? slot : 'Autosave';
         }
     }
 
@@ -426,11 +427,9 @@ var Main = (function () {
                 }
             } else if (action === 'newGame' || action === 'new-game') {
                 if (_selectedDifficulty) {
-                    _showSlotPicker(function (slot) {
-                        if (typeof Save !== 'undefined') Save.setSlot(slot);
-                        _hideLoadPanel();
-                        _startGame(_selectedDifficulty);
-                    });
+                    if (typeof Save !== 'undefined') Save.setSlot(0);
+                    _hideLoadPanel();
+                    _startGame(_selectedDifficulty);
                 }
             } else if (action === 'show-load-menu') {
                 _showLoadPanel();

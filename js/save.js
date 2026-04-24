@@ -104,7 +104,7 @@ var Save = (function () {
         },
 
         setSlot: function (n) {
-            if (n >= 1 && n <= 5) {
+            if (n === 0 || (n >= 1 && n <= 5)) {
                 _currentSlot = n;
             }
         },
@@ -198,6 +198,12 @@ var Save = (function () {
          * @returns {boolean} true on success
          */
         save: function () {
+            if (_currentSlot < 1 || _currentSlot > 5) {
+                if (typeof UI !== 'undefined' && typeof UI.showToast === 'function') {
+                    UI.showToast('No save slot selected — use Save Game to pick one', 'warning', 2000);
+                }
+                return false;
+            }
             var state = _buildState();
 
             try {
