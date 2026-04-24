@@ -582,7 +582,7 @@ var Input = (function () {
                 }
 
                 // Number keys 1–8 for category selection
-                if (e.key >= '1' && e.key <= '8') {
+                if (e.key >= '1' && e.key <= '9') {
                     var catIndex = parseInt(e.key) - 1;
                     if (typeof Config !== 'undefined' && Config.CATEGORY_ORDER && Config.CATEGORY_ORDER[catIndex]) {
                         if (typeof UI !== 'undefined' && UI.selectCategory) {

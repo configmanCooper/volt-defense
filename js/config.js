@@ -294,7 +294,7 @@ var Config = {
         },
         consumer_battery: {
             name: 'Consumer Battery',
-            category: 'storage',
+            category: 'consumer',
             cost: { money: 400 },
             size: [1, 1],
             hp: 60,
@@ -1003,7 +1003,7 @@ var Config = {
         },
         grid_connect: {
             name: 'Consumer Grid Connect',
-            category: 'grid',
+            category: 'consumer',
             cost: { money: 250 },
             size: [1, 1],
             hp: 60,
@@ -1018,6 +1018,25 @@ var Config = {
             upgradeTo: null,
             description: 'Sells power to the consumer grid. Slowly earns $4/s while powered.',
             icon: '🔌'
+        },
+        consumer_market: {
+            name: 'Consumer Market',
+            category: 'consumer',
+            cost: { money: 500 },
+            size: [1, 1],
+            hp: 80,
+            workersRequired: 1,
+            energyGeneration: 0,
+            energyConsumption: 3,
+            energyStorageCapacity: 20,
+            maxChargeRate: 10,
+            maxDischargeRate: 0,
+            pollution: 0,
+            sellInterval: 240,
+            resourcePrices: { coal: 10, iron: 20, oil: 25, uranium: 100 },
+            upgradeTo: null,
+            description: 'A marketplace that sells your resources for profit. Toggle which resources to sell. Sells one of each enabled resource every 24 seconds.',
+            icon: '🏪'
         },
 
         // ---- Defense (Wall) -----------------------------------------------
@@ -1498,7 +1517,7 @@ var Config = {
     // ------------------------------------------------------------------------
     // Category Display Order & Icons
     // ------------------------------------------------------------------------
-    CATEGORY_ORDER: ['power', 'storage', 'mining', 'weapons', 'defense', 'housing', 'environment', 'grid'],
+    CATEGORY_ORDER: ['power', 'storage', 'mining', 'weapons', 'defense', 'housing', 'environment', 'grid', 'consumer'],
 
     CATEGORY_ICONS: {
         power: '⚡',
@@ -1508,7 +1527,8 @@ var Config = {
         defense: '🛡️',
         housing: '🏠',
         environment: '🌿',
-        grid: '📡'
+        grid: '📡',
+        consumer: '💲'
     },
 
     // ------------------------------------------------------------------------

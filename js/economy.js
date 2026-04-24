@@ -57,13 +57,13 @@ var Economy = (function () {
      * Process consumer batteries — sell energy when full.
      */
     function _processConsumerBatteries() {
-        if (typeof Buildings === 'undefined' || !Buildings.getByCategory) { return; }
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) { return; }
 
-        var storageBldgs = Buildings.getByCategory('storage');
-        if (!storageBldgs) { return; }
+        var allBldgs = Buildings.getAll();
+        if (!allBldgs) { return; }
 
-        for (var i = 0; i < storageBldgs.length; i++) {
-            var b = storageBldgs[i];
+        for (var i = 0; i < allBldgs.length; i++) {
+            var b = allBldgs[i];
             if (b.type !== 'consumer_battery') { continue; }
             if (!b.active || b.hp <= 0) { continue; }
 
@@ -82,15 +82,15 @@ var Economy = (function () {
      * Process consumer grid connects — earn money while powered.
      */
     function _processGridConnects() {
-        if (typeof Buildings === 'undefined' || !Buildings.getByCategory) { return; }
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) { return; }
 
-        var gridBldgs = Buildings.getByCategory('grid');
-        if (!gridBldgs) { return; }
+        var allBldgs = Buildings.getAll();
+        if (!allBldgs) { return; }
 
         var tps = (typeof Config !== 'undefined' && Config.TICKS_PER_SECOND) ? Config.TICKS_PER_SECOND : 10;
 
-        for (var i = 0; i < gridBldgs.length; i++) {
-            var b = gridBldgs[i];
+        for (var i = 0; i < allBldgs.length; i++) {
+            var b = allBldgs[i];
             if (b.type !== 'grid_connect') { continue; }
             if (!b.active || b.hp <= 0) { continue; }
 
@@ -103,6 +103,52 @@ var Economy = (function () {
                 var income = def.moneyPerSecond / tps;
                 _money += income;
                 _stats.totalEarned += income;
+            }
+        }
+    }
+
+    /**
+     * Process consumer markets — sell toggled resources periodically.
+     */
+    function _processConsumerMarkets() {
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) return;
+        var tps = (typeof Config !== 'undefined' && Config.TICKS_PER_SECOND) ? Config.TICKS_PER_SECOND : 10;
+        var allBldgs = Buildings.getAll();
+
+        for (var i = 0; i < allBldgs.length; i++) {
+            var b = allBldgs[i];
+            if (b.type !== 'consumer_market') continue;
+            if (!b.active || b.hp <= 0) continue;
+
+            var def = Config.BUILDINGS.consumer_market;
+            if (!def) continue;
+
+            // Check energy
+            var energyNeeded = (def.energyConsumption || 0) / tps;
+            if (b.energy < energyNeeded) continue;
+
+            // Increment sell timer
+            if (b.marketTimer == null) b.marketTimer = 0;
+            b.marketTimer++;
+
+            var sellInterval = (def.sellInterval || 240);
+            if (b.marketTimer < sellInterval) continue;
+            b.marketTimer = 0;
+
+            // Sell resources that are toggled on
+            if (!b.marketToggles) b.marketToggles = { coal: false, iron: false, oil: false, uranium: false };
+
+            var prices = def.resourcePrices || {};
+            var resources = ['coal', 'iron', 'oil', 'uranium'];
+            for (var r = 0; r < resources.length; r++) {
+                var res = resources[r];
+                if (!b.marketToggles[res]) continue;
+                if (_resources[res] >= 1) {
+                    _resources[res] -= 1;
+                    var price = prices[res] || 0;
+                    _money += price;
+                    _stats.totalEarned += price;
+                }
             }
         }
     }
@@ -132,6 +178,7 @@ var Economy = (function () {
             _processMining();
             _processConsumerBatteries();
             _processGridConnects();
+            _processConsumerMarkets();
         },
 
         // ---- Money ------------------------------------------------------------

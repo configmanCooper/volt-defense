@@ -949,6 +949,26 @@ var UI = (function () {
                 }
             }
 
+            // Consumer Market toggles
+            if (building.type === 'consumer_market') {
+                if (!building.marketToggles) building.marketToggles = { coal: false, iron: false, oil: false, uranium: false };
+                var cmResources = [
+                    { key: 'coal', label: 'Coal', emoji: '🪨', price: 10 },
+                    { key: 'iron', label: 'Iron', emoji: '⛏️', price: 20 },
+                    { key: 'oil', label: 'Oil', emoji: '🛢️', price: 25 },
+                    { key: 'uranium', label: 'Uranium', emoji: '☢️', price: 100 }
+                ];
+                html += '<div class="info-stat" style="font-weight:bold;margin-top:6px;">📦 Sell Resources (every 24s)</div>';
+                for (var ri = 0; ri < cmResources.length; ri++) {
+                    var cmRes = cmResources[ri];
+                    var checked = building.marketToggles[cmRes.key] ? ' checked' : '';
+                    html += '<div class="market-toggle-row" style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:12px;">';
+                    html += '<input type="checkbox" class="market-toggle-cb" data-building-id="' + buildingId + '" data-resource="' + cmRes.key + '"' + checked + '>';
+                    html += '<span>' + cmRes.emoji + ' ' + cmRes.label + ' — <span style="color:#44cc44;">$' + cmRes.price + '</span></span>';
+                    html += '</div>';
+                }
+            }
+
             // Connected cables section
             if (typeof Buildings !== 'undefined' && Buildings.getCablesForBuilding) {
                 var cables = Buildings.getCablesForBuilding(buildingId);
@@ -1096,6 +1116,22 @@ var UI = (function () {
                             }
                             if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
                                 UI.showBuildingInfo(_selectedBuildingId);
+                            }
+                        }
+                    });
+                }
+
+                // Wire up market toggle checkboxes
+                var marketCbs = _elements.infoPanel.querySelectorAll('.market-toggle-cb');
+                for (var mc = 0; mc < marketCbs.length; mc++) {
+                    marketCbs[mc].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        var resource = this.getAttribute('data-resource');
+                        if (typeof Buildings !== 'undefined' && Buildings.getById) {
+                            var bldg = Buildings.getById(bId);
+                            if (bldg) {
+                                if (!bldg.marketToggles) bldg.marketToggles = { coal: false, iron: false, oil: false, uranium: false };
+                                bldg.marketToggles[resource] = this.checked;
                             }
                         }
                     });

@@ -914,7 +914,9 @@ var Buildings = (function() {
                     sellReady: b.sellReady,
                     cableRules: b.cableRules || {},
                     cablePriorities: b.cablePriorities || {},
-                    placedAt: b.placedAt || 0
+                    placedAt: b.placedAt || 0,
+                    marketToggles: b.marketToggles || null,
+                    marketTimer: b.marketTimer || 0
                 });
             }
             var cableData = [];
@@ -968,7 +970,9 @@ var Buildings = (function() {
                         sellReady: saved.sellReady || false,
                         cableRules: saved.cableRules || {},
                         cablePriorities: saved.cablePriorities || {},
-                        placedAt: saved.placedAt || 0
+                        placedAt: saved.placedAt || 0,
+                        marketToggles: saved.marketToggles || null,
+                        marketTimer: saved.marketTimer || 0
                     };
 
                     // Re-link miner deposits
