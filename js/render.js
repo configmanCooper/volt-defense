@@ -928,6 +928,94 @@ var Render = (function () {
     }
 
     // ------------------------------------------------------------------------
+    // Layer: Debug Energy Overlay
+    // ------------------------------------------------------------------------
+    function _drawDebugEnergyOverlay(ctx) {
+        if (typeof Input === 'undefined' || !Input.isDebugMode || !Input.isDebugMode()) return;
+        if (typeof Buildings === 'undefined' || !Buildings) return;
+
+        var all = Buildings.getAll();
+        var cs = _cellSize();
+
+        ctx.save();
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        // Draw energy stored on each building
+        for (var i = 0; i < all.length; i++) {
+            var b = all[i];
+            var def = Config.BUILDINGS[b.type];
+            if (!def) continue;
+            var sizeW = def.size ? def.size[0] : 1;
+            var sizeH = def.size ? def.size[1] : 1;
+            var pw = sizeW * cs;
+            var ph = sizeH * cs;
+            var cx = b.worldX + pw / 2;
+            var cy = b.worldY + ph;
+
+            if (!_isInViewport(cx, cy, pw)) continue;
+
+            var cap = def.energyStorageCapacity || 0;
+            var stored = Math.floor(b.energy || 0);
+            if (cap <= 0 && stored <= 0) continue;
+
+            var label = '⚡' + stored;
+            if (cap > 0) label += '/' + cap;
+
+            // Background pill
+            var tw = ctx.measureText(label).width + 6;
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(cx - tw / 2, cy + 1, tw, 11);
+            // Text color based on fill ratio
+            var ratio = cap > 0 ? stored / cap : 0;
+            if (ratio > 0.8) ctx.fillStyle = '#44ff44';
+            else if (ratio > 0.3) ctx.fillStyle = '#ffcc00';
+            else ctx.fillStyle = '#ff6644';
+            ctx.fillText(label, cx, cy + 12);
+        }
+
+        // Draw energy flow on cables
+        var cables = Buildings.getCables();
+        if (cables && cables.length) {
+            ctx.font = 'bold 8px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (var j = 0; j < cables.length; j++) {
+                var cable = cables[j];
+                var fromB = Buildings.getById(cable.from);
+                var toB = Buildings.getById(cable.to);
+                if (!fromB || !toB) continue;
+
+                var fc = Buildings.getBuildingCenter(fromB);
+                var tc = Buildings.getBuildingCenter(toB);
+                var mx = (fc.x + tc.x) / 2;
+                var my = (fc.y + tc.y) / 2;
+
+                if (!_isInViewport(mx, my, 100)) continue;
+
+                var isHC = cable.type === 'high_capacity';
+                var maxTP = isHC ? (Config.HC_CABLE_MAX_THROUGHPUT || 500) : (Config.CABLE_MAX_THROUGHPUT || 50);
+
+                // Show actual energy difference as indicator of flow direction
+                var fromE = Math.floor(fromB.energy || 0);
+                var toE = Math.floor(toB.energy || 0);
+                var flowDir = fromE > toE ? '→' : (toE > fromE ? '←' : '=');
+                var flowLabel = Math.abs(fromE - toE) + flowDir;
+
+                var tw2 = ctx.measureText(flowLabel).width + 4;
+                ctx.fillStyle = 'rgba(0,0,0,0.65)';
+                ctx.fillRect(mx - tw2 / 2, my - 5, tw2, 10);
+                ctx.fillStyle = isHC ? '#ffcc44' : '#66ccff';
+                ctx.fillText(flowLabel, mx, my);
+            }
+        }
+
+        ctx.restore();
+    }
+
+    // ------------------------------------------------------------------------
     // Layer: Shields
     // ------------------------------------------------------------------------
     function _drawShields(ctx) {
@@ -1829,6 +1917,7 @@ var Render = (function () {
             _drawPlacementRange(_ctx);
             _drawCables(_ctx);
             _drawBuildings(_ctx);
+            _drawDebugEnergyOverlay(_ctx);
             _drawShields(_ctx);
             _drawEnemies(_ctx);
             _drawProjectiles(_ctx);

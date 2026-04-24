@@ -1126,6 +1126,7 @@ var UI = (function () {
 
         _buildDebugBar: function () {
             var togglesEl = document.getElementById('debug-toggles');
+            var resEl = document.getElementById('debug-resources');
             var catsEl = document.getElementById('debug-categories');
             var optsEl = document.getElementById('debug-options');
             if (!togglesEl || !catsEl || !optsEl) return;
@@ -1143,6 +1144,29 @@ var UI = (function () {
                     UI.showToast(!isOn ? '🛡️ God Mode ON — Core is invincible' : 'God Mode OFF', 'info', 2000);
                 }
             });
+
+            // Resource cheat buttons
+            if (resEl) {
+                resEl.innerHTML = '<button class="debug-res-btn" data-res="money">+$5000</button>' +
+                    '<button class="debug-res-btn" data-res="iron">+100 ⛏️</button>' +
+                    '<button class="debug-res-btn" data-res="coal">+100 🪨</button>' +
+                    '<button class="debug-res-btn" data-res="oil">+100 🛢️</button>' +
+                    '<button class="debug-res-btn" data-res="uranium">+50 ☢️</button>';
+                var resBtns = resEl.querySelectorAll('.debug-res-btn');
+                for (var r = 0; r < resBtns.length; r++) {
+                    resBtns[r].addEventListener('click', function () {
+                        var res = this.getAttribute('data-res');
+                        if (res === 'money') {
+                            if (typeof Economy !== 'undefined' && Economy.addMoney) Economy.addMoney(5000, 'debug');
+                            UI.showToast('+$5,000', 'success', 1000);
+                        } else {
+                            var amt = res === 'uranium' ? 50 : 100;
+                            if (typeof Economy !== 'undefined' && Economy.addResource) Economy.addResource(res, amt);
+                            UI.showToast('+' + amt + ' ' + res, 'success', 1000);
+                        }
+                    });
+                }
+            }
 
             // Debug categories
             catsEl.innerHTML = '<button class="debug-cat-btn" data-debug-cat="enemies">👾 Enemies</button>';

@@ -451,13 +451,17 @@ body {
 #debug-bar {
     position: fixed;
     top: 40px;
-    left: 0;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 200;
-    background: rgba(30, 10, 10, 0.92);
-    border-bottom: 2px solid #ff4444;
-    padding: 4px 10px;
+    background: rgba(30, 10, 10, 0.78);
+    border: 1px solid #ff4444;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 4px 14px 6px;
     font-size: 12px;
+    width: 520px;
+    max-width: 90vw;
 }
 #debug-header {
     display: flex;
@@ -526,6 +530,25 @@ body {
     background: #ff4444;
     color: #fff;
     border-color: #ff6666;
+}
+#debug-resources {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+.debug-res-btn {
+    background: #1a2a1a;
+    color: #88cc88;
+    border: 1px solid #335533;
+    border-radius: 3px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 11px;
+}
+.debug-res-btn:hover {
+    background: #2a3a2a;
+    border-color: #44aa44;
 }
 .core-hp-warning {
     color: #ff9800 !important;
