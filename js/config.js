@@ -973,13 +973,14 @@ var Config = {
             workersRequired: 0,
             energyGeneration: 0,
             energyConsumption: 0,
-            energyStorageCapacity: 50,
-            maxChargeRate: 0,
-            maxDischargeRate: 0,
+            energyStorageCapacity: 500,
+            maxChargeRate: 500,
+            maxDischargeRate: 500,
+            maxCableConnections: 8,
             pollution: 0,
             upgradeTo: null,
             buildable: false,
-            description: 'Your base. If this falls, you lose.',
+            description: 'Your base. If this falls, you lose. Acts as a high-capacity energy relay.',
             icon: '🏛️'
         },
         grid_connect: {

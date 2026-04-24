@@ -457,12 +457,16 @@ var Buildings = (function() {
             }
 
             // Check cable limits
-            var maxPerBuilding = (typeof Config !== 'undefined' && Config.CABLE_MAX_PER_BUILDING) ? Config.CABLE_MAX_PER_BUILDING : 4;
-            if (_cableCountForBuilding(fromId) >= maxPerBuilding) {
-                return { success: false, reason: 'Source building has maximum cables (' + maxPerBuilding + ').' };
+            var defaultMax = (typeof Config !== 'undefined' && Config.CABLE_MAX_PER_BUILDING) ? Config.CABLE_MAX_PER_BUILDING : 4;
+            var fromDef = (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[fromBuilding.type]) ? Config.BUILDINGS[fromBuilding.type] : null;
+            var toDef = (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[toBuilding.type]) ? Config.BUILDINGS[toBuilding.type] : null;
+            var fromMax = (fromDef && fromDef.maxCableConnections) ? fromDef.maxCableConnections : defaultMax;
+            var toMax = (toDef && toDef.maxCableConnections) ? toDef.maxCableConnections : defaultMax;
+            if (_cableCountForBuilding(fromId) >= fromMax) {
+                return { success: false, reason: 'Source building has maximum cables (' + fromMax + ').' };
             }
-            if (_cableCountForBuilding(toId) >= maxPerBuilding) {
-                return { success: false, reason: 'Target building has maximum cables (' + maxPerBuilding + ').' };
+            if (_cableCountForBuilding(toId) >= toMax) {
+                return { success: false, reason: 'Target building has maximum cables (' + toMax + ').' };
             }
 
             // Check for duplicate
