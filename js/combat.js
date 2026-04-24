@@ -68,35 +68,42 @@ var Combat = (function() {
     // ---- Core Repair ----
 
     function _processCoreRepair() {
-        // Core HP is tracked by Engine, not the building's hp property
-        if (typeof Engine === 'undefined' || !Engine.getCoreHP) return;
+        if (typeof Engine === 'undefined' || typeof Engine.getCoreHP !== 'function') return;
+        if (typeof Buildings === 'undefined' || typeof Buildings.getAll !== 'function') return;
+
         var coreHP = Engine.getCoreHP();
         var coreMaxHP = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : 100;
-        if (coreHP >= coreMaxHP) return;
+        var buildings = Buildings.getAll();
+        var requiredUranium = 10;
 
-        var buildings = _getAllBuildings();
         for (var i = 0; i < buildings.length; i++) {
             var b = buildings[i];
-            if (b.type !== 'core_repair' || b.hp <= 0) continue;
-            var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS.core_repair : null;
-            var requiredEnergy = def ? (def.energyStorageCapacity || 10000) : 10000;
-            var requiredUranium = 10;
-            if (b.energy >= requiredEnergy && coreHP < coreMaxHP) {
-                var hasUranium = (typeof Economy !== 'undefined' && Economy.getResources)
-                    ? Economy.getResources().uranium >= requiredUranium : false;
-                if (!hasUranium) continue;
-                b.energy -= requiredEnergy;
-                if (typeof Economy !== 'undefined' && Economy.spendResource) {
-                    Economy.spendResource('uranium', requiredUranium);
-                }
-                // Heal via Engine state
-                if (typeof Engine !== 'undefined' && Engine.healCoreHP) {
-                    Engine.healCoreHP(1);
-                }
-                coreHP = Engine.getCoreHP();
-                if (typeof UI !== 'undefined' && UI.showToast) {
-                    UI.showToast('🔧 Core repaired! (' + coreHP + '/' + coreMaxHP + ' HP)', 'success', 2000);
-                }
+            if (b.type !== 'core_repair') continue;
+            if (b.hp <= 0) continue;
+
+            var def = Config.BUILDINGS ? Config.BUILDINGS.core_repair : null;
+            if (!def) continue;
+            var requiredEnergy = def.energyStorageCapacity || 10000;
+
+            if (coreHP >= coreMaxHP) continue;
+            if (b.energy < requiredEnergy) continue;
+
+            // Check uranium
+            if (typeof Economy !== 'undefined' && Economy.getResources) {
+                if (Economy.getResources().uranium < requiredUranium) continue;
+            }
+
+            // DO THE REPAIR
+            b.energy = b.energy - requiredEnergy;
+            if (typeof Economy !== 'undefined' && typeof Economy.spendResource === 'function') {
+                Economy.spendResource('uranium', requiredUranium);
+            }
+            if (typeof Engine !== 'undefined' && typeof Engine.healCoreHP === 'function') {
+                Engine.healCoreHP(1);
+            }
+            coreHP = Engine.getCoreHP();
+            if (typeof UI !== 'undefined' && UI.showToast) {
+                UI.showToast('🔧 Core repaired! (' + coreHP + '/' + coreMaxHP + ' HP)', 'success', 3000);
             }
         }
     }
