@@ -80,10 +80,10 @@ var Config = {
     WORKER_DEPART_INTERVAL_CRITICAL: 50,    // ticks
 
     // Waves
-    FIRST_WAVE_DELAY: 120,                  // seconds
-    WAVE_INTERVAL: 60,                      // seconds
-    WAVE_COMPLETION_BASE: 500,
-    WAVE_COMPLETION_SCALE: 100,
+    FIRST_WAVE_DELAY: 180,                  // seconds
+    WAVE_INTERVAL: 90,                      // seconds
+    WAVE_COMPLETION_BASE: 250,
+    WAVE_COMPLETION_SCALE: 50,
 
     // Starting resources
     START_MONEY: 2000,
@@ -1430,8 +1430,8 @@ var Config = {
             enemySpeedMult: 0.9,
             buildingCostMult: 0.8,
             buildingEnergyMult: 0.8,
-            waveInterval: 75,
-            firstWaveDelay: 150,
+            waveInterval: 105,
+            firstWaveDelay: 210,
             killRewardMult: 1.2,
             waveBonusMult: 1.3,
             startMoney: 2500,
@@ -1448,8 +1448,8 @@ var Config = {
             enemySpeedMult: 1.0,
             buildingCostMult: 1.0,
             buildingEnergyMult: 1.0,
-            waveInterval: 60,
-            firstWaveDelay: 120,
+            waveInterval: 90,
+            firstWaveDelay: 180,
             killRewardMult: 1.0,
             waveBonusMult: 1.0,
             startMoney: 2000,
@@ -1466,8 +1466,8 @@ var Config = {
             enemySpeedMult: 1.1,
             buildingCostMult: 1.3,
             buildingEnergyMult: 1.2,
-            waveInterval: 45,
-            firstWaveDelay: 90,
+            waveInterval: 75,
+            firstWaveDelay: 150,
             killRewardMult: 0.9,
             waveBonusMult: 0.8,
             startMoney: 1500,
@@ -1484,8 +1484,8 @@ var Config = {
             enemySpeedMult: 1.2,
             buildingCostMult: 1.6,
             buildingEnergyMult: 1.5,
-            waveInterval: 30,
-            firstWaveDelay: 60,
+            waveInterval: 60,
+            firstWaveDelay: 120,
             killRewardMult: 0.8,
             waveBonusMult: 0.6,
             startMoney: 1400,
