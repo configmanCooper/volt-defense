@@ -47,26 +47,58 @@ var Engine = (function() {
     function _placeStartingBuildings(rng) {
         if (typeof Buildings === 'undefined' || !Buildings.place) { return; }
 
-        var centerGX = Math.floor((typeof Config !== 'undefined' ? Config.MAP_WIDTH : 10000) / 2 /
-            ((typeof Config !== 'undefined' ? Config.GRID_CELL_SIZE : 40)));
-        var centerGY = Math.floor((typeof Config !== 'undefined' ? Config.MAP_HEIGHT : 10000) / 2 /
-            ((typeof Config !== 'undefined' ? Config.GRID_CELL_SIZE : 40)));
+        var cellSize = (typeof Config !== 'undefined' ? Config.GRID_CELL_SIZE : 40);
+        var centerGX = Math.floor((typeof Config !== 'undefined' ? Config.MAP_WIDTH : 10000) / 2 / cellSize);
+        var centerGY = Math.floor((typeof Config !== 'undefined' ? Config.MAP_HEIGHT : 10000) / 2 / cellSize);
 
-        // Core at center
-        Buildings.place('core', centerGX, centerGY, true);
+        // Ensure core is at least 5 tiles from any water tile
+        var coreGX = centerGX;
+        var coreGY = centerGY;
+        if (typeof Map !== 'undefined' && Map.getTerrain) {
+            var minDist = 5;
+            var found = false;
+            // Spiral outward from center to find a valid spot
+            for (var radius = 0; radius <= 50 && !found; radius++) {
+                for (var dy = -radius; dy <= radius && !found; dy++) {
+                    for (var dx = -radius; dx <= radius && !found; dx++) {
+                        if (Math.abs(dx) !== radius && Math.abs(dy) !== radius && radius > 0) continue;
+                        var testX = centerGX + dx;
+                        var testY = centerGY + dy;
+                        var tooClose = false;
+                        // Check all tiles within minDist (including core's 2x2 footprint)
+                        for (var cy = -minDist; cy <= minDist + 1 && !tooClose; cy++) {
+                            for (var cx = -minDist; cx <= minDist + 1 && !tooClose; cx++) {
+                                var terrain = Map.getTerrain(testX + cx, testY + cy);
+                                if (terrain === 2 || terrain === 3) {
+                                    tooClose = true;
+                                }
+                            }
+                        }
+                        if (!tooClose) {
+                            coreGX = testX;
+                            coreGY = testY;
+                            found = true;
+                        }
+                    }
+                }
+            }
+        }
 
-        // Wind Turbine 2 cells to the right of center
-        var windGX = centerGX + 2;
-        var windGY = centerGY;
+        // Core at chosen position
+        Buildings.place('core', coreGX, coreGY, true);
+
+        // Wind Turbine 2 cells to the right of core
+        var windGX = coreGX + 2;
+        var windGY = coreGY;
         Buildings.place('wind', windGX, windGY, true);
 
-        // Small House 2 cells below center
-        var houseGX = centerGX;
-        var houseGY = centerGY + 2;
+        // Small House 2 cells below core
+        var houseGX = coreGX;
+        var houseGY = coreGY + 2;
         Buildings.place('small_house', houseGX, houseGY, true);
 
         // Connect starting buildings with cables using building IDs
-        var coreBuilding = Buildings.getAt ? Buildings.getAt(centerGX, centerGY) : null;
+        var coreBuilding = Buildings.getAt ? Buildings.getAt(coreGX, coreGY) : null;
         var windBuilding = Buildings.getAt ? Buildings.getAt(windGX, windGY) : null;
         var houseBuilding = Buildings.getAt ? Buildings.getAt(houseGX, houseGY) : null;
 

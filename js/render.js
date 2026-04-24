@@ -1556,9 +1556,18 @@ var Render = (function () {
             _terrainCanvas.height = Config.VIEWPORT_HEIGHT;
             _terrainCtx = _terrainCanvas.getContext('2d');
 
-            // Center camera on map center
-            _camera.x = Config.MAP_WIDTH / 2 - Config.VIEWPORT_WIDTH / 2;
-            _camera.y = Config.MAP_HEIGHT / 2 - Config.VIEWPORT_HEIGHT / 2;
+            // Center camera on core building (may not be at map center)
+            var coreBld = (typeof Buildings !== 'undefined' && Buildings.getCore) ? Buildings.getCore() : null;
+            if (coreBld) {
+                var coreDef = Config.BUILDINGS.core;
+                var coreW = (coreDef && coreDef.size ? coreDef.size[0] : 2) * Config.GRID_CELL_SIZE;
+                var coreH = (coreDef && coreDef.size ? coreDef.size[1] : 2) * Config.GRID_CELL_SIZE;
+                _camera.x = coreBld.worldX + coreW / 2 - Config.VIEWPORT_WIDTH / 2;
+                _camera.y = coreBld.worldY + coreH / 2 - Config.VIEWPORT_HEIGHT / 2;
+            } else {
+                _camera.x = Config.MAP_WIDTH / 2 - Config.VIEWPORT_WIDTH / 2;
+                _camera.y = Config.MAP_HEIGHT / 2 - Config.VIEWPORT_HEIGHT / 2;
+            }
             _clampCamera();
 
             _terrainDirty = true;
