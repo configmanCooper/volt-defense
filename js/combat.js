@@ -354,7 +354,10 @@ var Combat = (function() {
             // DPS and energy calculations
             var dps = def.baseDPS * rampMultiplier;
             var damageThisTick = dps / tps;
-            var energyDrawThisTick = def.baseEnergyDraw * rampMultiplier / tps;
+            // Energy ramp: 50% per second instead of 100%
+            var energyRamp = Math.pow(1.5, Math.min(b.laserRampTime, Math.log2(maxRamp) / Math.log2(1.5)));
+            if (energyRamp > maxRamp) energyRamp = maxRamp;
+            var energyDrawThisTick = def.baseEnergyDraw * energyRamp / tps;
 
             // Energy check — stop firing if insufficient
             if (b.energy < energyDrawThisTick) {
@@ -1236,7 +1239,10 @@ var Combat = (function() {
 
             var dps = (def.baseDPS || 20) * rampMultiplier;
             var damageThisTick = dps / tps;
-            var energyDrawThisTick = (def.energyDraw || 80) * rampMultiplier / tps;
+            // Energy ramp: 50% per second instead of 100%
+            var fusionEnergyRamp = Math.pow(1.5, Math.min(b.fusionRampTime / rampInterval, Math.log2(maxRamp) / Math.log2(1.5)));
+            if (fusionEnergyRamp > maxRamp) fusionEnergyRamp = maxRamp;
+            var energyDrawThisTick = (def.energyDraw || 80) * fusionEnergyRamp / tps;
 
             // Uranium consumption
             var uraniumPerTick = (def.uraniumPerSecond || 0.5) / tps;
