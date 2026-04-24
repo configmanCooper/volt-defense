@@ -234,9 +234,11 @@ var Buildings = (function() {
             return { allowed: true };
         },
 
-        place: function(typeKey, gridX, gridY) {
-            var check = this.canPlace(typeKey, gridX, gridY);
-            if (!check.allowed) return null;
+        place: function(typeKey, gridX, gridY, forcePlace) {
+            if (!forcePlace) {
+                var check = this.canPlace(typeKey, gridX, gridY);
+                if (!check.allowed) return null;
+            }
 
             var def = _getDef(typeKey);
             if (!def) return null;

@@ -885,6 +885,24 @@ var Config = {
             description: 'Relay node. Extends cable network cheaply.',
             icon: '📡'
         },
+        water_pylon: {
+            name: 'Water Pylon',
+            category: 'grid',
+            cost: { money: 200 },
+            size: [1, 1],
+            hp: 50,
+            workersRequired: 0,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 10,
+            maxChargeRate: 50,
+            maxDischargeRate: 50,
+            pollution: 0,
+            requiresWater: true,
+            upgradeTo: null,
+            description: 'Relay node for water tiles. Extends cable network across rivers.',
+            icon: '🌊'
+        },
         core: {
             name: 'Core',
             category: 'grid',

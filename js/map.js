@@ -392,6 +392,11 @@ var Map = (function() {
                 return dep && dep.remaining > 0;
             }
 
+            // Water pylon can be built on water
+            if (buildingType === 'water_pylon') {
+                return terrain === TERRAIN_WATER;
+            }
+
             // All other buildings: grass or rock only
             return terrain === TERRAIN_GRASS || terrain === TERRAIN_ROCK;
         },

@@ -53,17 +53,17 @@ var Engine = (function() {
             ((typeof Config !== 'undefined' ? Config.GRID_CELL_SIZE : 40)));
 
         // Core at center
-        Buildings.place('core', centerGX, centerGY);
+        Buildings.place('core', centerGX, centerGY, true);
 
         // Wind Turbine 2 cells to the right of center
         var windGX = centerGX + 2;
         var windGY = centerGY;
-        Buildings.place('wind', windGX, windGY);
+        Buildings.place('wind', windGX, windGY, true);
 
         // Small House 2 cells below center
         var houseGX = centerGX;
         var houseGY = centerGY + 2;
-        Buildings.place('small_house', houseGX, houseGY);
+        Buildings.place('small_house', houseGX, houseGY, true);
 
         // Connect starting buildings with cables using building IDs
         var coreBuilding = Buildings.getAt ? Buildings.getAt(centerGX, centerGY) : null;
