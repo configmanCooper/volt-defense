@@ -81,7 +81,7 @@ var Config = {
 
     // Waves
     FIRST_WAVE_DELAY: 180,                  // seconds
-    WAVE_INTERVAL: 90,                      // seconds
+    WAVE_INTERVAL: 120,                      // seconds
     WAVE_COMPLETION_BASE: 375,
     WAVE_COMPLETION_SCALE: 75,
 
@@ -1430,7 +1430,7 @@ var Config = {
             enemySpeedMult: 0.9,
             buildingCostMult: 0.8,
             buildingEnergyMult: 0.8,
-            waveInterval: 105,
+            waveInterval: 135,
             firstWaveDelay: 210,
             killRewardMult: 1.2,
             waveBonusMult: 1.3,
@@ -1448,7 +1448,7 @@ var Config = {
             enemySpeedMult: 1.0,
             buildingCostMult: 1.0,
             buildingEnergyMult: 1.0,
-            waveInterval: 90,
+            waveInterval: 120,
             firstWaveDelay: 180,
             killRewardMult: 1.0,
             waveBonusMult: 1.0,
@@ -1466,7 +1466,7 @@ var Config = {
             enemySpeedMult: 1.1,
             buildingCostMult: 1.3,
             buildingEnergyMult: 1.2,
-            waveInterval: 75,
+            waveInterval: 105,
             firstWaveDelay: 150,
             killRewardMult: 0.9,
             waveBonusMult: 0.8,
@@ -1484,7 +1484,7 @@ var Config = {
             enemySpeedMult: 1.2,
             buildingCostMult: 1.6,
             buildingEnergyMult: 1.5,
-            waveInterval: 60,
+            waveInterval: 90,
             firstWaveDelay: 120,
             killRewardMult: 0.8,
             waveBonusMult: 0.6,
