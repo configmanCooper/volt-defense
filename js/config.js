@@ -483,7 +483,7 @@ var Config = {
             baseDPS: 5,
             range: 300,
             baseEnergyDraw: 30,
-            maxRamp: 16,
+            maxRamp: 8,
             upgradeTo: 'laser_t2',
             description: 'Continuous beam. DPS ramps up the longer it fires.',
             icon: '🔴'
@@ -504,7 +504,7 @@ var Config = {
             baseDPS: 12,
             range: 400,
             baseEnergyDraw: 60,
-            maxRamp: 16,
+            maxRamp: 8,
             upgradeTo: 'laser_t3',
             description: 'Upgraded laser. Higher DPS and longer range.',
             icon: '🔴'
@@ -525,7 +525,7 @@ var Config = {
             baseDPS: 25,
             range: 500,
             baseEnergyDraw: 100,
-            maxRamp: 32,
+            maxRamp: 16,
             upgradeTo: null,
             description: 'Top-tier laser. Devastating sustained damage.',
             icon: '🔴'

@@ -1234,8 +1234,8 @@ var Combat = (function() {
                 ? Config.FUSION_RAMP_INTERVAL : 0.33;
             b.fusionRampTime += 1 / tps;
 
-            // Ramp multiplier: doubles every rampInterval seconds, capped at 32
-            var maxRamp = 32;
+            // Ramp multiplier: doubles every rampInterval seconds, capped at 16
+            var maxRamp = 16;
             var rampMultiplier = Math.pow(2, Math.min(b.fusionRampTime / rampInterval, Math.log2(maxRamp)));
 
             var dps = (def.baseDPS || 20) * rampMultiplier;
