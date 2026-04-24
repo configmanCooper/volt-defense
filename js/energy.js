@@ -461,13 +461,28 @@ var Energy = (function() {
                     _activeFlowNodes[receiver.id] = true;
 
                     // Record flow along the path for cable flow labels
+                    // Skip cables through intermediate storage buildings (they're pass-through,
+                    // not actually discharging — only the generator itself discharges)
                     var pathNode = receiver.id;
                     while (parentMap[pathNode] !== undefined) {
                         var parentNode = parentMap[pathNode];
-                        var flowKey = parentNode < pathNode ? parentNode + '-' + pathNode : pathNode + '-' + parentNode;
-                        var flowDir = parentNode < pathNode ? 1 : -1; // positive = from lower to higher id
-                        if (!_cableFlowThisTick[flowKey]) _cableFlowThisTick[flowKey] = 0;
-                        _cableFlowThisTick[flowKey] += transferable * flowDir;
+                        // Skip if parentNode is a storage building that isn't the generator
+                        var skipSegment = false;
+                        if (parentNode !== gen.id) {
+                            var pnBuilding = Buildings.getById(parentNode);
+                            if (pnBuilding) {
+                                var pnDef = _getDef(pnBuilding.type);
+                                if (pnDef && pnDef.category === 'storage') {
+                                    skipSegment = true;
+                                }
+                            }
+                        }
+                        if (!skipSegment) {
+                            var flowKey = parentNode < pathNode ? parentNode + '-' + pathNode : pathNode + '-' + parentNode;
+                            var flowDir = parentNode < pathNode ? 1 : -1;
+                            if (!_cableFlowThisTick[flowKey]) _cableFlowThisTick[flowKey] = 0;
+                            _cableFlowThisTick[flowKey] += transferable * flowDir;
+                        }
                         pathNode = parentNode;
                     }
                 }
