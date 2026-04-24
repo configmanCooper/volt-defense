@@ -1792,35 +1792,46 @@ var Render = (function () {
             ctx.stroke();
         }
 
-        // Cable connection preview: line to nearest connectable building
+        // Cable connection preview: line to nearest (or Alt-cycled) connectable building
         if (typeof Buildings !== 'undefined' && Buildings && typeof Buildings.getAll === 'function') {
             var cx = px + pw / 2;
             var cy = py + ph / 2;
-            var bList = Buildings.getAll();
             var closest = null;
-            var closestDist = Infinity;
-            // Restricted categories can only connect to storage, grid, or core
-            var restrictedCats = { weapons: true, mining: true, defense: true };
-            var allowedCats = { storage: true, grid: true };
-            var placingCat = def.category || '';
-            var isRestricted = !!restrictedCats[placingCat];
-            for (var bi = 0; bi < bList.length; bi++) {
-                var bOther = bList[bi];
-                // Filter by allowed connection types
-                if (isRestricted) {
-                    var otherDef = Config.BUILDINGS[bOther.type];
-                    var otherCat = otherDef ? otherDef.category : '';
-                    if (!allowedCats[otherCat] && bOther.type !== 'core') continue;
+
+            // Use Input's eligible targets and override index if available
+            if (typeof Input !== 'undefined' && Input.getEligibleCableTargets && Input.getCableTargetIdx) {
+                var eligible = Input.getEligibleCableTargets(cx, cy, _placementPreview.typeKey);
+                var overrideIdx = Input.getCableTargetIdx();
+                if (eligible.length > 0) {
+                    var idx = (overrideIdx >= 0 && overrideIdx < eligible.length) ? overrideIdx : 0;
+                    closest = eligible[idx].center;
                 }
-                var bc = Buildings.getBuildingCenter(bOther);
-                var dx = bc.x - cx;
-                var dy = bc.y - cy;
-                var d = Math.sqrt(dx * dx + dy * dy);
-                if (d <= Config.CABLE_MAX_LENGTH && d < closestDist) {
-                    closestDist = d;
-                    closest = bc;
+            } else {
+                // Fallback: find nearest manually
+                var bList = Buildings.getAll();
+                var closestDist = Infinity;
+                var restrictedCats = { weapons: true, mining: true, defense: true };
+                var allowedCats = { storage: true, grid: true };
+                var placingCat = def.category || '';
+                var isRestricted = !!restrictedCats[placingCat];
+                for (var bi = 0; bi < bList.length; bi++) {
+                    var bOther = bList[bi];
+                    if (isRestricted) {
+                        var otherDef = Config.BUILDINGS[bOther.type];
+                        var otherCat = otherDef ? otherDef.category : '';
+                        if (!allowedCats[otherCat] && bOther.type !== 'core') continue;
+                    }
+                    var bc = Buildings.getBuildingCenter(bOther);
+                    var dx = bc.x - cx;
+                    var dy = bc.y - cy;
+                    var d = Math.sqrt(dx * dx + dy * dy);
+                    if (d <= Config.CABLE_MAX_LENGTH && d < closestDist) {
+                        closestDist = d;
+                        closest = bc;
+                    }
                 }
             }
+
             if (closest) {
                 ctx.setLineDash([4, 4]);
                 ctx.strokeStyle = COLORS.CABLE.glow;

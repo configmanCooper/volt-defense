@@ -28,6 +28,9 @@ var Input = (function () {
     var _debugKeyBuffer = '';
     var _debugKeyTimer = null;
 
+    // Cable target cycling (Alt key during placement)
+    var _cableTargetIdx = -1; // -1 = auto (nearest), 0+ = index into eligible list
+
     // Deposit hover tooltip
     var _hoverGrid = { x: -1, y: -1 };
     var _hoverStartTime = 0;
@@ -41,6 +44,38 @@ var Input = (function () {
 
     function _isPaused() {
         return (typeof Engine !== 'undefined' && Engine.isPaused) ? Engine.isPaused() : false;
+    }
+
+    // Returns sorted array of eligible cable target buildings for placement preview
+    function _getEligibleCableTargets(cx, cy, typeKey) {
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) return [];
+        if (typeof Config === 'undefined' || !Config.BUILDINGS) return [];
+        var maxLen = Config.CABLE_MAX_LENGTH || 200;
+        var def = Config.BUILDINGS[typeKey];
+        if (!def) return [];
+        var restrictedCats = { weapons: true, mining: true, defense: true };
+        var allowedCats = { storage: true, grid: true };
+        var placedCat = def.category || '';
+        var isRestricted = !!restrictedCats[placedCat];
+        var allBuildings = Buildings.getAll();
+        var eligible = [];
+        for (var i = 0; i < allBuildings.length; i++) {
+            var other = allBuildings[i];
+            if (isRestricted) {
+                var otherDef = Config.BUILDINGS[other.type];
+                var otherCat = otherDef ? otherDef.category : '';
+                if (!allowedCats[otherCat] && other.type !== 'core') continue;
+            }
+            var bc = (typeof Buildings.getBuildingCenter === 'function') ? Buildings.getBuildingCenter(other) : { x: other.worldX, y: other.worldY };
+            var dx = bc.x - cx;
+            var dy = bc.y - cy;
+            var d = Math.sqrt(dx * dx + dy * dy);
+            if (d <= maxLen) {
+                eligible.push({ building: other, center: bc, dist: d });
+            }
+        }
+        eligible.sort(function (a, b) { return a.dist - b.dist; });
+        return eligible;
     }
 
     function _attemptPlacement() {
@@ -72,53 +107,21 @@ var Input = (function () {
     function _autoCable(placedBuilding) {
         if (typeof Buildings === 'undefined' || !Buildings.getAll || !Buildings.addCable) return;
 
-        var maxLen = (typeof Config !== 'undefined' && Config.CABLE_MAX_LENGTH) ? Config.CABLE_MAX_LENGTH : 200;
-        var allBuildings = Buildings.getAll();
-        var bestDist = Infinity;
-        var bestId = null;
-
-        // Restricted categories can only connect to storage, grid, or core
-        var restrictedCats = { weapons: true, mining: true, defense: true };
-        var allowedCats = { storage: true, grid: true };
         var placedDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[placedBuilding.type] : null;
-        var placedCat = placedDef ? placedDef.category : '';
-        var isRestricted = !!restrictedCats[placedCat];
+        var bc = (typeof Buildings.getBuildingCenter === 'function') ? Buildings.getBuildingCenter(placedBuilding) : { x: placedBuilding.worldX, y: placedBuilding.worldY };
+        var eligible = _getEligibleCableTargets(bc.x, bc.y, placedBuilding.type);
+        if (eligible.length === 0) return;
 
-        for (var i = 0; i < allBuildings.length; i++) {
-            var other = allBuildings[i];
-            if (other.id === placedBuilding.id) continue;
+        // Use override index if valid, otherwise nearest (index 0)
+        var idx = (_cableTargetIdx >= 0 && _cableTargetIdx < eligible.length) ? _cableTargetIdx : 0;
+        var bestId = eligible[idx].building.id;
 
-            // Filter by allowed connection types
-            if (isRestricted) {
-                var otherDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[other.type] : null;
-                var otherCat = otherDef ? otherDef.category : '';
-                if (!allowedCats[otherCat] && other.type !== 'core') continue;
-            }
-
-            var dist = Infinity;
-            if (typeof Buildings.getDistance === 'function') {
-                dist = Buildings.getDistance(placedBuilding, other);
-            } else {
-                var cellSize = _getCellSize();
-                var dx = placedBuilding.worldX - other.worldX;
-                var dy = placedBuilding.worldY - other.worldY;
-                dist = Math.sqrt(dx * dx + dy * dy);
-            }
-
-            if (dist <= maxLen && dist < bestDist) {
-                bestDist = dist;
-                bestId = other.id;
-            }
+        // Capacitors auto-connect with HC cable
+        var autoCableType = 'standard';
+        if (placedDef && placedDef.maxChargeRate >= 100 && placedDef.maxDischargeRate >= 100) {
+            autoCableType = 'high_capacity';
         }
-
-        if (bestId !== null) {
-            // Capacitors auto-connect with HC cable
-            var autoCableType = 'standard';
-            if (placedDef && placedDef.maxChargeRate >= 100 && placedDef.maxDischargeRate >= 100) {
-                autoCableType = 'high_capacity';
-            }
-            Buildings.addCable(placedBuilding.id, bestId, autoCableType);
-        }
+        Buildings.addCable(placedBuilding.id, bestId, autoCableType);
     }
 
     function _getBuildingAtMouse() {
@@ -545,6 +548,25 @@ var Input = (function () {
                 // All remaining keys require game to be running
                 if (_isPaused()) return;
 
+                // Alt — cycle cable target during placement
+                if (e.key === 'Alt' && _state === 'placing' && _placingType) {
+                    e.preventDefault();
+                    var cs = _getCellSize();
+                    var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[_placingType] : null;
+                    var sizeW = (def && def.size) ? def.size[0] : 1;
+                    var sizeH = (def && def.size) ? def.size[1] : 1;
+                    var cx = _mouseGrid.x * cs + (sizeW * cs) / 2;
+                    var cy = _mouseGrid.y * cs + (sizeH * cs) / 2;
+                    var eligible = _getEligibleCableTargets(cx, cy, _placingType);
+                    if (eligible.length > 1) {
+                        _cableTargetIdx = (_cableTargetIdx + 1) % eligible.length;
+                        if (typeof UI !== 'undefined' && UI.showToast) {
+                            UI.showToast('Cable target: ' + (Config.BUILDINGS[eligible[_cableTargetIdx].building.type] || {}).name + ' (' + (_cableTargetIdx + 1) + '/' + eligible.length + ')', 'info', 1500);
+                        }
+                    }
+                    return;
+                }
+
                 // Delete — sell selected building
                 if (e.key === 'Delete' && _selectedBuildingId) {
                     if (typeof Buildings !== 'undefined' && Buildings.remove) {
@@ -625,6 +647,8 @@ var Input = (function () {
         getMouseGrid: function () { return _mouseGrid; },
         getMouseScreen: function () { return _mouseScreen; },
         getPlacingType: function () { return _placingType; },
+        getCableTargetIdx: function () { return _cableTargetIdx; },
+        getEligibleCableTargets: function (cx, cy, typeKey) { return _getEligibleCableTargets(cx, cy, typeKey); },
         getSelectedBuildingId: function () { return _selectedBuildingId; },
         getDepositTooltip: function () { return _getDepositTooltip(); },
 
@@ -638,6 +662,7 @@ var Input = (function () {
         setPlacingMode: function (typeKey) {
             _state = 'placing';
             _placingType = typeKey;
+            _cableTargetIdx = -1;
             _deselectBuilding();
 
             if (typeof Render !== 'undefined' && Render.setPlacementPreview) {
@@ -655,6 +680,7 @@ var Input = (function () {
         cancelPlacement: function () {
             _state = 'idle';
             _placingType = null;
+            _cableTargetIdx = -1;
             if (typeof Render !== 'undefined' && Render.clearPlacementPreview) {
                 Render.clearPlacementPreview();
             }
