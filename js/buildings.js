@@ -590,6 +590,13 @@ var Buildings = (function() {
                 if ((c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)) {
                     _cables.splice(i, 1);
                     _adjacencyDirty = true;
+                    // Clean up cable rules and priorities on both buildings
+                    var fromB = _getById(fromId);
+                    var toB = _getById(toId);
+                    if (fromB && fromB.cableRules) delete fromB.cableRules[toId];
+                    if (toB && toB.cableRules) delete toB.cableRules[fromId];
+                    if (fromB && fromB.cablePriorities) delete fromB.cablePriorities[toId];
+                    if (toB && toB.cablePriorities) delete toB.cablePriorities[fromId];
                     return true;
                 }
             }

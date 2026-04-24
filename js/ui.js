@@ -889,6 +889,8 @@ var UI = (function () {
                         if (cable.type !== 'high_capacity') {
                             html += '<button class="cable-upgrade-btn" data-from-id="' + cable.from + '" data-to-id="' + cable.to + '" style="font-size:10px;padding:2px 6px;background:#2a2a4e;color:#ffcc00;border:1px solid #555;border-radius:3px;cursor:pointer;">⚡ Upgrade</button>';
                         }
+                        // Disconnect button
+                        html += '<button class="cable-disconnect-btn" data-from-id="' + cable.from + '" data-to-id="' + cable.to + '" style="font-size:10px;padding:2px 6px;background:#2a2a4e;color:#ff4444;border:1px solid #555;border-radius:3px;cursor:pointer;">✂️</button>';
                         html += '</div>';
                     }
                     html += '</div>';
@@ -966,6 +968,24 @@ var UI = (function () {
                         var pri = parseInt(this.value);
                         if (typeof Buildings !== 'undefined' && Buildings.setCablePriority) {
                             Buildings.setCablePriority(bId, nId, pri);
+                        }
+                    });
+                }
+
+                // Wire up cable disconnect buttons
+                var discBtns = _elements.infoPanel.querySelectorAll('.cable-disconnect-btn');
+                for (var db = 0; db < discBtns.length; db++) {
+                    discBtns[db].addEventListener('click', function () {
+                        var fId = parseInt(this.getAttribute('data-from-id'));
+                        var tId = parseInt(this.getAttribute('data-to-id'));
+                        if (typeof Buildings !== 'undefined' && Buildings.removeCable) {
+                            Buildings.removeCable(fId, tId);
+                            if (typeof UI !== 'undefined' && UI.showToast) {
+                                UI.showToast('Cable disconnected.', 'info', 1500);
+                            }
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(_selectedBuildingId);
+                            }
                         }
                     });
                 }
