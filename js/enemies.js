@@ -1087,16 +1087,10 @@ var Enemies = (function () {
          * Returns true if all spawn points can reach the core.
          */
         canReachCoreWith: function (blockedCells) {
-            // Set temporary blocked cells
-            _tempBlockedCells = {};
-            for (var i = 0; i < blockedCells.length; i++) {
-                _tempBlockedCells[blockedCells[i].x + ',' + blockedCells[i].y] = true;
-            }
-
             var spawnPts = (typeof Map !== 'undefined' && Map.getSpawnPoints)
                 ? Map.getSpawnPoints() : [];
 
-            // Also check map edge fallback points
+            // Fallback edge points if no spawn points generated
             if (spawnPts.length === 0) {
                 var hw = Config.MAP_WIDTH / 2;
                 var hh = Config.MAP_HEIGHT / 2;
@@ -1108,19 +1102,40 @@ var Enemies = (function () {
                 ];
             }
 
-            // At least one spawn point must still be able to reach the core
-            var anyReachable = false;
+            // First, find which spawn points can currently reach the core (without new building)
+            _tempBlockedCells = {};
+            var reachableSpawns = [];
             for (var s = 0; s < spawnPts.length; s++) {
                 var path = _findPath(spawnPts[s].x, spawnPts[s].y);
                 if (path) {
-                    anyReachable = true;
+                    reachableSpawns.push(spawnPts[s]);
+                }
+            }
+
+            // If no spawn points can currently reach, allow placement
+            if (reachableSpawns.length === 0) {
+                _tempBlockedCells = {};
+                return true;
+            }
+
+            // Now check that ALL currently-reachable spawn points can still reach
+            // with the new building in place
+            _tempBlockedCells = {};
+            for (var i = 0; i < blockedCells.length; i++) {
+                _tempBlockedCells[blockedCells[i].x + ',' + blockedCells[i].y] = true;
+            }
+
+            var allStillReachable = true;
+            for (var r = 0; r < reachableSpawns.length; r++) {
+                var testPath = _findPath(reachableSpawns[r].x, reachableSpawns[r].y);
+                if (!testPath) {
+                    allStillReachable = false;
                     break;
                 }
             }
 
-            // Clear temporary blocked cells
             _tempBlockedCells = {};
-            return anyReachable;
+            return allStillReachable;
         },
 
         // ---- Save / Load ------------------------------------------------------
