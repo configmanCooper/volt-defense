@@ -49,7 +49,7 @@ var Config = {
     LASER_ARMOR_BYPASS: 0.5,
 
     // Missile
-    MISSILE_HOMING_ANGLE: 15,
+    MISSILE_HOMING_ANGLE: 20,
     MISSILE_MAX_RANGE_MULT: 1.5,
 
     // Fusion Beam
