@@ -47,7 +47,8 @@ var Enemies = (function () {
     var _pathCache = {};               // key: 'gx,gy,targetKey' -> { path: [...] | null }
     var _pathCacheRadius = 3;          // grid-cell search radius for cache hits
     var _deferredPathQueue = [];       // enemies needing real A* (have direct path for now)
-    var _maxPathfindsPerTick = 2;      // limit expensive A* calls per game tick
+    var _maxPathfindsPerTick = 1;      // limit expensive A* calls per game tick
+    var _pathBudgetThisTick = 0;       // tracks A* calls this tick across all sources
 
     // ---- Helpers -----------------------------------------------------------
 
@@ -578,24 +579,35 @@ var Enemies = (function () {
     }
 
     /**
-     * Process deferred pathfinding queue — limited per tick for performance.
+     * Process deferred pathfinding queue — runs via setTimeout to avoid
+     * blocking the game tick. Processes one path at a time.
      */
+    var _deferredProcessing = false;
     function _processDeferredPaths() {
-        var processed = 0;
-        while (_deferredPathQueue.length > 0 && processed < _maxPathfindsPerTick) {
-            var enemy = _deferredPathQueue.shift();
-            // Enemy may have been killed already
-            if (enemy.hp <= 0) continue;
-            var targetKey = enemy.targetBuildingId || 'core';
-            var path = _findPathRaw(enemy.x, enemy.y, enemy.targetBuildingId);
-            var grid = _worldToGrid(enemy.x, enemy.y);
-            _setCachedPath(grid.gx, grid.gy, targetKey, path);
-            if (path) {
-                enemy.path = path;
-                enemy.pathIndex = path.length > 1 ? 1 : 0;
+        if (_deferredProcessing || _deferredPathQueue.length === 0) return;
+        _deferredProcessing = true;
+        setTimeout(function () {
+            var maxPerBatch = 1;
+            var processed = 0;
+            while (_deferredPathQueue.length > 0 && processed < maxPerBatch) {
+                var enemy = _deferredPathQueue.shift();
+                if (enemy.hp <= 0) continue;
+                var targetKey = enemy.targetBuildingId || 'core';
+                var path = _findPathRaw(enemy.x, enemy.y, enemy.targetBuildingId);
+                var grid = _worldToGrid(enemy.x, enemy.y);
+                _setCachedPath(grid.gx, grid.gy, targetKey, path);
+                if (path) {
+                    enemy.path = path;
+                    enemy.pathIndex = path.length > 1 ? 1 : 0;
+                }
+                processed++;
             }
-            processed++;
-        }
+            _deferredProcessing = false;
+            // Schedule next batch if more remain
+            if (_deferredPathQueue.length > 0) {
+                _processDeferredPaths();
+            }
+        }, 0);
     }
 
     /**
@@ -1032,44 +1044,47 @@ var Enemies = (function () {
         if (enemy.repathTimer <= 0) {
             enemy.repathTimer = 20; // repath every 2 seconds
 
-            // Targeted pathing: try to find specific target building
-            if (enemy.targetCategory || enemy.targetBuildingId) {
-                var targetPos = _findTargetBuilding(enemy);
-                if (targetPos) {
-                    var useWaterOnly = false;
-                    if (enemy.special === 'river_spawn' && enemy.targetCategory === 'water_buildings') {
-                        useWaterOnly = true;
-                    }
-                    var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId);
-                    if (newPath) {
-                        enemy.path = newPath;
-                        // Skip the first waypoint (current cell center) to avoid backtracking
-                        enemy.pathIndex = newPath.length > 1 ? 1 : 0;
-                        enemy.targetBuildingId = targetPos.buildingId;
+            // Skip if pathfinding budget exhausted this tick
+            if (_pathBudgetThisTick >= _maxPathfindsPerTick) {
+                enemy.repathTimer = 1; // retry next tick
+            } else {
+                _pathBudgetThisTick++;
+
+                // Targeted pathing: try to find specific target building
+                if (enemy.targetCategory || enemy.targetBuildingId) {
+                    var targetPos = _findTargetBuilding(enemy);
+                    if (targetPos) {
+                        var useWaterOnly = false;
+                        if (enemy.special === 'river_spawn' && enemy.targetCategory === 'water_buildings') {
+                            useWaterOnly = true;
+                        }
+                        var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId);
+                        if (newPath) {
+                            enemy.path = newPath;
+                            enemy.pathIndex = newPath.length > 1 ? 1 : 0;
+                            enemy.targetBuildingId = targetPos.buildingId;
+                        } else {
+                            enemy.targetBuildingId = null;
+                        }
                     } else {
-                        // Can't reach target — fall through to core pathing below
                         enemy.targetBuildingId = null;
-                    }
-                } else {
-                    enemy.targetBuildingId = null;
-                    if (enemy.special === 'river_spawn') {
-                        enemy.canSwim = true;
+                        if (enemy.special === 'river_spawn') {
+                            enemy.canSwim = true;
+                        }
                     }
                 }
-            }
 
-            // Core pathing: if no target or target unreachable, path to core
-            if (!enemy.targetBuildingId) {
-                var corePos = _getCorePosition();
-                var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null);
-                if (corePath) {
-                    enemy.path = corePath;
-                    // Skip the first waypoint (current cell center) to avoid backtracking
-                    enemy.pathIndex = corePath.length > 1 ? 1 : 0;
-                } else {
-                    // A* failed — use direct path as last resort
-                    enemy.path = _directPath(enemy.x, enemy.y, corePos.x, corePos.y);
-                    enemy.pathIndex = 0;
+                // Core pathing: if no target or target unreachable, path to core
+                if (!enemy.targetBuildingId) {
+                    var corePos = _getCorePosition();
+                    var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null);
+                    if (corePath) {
+                        enemy.path = corePath;
+                        enemy.pathIndex = corePath.length > 1 ? 1 : 0;
+                    } else {
+                        enemy.path = _directPath(enemy.x, enemy.y, corePos.x, corePos.y);
+                        enemy.pathIndex = 0;
+                    }
                 }
             }
         }
@@ -1253,8 +1268,9 @@ var Enemies = (function () {
     return {
         tick: function () {
             _rebuildSpatialGrid();
+            _pathBudgetThisTick = 0;
 
-            // 0. Process deferred pathfinding queue (budget-limited)
+            // 0. Process deferred pathfinding queue (via setTimeout, non-blocking)
             _processDeferredPaths();
 
             // 1. Process spawn queue
