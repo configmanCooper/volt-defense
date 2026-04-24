@@ -68,25 +68,20 @@ var Combat = (function() {
     // ---- Core Repair ----
 
     function _processCoreRepair() {
+        // Core HP is tracked by Engine, not the building's hp property
+        if (typeof Engine === 'undefined' || !Engine.getCoreHP) return;
+        var coreHP = Engine.getCoreHP();
+        var coreMaxHP = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : 100;
+        if (coreHP >= coreMaxHP) return;
+
         var buildings = _getAllBuildings();
-        var core = null;
-        for (var i = 0; i < buildings.length; i++) {
-            if (buildings[i].type === 'core') { core = buildings[i]; break; }
-        }
-        if (!core) return;
-
-        var coreDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS.core : null;
-        var coreMaxHp = coreDef ? (coreDef.hp || 100) : 100;
-        if (core.hp >= coreMaxHp) return;
-
         for (var i = 0; i < buildings.length; i++) {
             var b = buildings[i];
             if (b.type !== 'core_repair' || b.hp <= 0) continue;
             var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS.core_repair : null;
             var requiredEnergy = def ? (def.energyStorageCapacity || 10000) : 10000;
             var requiredUranium = 10;
-            if (b.energy >= requiredEnergy && core.hp < coreMaxHp) {
-                // Check uranium
+            if (b.energy >= requiredEnergy && coreHP < coreMaxHP) {
                 var hasUranium = (typeof Economy !== 'undefined' && Economy.getResources)
                     ? Economy.getResources().uranium >= requiredUranium : false;
                 if (!hasUranium) continue;
@@ -94,9 +89,13 @@ var Combat = (function() {
                 if (typeof Economy !== 'undefined' && Economy.spendResource) {
                     Economy.spendResource('uranium', requiredUranium);
                 }
-                core.hp = Math.min(core.hp + 1, coreMaxHp);
+                // Heal via Engine state
+                if (typeof Engine !== 'undefined' && Engine.healCoreHP) {
+                    Engine.healCoreHP(1);
+                }
+                coreHP = Engine.getCoreHP();
                 if (typeof UI !== 'undefined' && UI.showToast) {
-                    UI.showToast('🔧 Core repaired! (' + core.hp + '/' + coreMaxHp + ' HP)', 'success', 2000);
+                    UI.showToast('🔧 Core repaired! (' + coreHP + '/' + coreMaxHP + ' HP)', 'success', 2000);
                 }
             }
         }

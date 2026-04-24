@@ -244,6 +244,12 @@ var Engine = (function() {
             }
         },
 
+        healCoreHP: function(amount) {
+            if (!_state) { return; }
+            var maxHP = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : 100;
+            _state.coreHP = Math.min(_state.coreHP + amount, maxHP);
+        },
+
         getGameTime: function() { return _state ? _state.gameTime : 0; },
 
         isGameOver: function() { return _state ? _state.gameOver : false; },
