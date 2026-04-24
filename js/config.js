@@ -271,9 +271,26 @@ var Config = {
             maxChargeRate: 200,
             maxDischargeRate: 200,
             pollution: 0,
-            upgradeTo: null,
+            upgradeTo: 'advanced_capacitor',
             description: 'Low capacity but extremely fast charge/discharge.',
             icon: '⚡'
+        },
+        advanced_capacitor: {
+            name: 'Advanced Capacitor',
+            category: 'storage',
+            cost: { money: 2000 },
+            size: [1, 1],
+            hp: 60,
+            workersRequired: 1,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 600,
+            maxChargeRate: 600,
+            maxDischargeRate: 600,
+            pollution: 0,
+            upgradeTo: null,
+            description: 'High-performance capacitor with 3x capacity and charge/discharge rate.',
+            icon: '⚡⚡'
         },
         consumer_battery: {
             name: 'Consumer Battery',
