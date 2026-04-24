@@ -22,6 +22,10 @@ var UI = (function () {
         if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
             cost = Engine.applyDifficultyToCost(def.cost);
         }
+        // Override cost for consumer batteries (scaled)
+        if (typeKey === 'consumer_battery' && typeof Buildings !== 'undefined' && Buildings.getConsumerBatteryScaledCost) {
+            cost = { money: Buildings.getConsumerBatteryScaledCost() };
+        }
 
         var h = '<div class="bic-header">';
         h += '<span class="bic-icon">' + (def.icon || '') + '</span>';
@@ -58,7 +62,13 @@ var UI = (function () {
                 h += _bicStat('Generation', '<span style="color:#44cc44">' + genText + '</span>');
             }
             if (def.energyConsumption > 0) h += _bicStat('Consumption', '<span style="color:#cc4444">-' + def.energyConsumption + '/s</span>');
-            if (def.energyStorageCapacity > 0) h += _bicStat('Storage', def.energyStorageCapacity);
+            if (def.energyStorageCapacity > 0) {
+                var displayStorage = def.energyStorageCapacity;
+                if (typeKey === 'consumer_battery' && typeof Buildings !== 'undefined' && Buildings.getConsumerBatteryScaledStorage) {
+                    displayStorage = Buildings.getConsumerBatteryScaledStorage();
+                }
+                h += _bicStat('Storage', displayStorage);
+            }
             if (def.maxChargeRate > 0) h += _bicStat('Charge Rate', def.maxChargeRate + '/s');
             if (def.maxDischargeRate > 0) h += _bicStat('Discharge', def.maxDischargeRate + '/s');
         }
@@ -120,7 +130,11 @@ var UI = (function () {
             if (def.sellPrice) {
                 h += '<div class="bic-section">Consumer</div>';
                 h += _bicStat('Sell When Full', '<span style="color:#44cc44">$' + def.sellPrice + '</span>');
-                var fillTime = def.energyStorageCapacity && def.maxChargeRate ? (def.energyStorageCapacity / def.maxChargeRate).toFixed(0) : '?';
+                var cbStorage = def.energyStorageCapacity;
+                if (typeKey === 'consumer_battery' && typeof Buildings !== 'undefined' && Buildings.getConsumerBatteryScaledStorage) {
+                    cbStorage = Buildings.getConsumerBatteryScaledStorage();
+                }
+                var fillTime = cbStorage && def.maxChargeRate ? (cbStorage / def.maxChargeRate).toFixed(0) : '?';
                 h += _bicStat('Fill Time', '~' + fillTime + 's');
             }
         }
@@ -1303,7 +1317,6 @@ var UI = (function () {
             var entries = [];
             var keys = Object.keys(Config.ENEMIES);
             for (var i = 0; i < keys.length; i++) {
-                // Skip procedural enemies
                 if (keys[i].indexOf('proc_') === 0) continue;
                 var eDef = Config.ENEMIES[keys[i]];
                 entries.push({ key: keys[i], def: eDef });
@@ -1328,7 +1341,10 @@ var UI = (function () {
             for (var j = 0; j < entries.length; j++) {
                 var e = entries[j];
                 var seen = currentWave >= (e.def.firstWave || 1);
-                html += '<tr style="border-bottom:1px solid #333;">';
+                var rowId = 'glossary-row-' + j;
+                var descId = 'glossary-desc-' + j;
+                html += '<tr id="' + rowId + '" style="border-bottom:1px solid #333;' + (seen ? 'cursor:pointer;' : '') + '"' +
+                    (seen ? ' data-glossary-idx="' + j + '"' : '') + '>';
                 if (seen) {
                     html += '<td style="padding:6px;font-size:18px;">' + (e.def.icon || '') + '</td>';
                     html += '<td style="padding:6px;font-weight:bold;">' + (e.def.name || e.key) + '</td>';
@@ -1349,6 +1365,16 @@ var UI = (function () {
                     html += '<td style="padding:6px;color:#555;">???</td>';
                 }
                 html += '</tr>';
+                if (seen && e.def.description) {
+                    html += '<tr id="' + descId + '" style="display:none;">';
+                    html += '<td colspan="8" style="padding:8px 12px 12px;background:#1a1a2e;border-bottom:2px solid #444;">';
+                    html += '<div style="font-size:12px;line-height:1.5;color:#ccc;max-width:700px;">' + e.def.description + '</div>';
+                    html += '<div style="margin-top:6px;font-size:11px;color:#888;">';
+                    html += '<span style="color:#ffcc00;">Kill Reward: $' + (e.def.killReward || 0) + '</span>';
+                    if (e.def.isBoss) html += ' &nbsp;|&nbsp; <span style="color:#ff4444;">BOSS</span>';
+                    html += '</div>';
+                    html += '</td></tr>';
+                }
             }
 
             html += '</tbody></table></div>';
@@ -1356,6 +1382,22 @@ var UI = (function () {
             UI.showModal('📖 Enemy Glossary', html, [
                 { label: 'Close', action: 'close-modal', className: 'menu-btn' }
             ]);
+
+            // Attach click handlers for toggling descriptions
+            var modalBody = document.querySelector('.modal-body');
+            if (modalBody) {
+                modalBody.addEventListener('click', function (evt) {
+                    var row = evt.target.closest('tr[data-glossary-idx]');
+                    if (!row) return;
+                    var idx = row.getAttribute('data-glossary-idx');
+                    var descRow = document.getElementById('glossary-desc-' + idx);
+                    if (descRow) {
+                        var isVisible = descRow.style.display !== 'none';
+                        descRow.style.display = isVisible ? 'none' : 'table-row';
+                        row.style.background = isVisible ? '' : '#222244';
+                    }
+                });
+            }
         },
 
         // ---- Debug Mode ----

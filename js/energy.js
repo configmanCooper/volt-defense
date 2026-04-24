@@ -51,6 +51,13 @@ var Energy = (function() {
         return null;
     }
 
+    function _getBuildingCapacity(building, def) {
+        if (building.scaledStorageCapacity && building.scaledStorageCapacity > 0) {
+            return building.scaledStorageCapacity;
+        }
+        return def.energyStorageCapacity || 0;
+    }
+
     function _getCableMaxThroughput() {
         return (typeof Config !== 'undefined' && Config.CABLE_MAX_THROUGHPUT) ? Config.CABLE_MAX_THROUGHPUT : 50;
     }
@@ -426,7 +433,7 @@ var Energy = (function() {
                         pylonPriorityMap[nId] = edgePri;
 
                         // Check if this building needs/accepts energy
-                        var nCapacity = nDef.energyStorageCapacity || 0;
+                        var nCapacity = _getBuildingCapacity(nBuilding, nDef);
                         var remaining = nCapacity - nBuilding.energy;
                         if (remaining > 0) {
                             reachable.push(nBuilding);
@@ -475,7 +482,7 @@ var Energy = (function() {
                         var grp = reachable[gi];
                         var grpDef = _getDef(grp.type);
                         if (!grpDef) continue;
-                        var grpCapacity = grpDef.energyStorageCapacity || 0;
+                        var grpCapacity = _getBuildingCapacity(grp, grpDef);
                         var grpRemaining = grpCapacity - grp.energy;
                         if (grpRemaining <= 0) continue;
                         var grpChargeRate = (grpDef.maxChargeRate || 0) / tps;
@@ -584,11 +591,11 @@ var Energy = (function() {
 
                 // Stats accumulation (was Step 4)
                 totalStored += building.energy || 0;
-                totalCapacity += def.energyStorageCapacity || 0;
+                totalCapacity += _getBuildingCapacity(building, def);
 
                 // Consumer battery sell check
                 if (def.sellPrice && def.maxDischargeRate === 0) {
-                    var consCapacity = def.energyStorageCapacity || 0;
+                    var consCapacity = _getBuildingCapacity(building, def);
                     if (building.energy >= consCapacity && consCapacity > 0) {
                         building.sellReady = true;
                         _sellConsumerBattery(building);
@@ -671,7 +678,7 @@ var Energy = (function() {
                 building = allBuildings[i];
                 def = _getDef(building.type);
                 if (!def) continue;
-                var cap = def.energyStorageCapacity || 0;
+                var cap = _getBuildingCapacity(building, def);
                 building.energy = Math.round(building.energy * 10) / 10;
                 if (cap > 0 && building.energy > cap) {
                     building.energy = cap;

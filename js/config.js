@@ -1091,7 +1091,8 @@ var Config = {
             killReward: 10,
             icon: '⚡',
             special: null,
-            firstWave: 1
+            firstWave: 1,
+            description: 'The most basic hostile entity drawn to your grid\'s energy signature. Sparks are small, fast-moving charges that zip toward your core in erratic bursts. Individually weak, they test your early defenses and punish gaps in coverage. They have no armor and low HP, but in later waves they arrive in overwhelming numbers. Targets the core directly.'
         },
         runner: {
             name: 'Runner',
@@ -1102,7 +1103,8 @@ var Config = {
             killReward: 16,
             icon: '💨',
             special: null,
-            firstWave: 2
+            firstWave: 2,
+            description: 'Lightning-fast entities that prioritize speed over durability. Runners streak across the map at nearly double the speed of a Spark, slipping past slow-tracking weapons before they can lock on. They have no armor but their raw velocity makes them dangerous — a cluster of Runners can reach your core before your defenses react. Best countered with fast-firing weapons or area denial. Targets the core directly.'
         },
         grunt: {
             name: 'Grunt',
@@ -1113,7 +1115,8 @@ var Config = {
             killReward: 24,
             icon: '👹',
             special: null,
-            firstWave: 3
+            firstWave: 3,
+            description: 'The backbone of enemy forces. Grunts are tough, moderately armored soldiers that march steadily toward your core. With 80 HP and 2 armor, they can absorb significant punishment from low-tier weapons. They deal respectable damage and serve as the "standard" threat that all your defenses should be calibrated against. Targets the core directly.'
         },
         shielded_grunt: {
             name: 'Shielded Grunt',
@@ -1124,7 +1127,8 @@ var Config = {
             killReward: 36,
             icon: '🛡️',
             special: null,
-            firstWave: 6
+            firstWave: 6,
+            description: 'An upgraded Grunt equipped with heavy plating. With 6 armor, Shielded Grunts drastically reduce incoming damage from low-tier weapons — you\'ll need higher-damage weapons or sustained laser fire to cut through their defenses. Slightly slower than regular Grunts but far more durable. They often appear mixed in with other enemies, soaking hits while lighter units slip through. Targets the core directly.'
         },
         wall_breaker: {
             name: 'Wall Breaker',
@@ -1136,7 +1140,8 @@ var Config = {
             icon: '🔨',
             special: 'targets_walls',
             wallsToDestroy: 3,
-            firstWave: 7
+            firstWave: 7,
+            description: 'A demolition specialist that ignores your core and instead targets your defensive walls. Wall Breakers deal devastating 60 damage per hit and will smash through up to 3 wall segments before resuming their path to the core. With 150 HP and 4 armor, they\'re sturdy enough to survive initial fire. Prioritize taking them down before they carve holes in your perimeter. Targets walls first, then the core.'
         },
         bomber: {
             name: 'Bomber',
@@ -1147,7 +1152,8 @@ var Config = {
             killReward: 100,
             icon: '💣',
             special: 'targets_power',
-            firstWave: 4
+            firstWave: 4,
+            description: 'A cunning saboteur that bypasses your core entirely and heads straight for your power plants. Bombers deal 40 damage — enough to cripple or destroy undefended generators. Losing power plants cascades through your entire grid, starving weapons, shields, and batteries of energy. High kill reward reflects the threat they pose. Always keep weapon coverage near your power infrastructure. Targets power plants.'
         },
         tank: {
             name: 'Tank',
@@ -1158,7 +1164,8 @@ var Config = {
             killReward: 160,
             icon: '🐢',
             special: null,
-            firstWave: 10
+            firstWave: 10,
+            description: 'A slow-moving behemoth with massive HP and heavy armor. Tanks crawl across the battlefield at only 30 speed, but their 350 HP and 8 armor make them extremely difficult to take down with anything less than a focused laser or sustained missile barrage. They tie up your defenses for a long time, allowing faster enemies in the same wave to slip past. Targets the core directly.'
         },
         emp_drone: {
             name: 'EMP Drone',
@@ -1169,7 +1176,8 @@ var Config = {
             killReward: 30,
             icon: '🤖',
             special: 'emp_disable',
-            firstWave: 13
+            firstWave: 13,
+            description: 'A fragile but infuriating support unit that deals no physical damage. Instead, EMP Drones emit a disabling pulse that temporarily shuts down nearby buildings, cutting power generation and weapon fire. With 110 speed and 50 HP, they\'re hard to catch but easy to kill — if you can target them before they reach your infrastructure. Deploy fast-tracking weapons near key buildings. Disables buildings with EMP pulse.'
         },
         swarm: {
             name: 'Swarm',
@@ -1180,7 +1188,8 @@ var Config = {
             killReward: 6,
             icon: '🐝',
             special: null,
-            firstWave: 16
+            firstWave: 16,
+            description: 'Tiny, disposable units that attack in massive numbers. Each individual Swarm entity has only 15 HP and 2 damage, but they spawn in huge groups that overwhelm single-target weapons like lasers. Area-effect weapons like mortars and tesla coils excel against Swarms. Their low kill reward means they\'re not profitable to fight — they exist purely to drain your ammunition and energy. Targets the core directly.'
         },
         heavy_tank: {
             name: 'Heavy Tank',
@@ -1191,7 +1200,8 @@ var Config = {
             killReward: 160,
             icon: '🦏',
             special: null,
-            firstWave: 20
+            firstWave: 20,
+            description: 'The ultimate conventional threat. Heavy Tanks boast a staggering 800 HP and 12 armor, rendering most basic weapons nearly useless against them. At 20 speed they\'re glacially slow, but their 50 damage per hit will tear through any building they reach. You\'ll need high-tier lasers with full damage ramp or concentrated missile fire to bring one down. Targets the core directly.'
         },
         saboteur: {
             name: 'Saboteur',
@@ -1202,7 +1212,8 @@ var Config = {
             killReward: 40,
             icon: '🕵️',
             special: 'targets_grid',
-            firstWave: 25
+            firstWave: 25,
+            description: 'A stealthy operative that targets your power cables and grid infrastructure. Saboteurs are fast and fragile, slipping through your defenses to sever critical energy connections. With only 5 damage and 60 HP, they\'re easy to kill — but if they reach a cable or pylon, they can disconnect entire sections of your grid, leaving weapons and shields powerless. Keep your grid interior defended. Targets cables and pylons.'
         },
         siege_engine: {
             name: 'Siege Engine',
@@ -1213,7 +1224,8 @@ var Config = {
             killReward: 400,
             icon: '🏰',
             special: null,
-            firstWave: 30
+            firstWave: 30,
+            description: 'A colossal war machine that defines late-game threats. With 1500 HP, 18 armor, and 100 damage, Siege Engines are virtually invincible to conventional weapons. Only fully-ramped T3 lasers or fusion beams can reliably damage them through their massive armor. At 12 speed they move at a crawl, giving you time to focus fire — but if one reaches your core, it\'s devastating. Targets the core directly.'
         },
         phase_walker: {
             name: 'Phase Walker',
@@ -1224,7 +1236,8 @@ var Config = {
             killReward: 100,
             icon: '👻',
             special: 'ignores_shields',
-            firstWave: 40
+            firstWave: 40,
+            description: 'An ethereal entity that phases through shield barriers as if they don\'t exist. Phase Walkers completely bypass your shield generators, making traditional chokepoint defenses useless against them. With 200 HP and no armor, they\'re vulnerable to direct weapon fire, but their shield-ignoring ability forces you to maintain weapon coverage behind your shield lines. Ignores all shields.'
         },
         jammer: {
             name: 'Jammer',
@@ -1235,7 +1248,8 @@ var Config = {
             killReward: 70,
             icon: '📡',
             special: 'reduces_range',
-            firstWave: 50
+            firstWave: 50,
+            description: 'An electronic warfare specialist that emits a powerful interference field. All weapons within range of a Jammer have their effective targeting range significantly reduced, creating blind spots in your defense network. At 150 HP and 5 armor, they\'re moderately tough, and their support effect makes them a high-priority target. Kill Jammers first to restore your weapons\' full reach. Reduces nearby weapon range.'
         },
         river_serpent: {
             name: 'River Serpent',
@@ -1246,7 +1260,8 @@ var Config = {
             killReward: 50,
             icon: '🐍',
             special: 'river_spawn',
-            firstWave: 6
+            firstWave: 6,
+            description: 'An aquatic predator that spawns directly from rivers on the map, bypassing your land-based perimeter entirely. River Serpents slither along waterways toward your core at high speed, emerging from unexpected angles. They\'re especially dangerous to undefended hydro plants built along rivers. Place weapons near river paths to intercept them. Spawns from rivers.'
         },
         home_wrecker: {
             name: 'Home Wrecker',
@@ -1257,7 +1272,8 @@ var Config = {
             killReward: 60,
             icon: '🏚️',
             special: 'targets_housing',
-            firstWave: 8
+            firstWave: 8,
+            description: 'A vindictive enemy that specifically targets your housing buildings. Destroying houses eliminates your worker capacity, which can prevent you from staffing critical buildings like weapons and power plants. With 150 HP and 30 damage, Home Wreckers can demolish a small house in seconds. Protect your residential areas or risk a cascading workforce crisis. Targets housing buildings.'
         },
         drill_worm: {
             name: 'Drill Worm',
@@ -1268,7 +1284,8 @@ var Config = {
             killReward: 55,
             icon: '🪱',
             special: 'targets_mining',
-            firstWave: 10
+            firstWave: 10,
+            description: 'A burrowing creature that surfaces near your mining operations and attacks miners directly. Drill Worms threaten your resource income by destroying the extractors that supply iron, coal, and uranium. With 120 HP and 25 damage, they can take out unguarded miners quickly. Always keep at least one weapon covering your mining sites. Targets mining buildings.'
         },
         disruptor: {
             name: 'Disruptor',
@@ -1279,7 +1296,8 @@ var Config = {
             killReward: 65,
             icon: '💥',
             special: 'targets_weapons',
-            firstWave: 12
+            firstWave: 12,
+            description: 'A tactical threat that seeks out and destroys your weapon emplacements. Disruptors target lasers, missiles, mortars, tesla coils, and EMP towers — the very buildings you rely on to stop enemies. Losing a key weapon at the wrong moment can cause a cascade of breaches. Position redundant defenses and guard your weapons with walls or shields. Targets weapon buildings.'
         },
         leech: {
             name: 'Leech',
@@ -1290,7 +1308,8 @@ var Config = {
             killReward: 55,
             icon: '🔋',
             special: 'targets_storage',
-            firstWave: 14
+            firstWave: 14,
+            description: 'An energy parasite that drains and destroys your batteries and capacitors. Leeches target energy storage buildings, depleting your reserves and reducing your grid\'s ability to buffer power for high-demand weapons like lasers and shields. At 80 HP and 1 armor they\'re fragile, but the economic damage of losing a full battery is severe. Targets energy storage buildings.'
         },
         nullifier: {
             name: 'Nullifier',
@@ -1301,7 +1320,8 @@ var Config = {
             killReward: 80,
             icon: '🚫',
             special: 'targets_shields',
-            firstWave: 18
+            firstWave: 18,
+            description: 'An anti-shield specialist that homes in on your shield generators with single-minded focus. Nullifiers deal 35 damage and have enough HP and armor to survive sustained fire while they dismantle your barriers. Once a shield goes down, everything behind it becomes vulnerable. They often arrive alongside other enemies who exploit the gap. Targets shield generators.'
         },
         overload_boss: {
             name: 'Overload Boss',
@@ -1313,7 +1333,8 @@ var Config = {
             icon: '⚡👑',
             special: 'boss',
             firstWave: 20,
-            isBoss: true
+            isBoss: true,
+            description: 'The first true boss enemy — a massive, crackling entity of pure overloaded energy. With 3000 HP, 15 armor, and 80 damage, the Overload Boss is a supreme test of your entire defense network. It moves slowly but absorbs enormous punishment, requiring your best weapons at full ramp to take down. The $1000 kill reward is well-earned. Prepare everything you have. Boss enemy — targets the core.'
         }
     },
 

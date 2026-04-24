@@ -183,6 +183,32 @@ var Buildings = (function() {
         return Infinity;
     }
 
+    function _countConsumerBatteries() {
+        var count = 0;
+        for (var i = 0; i < _buildings.length; i++) {
+            if (_buildings[i].type === 'consumer_battery') {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function _getConsumerBatteryScaledCost() {
+        var count = _countConsumerBatteries();
+        var baseCost = (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS.consumer_battery)
+            ? Config.BUILDINGS.consumer_battery.cost.money : 400;
+        var scaled = Math.round(baseCost * Math.pow(1.25, count));
+        return Math.min(scaled, 1000);
+    }
+
+    function _getConsumerBatteryScaledStorage() {
+        var count = _countConsumerBatteries();
+        var baseStorage = (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS.consumer_battery)
+            ? Config.BUILDINGS.consumer_battery.energyStorageCapacity : 5000;
+        var scaled = Math.round(baseStorage * Math.pow(1.25, count));
+        return Math.min(scaled, 10000);
+    }
+
     return {
         // ================================================================
         // Placement
@@ -239,6 +265,9 @@ var Buildings = (function() {
 
             // Check cost
             var cost = _applyDifficultyToCost(def.cost);
+            if (typeKey === 'consumer_battery') {
+                cost = { money: _getConsumerBatteryScaledCost() };
+            }
             if (!_canAfford(cost)) {
                 return { allowed: false, reason: 'Cannot afford this building.' };
             }
@@ -309,9 +338,13 @@ var Buildings = (function() {
             if (!def) return null;
 
             var cost = _applyDifficultyToCost(def.cost);
+            if (typeKey === 'consumer_battery') {
+                cost = { money: _getConsumerBatteryScaledCost() };
+            }
             _deductCost(cost);
 
             var cellSize = _getCellSize();
+            var scaledStorage = (typeKey === 'consumer_battery') ? _getConsumerBatteryScaledStorage() : 0;
             var building = {
                 id: _nextId++,
                 type: typeKey,
@@ -335,6 +368,8 @@ var Buildings = (function() {
                 depositRef: null,
                 // Consumer battery
                 sellReady: false,
+                // Consumer battery scaled storage (0 = use config default)
+                scaledStorageCapacity: scaledStorage,
                 // Cable flow rules: { 'neighborId': 'both'|'charge'|'discharge' }
                 cableRules: {},
                 // Cable priorities for pylons: { 'neighborId': 1-5, default 1 }
@@ -684,6 +719,14 @@ var Buildings = (function() {
         // ================================================================
         getAll: function() {
             return _buildings;
+        },
+
+        getConsumerBatteryScaledCost: function() {
+            return _getConsumerBatteryScaledCost();
+        },
+
+        getConsumerBatteryScaledStorage: function() {
+            return _getConsumerBatteryScaledStorage();
         },
 
         getById: function(id) {

@@ -67,7 +67,9 @@ var Economy = (function () {
             if (b.type !== 'consumer_battery') { continue; }
             if (!b.active || b.hp <= 0) { continue; }
 
-            var cap = Config.BUILDINGS.consumer_battery.energyStorageCapacity;
+            var cap = (b.scaledStorageCapacity && b.scaledStorageCapacity > 0)
+                ? b.scaledStorageCapacity
+                : Config.BUILDINGS.consumer_battery.energyStorageCapacity;
             if (b.energy >= cap) {
                 _money += Config.CONSUMER_BATTERY_SELL_PRICE;
                 _stats.totalEarned += Config.CONSUMER_BATTERY_SELL_PRICE;
