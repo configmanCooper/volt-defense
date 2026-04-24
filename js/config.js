@@ -685,7 +685,7 @@ var Config = {
             maxDischargeRate: 0,
             pollution: 0,
             range: 400,
-            energyPerActivation: 1500,
+            energyPerActivation: 500,
             cooldownTicks: 100,
             stunDuration: 30,
             upgradeTo: null,
