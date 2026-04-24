@@ -904,10 +904,16 @@ var UI = (function () {
             html += '<button class="info-btn" data-action="hc-cable-from-building">⚡ HC Cable ($50/tile)</button>';
             if (def.upgradeTo && Config.BUILDINGS[def.upgradeTo]) {
                 var upgradeDef = Config.BUILDINGS[def.upgradeTo];
-                var costParts = ['$' + (upgradeDef.cost.money || 0)];
-                if (upgradeDef.cost.iron) costParts.push(upgradeDef.cost.iron + ' iron');
-                if (upgradeDef.cost.coal) costParts.push(upgradeDef.cost.coal + ' coal');
-                if (upgradeDef.cost.uranium) costParts.push(upgradeDef.cost.uranium + ' uranium');
+                var nextCost = upgradeDef.cost || {};
+                var curCost = def.cost || {};
+                var netMoney = Math.max(0, (nextCost.money || 0) - Math.floor((curCost.money || 0) * 0.5));
+                var costParts = ['$' + netMoney];
+                var netIron = Math.max(0, (nextCost.iron || 0) - Math.floor((curCost.iron || 0) * 0.5));
+                if (netIron > 0) costParts.push(netIron + ' iron');
+                var netCoal = Math.max(0, (nextCost.coal || 0) - Math.floor((curCost.coal || 0) * 0.5));
+                if (netCoal > 0) costParts.push(netCoal + ' coal');
+                var netUranium = Math.max(0, (nextCost.uranium || 0) - Math.floor((curCost.uranium || 0) * 0.5));
+                if (netUranium > 0) costParts.push(netUranium + ' uranium');
                 html += '<button class="info-btn upgrade" data-action="upgrade-building">⬆️ Upgrade to ' + upgradeDef.name + ' — ' + costParts.join(', ') + ' [U]</button>';
             }
             if (building.type !== 'core') {

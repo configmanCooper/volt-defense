@@ -436,14 +436,13 @@ var Buildings = (function() {
             var nextDef = _getDef(nextType);
             if (!nextDef) return false;
 
-            // Calculate upgrade cost: nextDef.cost - currentDef.cost * SELL_REFUND_RATIO
-            var refundRatio = _getRefundRatio(building);
+            // Calculate upgrade cost: nextDef.cost - 50% of currentDef.cost
             var upgradeCost = {};
             var nextCost = _applyDifficultyToCost(nextDef.cost) || {};
             var currentCost = _applyDifficultyToCost(currentDef.cost) || {};
             for (var resource in nextCost) {
                 if (nextCost.hasOwnProperty(resource)) {
-                    var credit = currentCost[resource] ? Math.floor(currentCost[resource] * refundRatio) : 0;
+                    var credit = currentCost[resource] ? Math.floor(currentCost[resource] * 0.5) : 0;
                     var net = nextCost[resource] - credit;
                     if (net > 0) upgradeCost[resource] = net;
                 }
