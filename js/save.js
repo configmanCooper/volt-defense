@@ -1,22 +1,36 @@
 // ============================================================================
 // Volt Defense — Save/Load Module
 // Manages localStorage persistence with versioned format and auto-save.
+// Supports 5 named save slots.
 // ============================================================================
 
 var Save = (function () {
-    var SAVE_KEY = 'voltdefense_save';
+    var SAVE_KEY_PREFIX = 'voltdefense_save_';
+    var OLD_SAVE_KEY = 'voltdefense_save';
     var SAVE_VERSION = 1;
     var _autoSaveInterval = null;
     var AUTO_SAVE_TICKS = 300; // Every 30 seconds (300 ticks at 10/sec)
     var _ticksSinceAutoSave = 0;
+    var _currentSlot = 1;
 
     // ---- Migration chain ----------------------------------------------------
 
     function _migrate(data) {
-        // Future version upgrades go here as chained if-blocks:
-        // if (data.version < 2) { data = _migrateV1toV2(data); }
-        // if (data.version < 3) { data = _migrateV2toV3(data); }
         return data;
+    }
+
+    // ---- Old save migration -------------------------------------------------
+
+    function _migrateOldSave() {
+        try {
+            var old = localStorage.getItem(OLD_SAVE_KEY);
+            if (old) {
+                localStorage.setItem(SAVE_KEY_PREFIX + '1', old);
+                localStorage.removeItem(OLD_SAVE_KEY);
+            }
+        } catch (e) {
+            // silent
+        }
     }
 
     // ---- Serialization helpers ----------------------------------------------
@@ -36,11 +50,56 @@ var Save = (function () {
         }
     }
 
+    function _getSlotKey(n) {
+        return SAVE_KEY_PREFIX + n;
+    }
+
+    // ---- Init migration on load ---------------------------------------------
+    _migrateOldSave();
+
     // ---- Public API ---------------------------------------------------------
 
     return {
         init: function () {
             _ticksSinceAutoSave = 0;
+        },
+
+        setSlot: function (n) {
+            if (n >= 1 && n <= 5) {
+                _currentSlot = n;
+            }
+        },
+
+        getSlot: function () {
+            return _currentSlot;
+        },
+
+        getSlotInfo: function (n) {
+            try {
+                var raw = localStorage.getItem(_getSlotKey(n));
+                if (!raw) return null;
+                var data = JSON.parse(raw);
+                var info = {
+                    timestamp: data.timestamp || 0,
+                    wave: 0,
+                    difficulty: 'unknown'
+                };
+                if (data.engine) {
+                    if (typeof data.engine.wave === 'number') info.wave = data.engine.wave;
+                    if (data.engine.difficultyKey) info.difficulty = data.engine.difficultyKey;
+                }
+                return info;
+            } catch (e) {
+                return null;
+            }
+        },
+
+        hasSaveInSlot: function (n) {
+            return localStorage.getItem(_getSlotKey(n)) !== null;
+        },
+
+        deleteSlot: function (n) {
+            localStorage.removeItem(_getSlotKey(n));
         },
 
         /**
@@ -53,7 +112,6 @@ var Save = (function () {
                 timestamp: Date.now()
             };
 
-            // Collect state from every module that supports serialization
             if (typeof Engine !== 'undefined')    state.engine    = _getModuleState('Engine', Engine);
             if (typeof Map !== 'undefined')       state.map       = _getModuleState('Map', Map);
             if (typeof Buildings !== 'undefined') state.buildings  = _getModuleState('Buildings', Buildings);
@@ -64,9 +122,9 @@ var Save = (function () {
             if (typeof Combat !== 'undefined')    state.combat     = _getModuleState('Combat', Combat);
 
             try {
-                localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+                localStorage.setItem(_getSlotKey(_currentSlot), JSON.stringify(state));
                 if (typeof UI !== 'undefined' && typeof UI.showToast === 'function') {
-                    UI.showToast('Game saved', 'success', 2000);
+                    UI.showToast('Game saved (Slot ' + _currentSlot + ')', 'success', 2000);
                 }
                 return true;
             } catch (e) {
@@ -80,23 +138,19 @@ var Save = (function () {
 
         /**
          * Load and restore game state from localStorage.
-         * Modules are restored in dependency order.
          * @returns {boolean} true on success
          */
         load: function () {
             try {
-                var raw = localStorage.getItem(SAVE_KEY);
+                var raw = localStorage.getItem(_getSlotKey(_currentSlot));
                 if (!raw) return false;
 
                 var data = JSON.parse(raw);
-
-                // Version check
                 if (!data.version) return false;
                 if (data.version < SAVE_VERSION) {
                     data = _migrate(data);
                 }
 
-                // Restore state to all modules (order matters!)
                 _loadModuleState('Engine',    Engine,    data.engine);
                 _loadModuleState('Map',       Map,       data.map);
                 _loadModuleState('Buildings', Buildings, data.buildings);
@@ -108,7 +162,7 @@ var Save = (function () {
 
                 if (typeof UI !== 'undefined') {
                     if (typeof UI.showToast === 'function') {
-                        UI.showToast('Game loaded', 'success', 2000);
+                        UI.showToast('Game loaded (Slot ' + _currentSlot + ')', 'success', 2000);
                     }
                     if (typeof UI.update === 'function') {
                         UI.update();
@@ -125,18 +179,22 @@ var Save = (function () {
         },
 
         /**
-         * Check if a saved game exists in localStorage.
+         * Check if ANY slot has a save.
          * @returns {boolean}
          */
         hasSave: function () {
-            return localStorage.getItem(SAVE_KEY) !== null;
+            var i;
+            for (i = 1; i <= 5; i++) {
+                if (localStorage.getItem(_getSlotKey(i)) !== null) return true;
+            }
+            return false;
         },
 
         /**
-         * Delete saved game from localStorage.
+         * Delete saved game from current slot.
          */
         deleteSave: function () {
-            localStorage.removeItem(SAVE_KEY);
+            localStorage.removeItem(_getSlotKey(_currentSlot));
         },
 
         /**
@@ -150,10 +208,6 @@ var Save = (function () {
             }
         },
 
-        /**
-         * Collect serializable state from all modules.
-         * @returns {object} combined state snapshot
-         */
         getSerializableState: function () {
             var state = {
                 version: SAVE_VERSION,
@@ -170,10 +224,6 @@ var Save = (function () {
             return state;
         },
 
-        /**
-         * Distribute a previously collected state snapshot to all modules.
-         * @param {object} data - state object from getSerializableState
-         */
         loadState: function (data) {
             if (!data) return;
             _loadModuleState('Engine',    Engine,    data.engine);

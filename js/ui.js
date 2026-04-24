@@ -458,6 +458,37 @@ var UI = (function () {
                 wind: document.getElementById('hud-wind')
             };
 
+            // Music HUD controls
+            var musicToggleBtn = document.getElementById('btn-music-toggle');
+            var musicVolumeSlider = document.getElementById('hud-music-volume');
+
+            if (musicToggleBtn) {
+                if (typeof Music !== 'undefined') {
+                    musicToggleBtn.textContent = Music.isEnabled() ? '🔊' : '🔇';
+                }
+                musicToggleBtn.addEventListener('click', function () {
+                    if (typeof Music === 'undefined') return;
+                    var enabled = Music.toggle();
+                    musicToggleBtn.textContent = enabled ? '🔊' : '🔇';
+                    // Also sync menu button if it exists
+                    var menuBtn = document.getElementById('menu-music-toggle');
+                    if (menuBtn) menuBtn.textContent = enabled ? '🔊 Music On' : '🔇 Music Off';
+                });
+            }
+
+            if (musicVolumeSlider) {
+                if (typeof Music !== 'undefined') {
+                    musicVolumeSlider.value = Math.round(Music.getVolume() * 100);
+                }
+                musicVolumeSlider.addEventListener('input', function () {
+                    if (typeof Music === 'undefined') return;
+                    Music.setVolume(parseInt(musicVolumeSlider.value, 10) / 100);
+                    // Sync menu slider if it exists
+                    var menuSlider = document.getElementById('menu-music-volume');
+                    if (menuSlider) menuSlider.value = musicVolumeSlider.value;
+                });
+            }
+
             document.addEventListener('click', function (e) {
                 var target = e.target.closest('[data-action]');
                 if (!target) return;

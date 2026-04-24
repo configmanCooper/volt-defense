@@ -530,6 +530,18 @@ var Input = (function () {
                     return;
                 }
 
+                // M — toggle music
+                if (e.key === 'm' || e.key === 'M') {
+                    if (typeof Music !== 'undefined' && Music.toggle) {
+                        var musicOn = Music.toggle();
+                        var musicBtn = document.getElementById('btn-music-toggle');
+                        if (musicBtn) musicBtn.textContent = musicOn ? '🔊' : '🔇';
+                        var menuMusicBtn = document.getElementById('menu-music-toggle');
+                        if (menuMusicBtn) menuMusicBtn.textContent = musicOn ? '🔊 Music On' : '🔇 Music Off';
+                    }
+                    return;
+                }
+
                 // All remaining keys require game to be running
                 if (_isPaused()) return;
 

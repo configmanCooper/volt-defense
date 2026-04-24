@@ -43,9 +43,17 @@
             </div>
         </div>
 
+        <div id="menu-music-controls">
+            <button id="menu-music-toggle" class="menu-btn music-btn">🔊 Music On</button>
+            <input type="range" id="menu-music-volume" class="music-slider" min="0" max="100" value="50">
+        </div>
+
         <div id="menu-buttons">
             <button class="menu-btn" data-action="newGame">New Game</button>
-            <button class="menu-btn" data-action="loadGame" id="btn-load-game">Load Game</button>
+        </div>
+        <div id="save-slots">
+            <h2>Save Slots</h2>
+            <div id="save-slot-list"></div>
         </div>
     </div>
 
@@ -91,6 +99,8 @@
                 <span id="hud-wind" class="hud-value" title="Wind Speed">🌬️ 15mph</span>
             </div>
             <div class="hud-group hud-right">
+                <button class="hud-btn" id="btn-music-toggle" title="Toggle Music [M]">🔊</button>
+                <input type="range" id="hud-music-volume" class="hud-music-slider" min="0" max="100" value="50" title="Music Volume">
                 <button class="hud-btn" data-action="pause" id="btn-pause" title="Pause [P]">⏸</button>
                 <button class="hud-btn" id="btn-glossary" title="Enemy Glossary" data-action="show-glossary">📖</button>
                 <button class="hud-btn" id="btn-shortcuts" title="Keyboard Shortcuts" data-action="show-shortcuts">❓</button>
@@ -154,6 +164,7 @@
         <div id="pause-overlay" style="display: none;">
             <div class="pause-content">
                 <h2>⏸ Paused</h2>
+                <div class="pause-slot-info">Slot <span id="pause-slot-num">1</span></div>
                 <button class="menu-btn" data-action="resume">Resume</button>
                 <button class="menu-btn" data-action="save-game">Save Game</button>
                 <button class="menu-btn" data-action="quit-to-menu">Quit to Menu</button>
@@ -163,6 +174,7 @@
 
     <!-- Scripts (order matters — dependencies first) -->
     <script src="js/config.js"></script>
+    <script src="js/music.js"></script>
     <script src="js/engine.js"></script>
     <script src="js/map.js"></script>
     <script src="js/buildings.js"></script>

@@ -18,7 +18,6 @@ var Main = (function () {
 
     /**
      * Start a new game with the chosen difficulty.
-     * Engine.init handles map generation and starting building placement.
      */
     function _startGame(difficulty) {
         var seed = Date.now() % 2147483647;
@@ -28,13 +27,11 @@ var Main = (function () {
             ? Config.DIFFICULTY[difficulty]
             : null;
 
-        // Initialize Economy and Workers BEFORE Engine so starting buildings can be placed
         var startMoney = (diff && diff.startMoney !== undefined)
             ? diff.startMoney
             : ((typeof Config !== 'undefined' && Config.START_MONEY) ? Config.START_MONEY : 2000);
         var startCoal = (typeof Config !== 'undefined' && Config.START_COAL) ? Config.START_COAL : 50;
 
-        // Temporarily give excess money/workers so starting buildings pass validation
         if (typeof Economy !== 'undefined' && typeof Economy.init === 'function') {
             Economy.init(999999, { iron: 9999, coal: 9999, uranium: 9999 });
         }
@@ -42,22 +39,18 @@ var Main = (function () {
             Workers.loadState({ totalWorkers: 50, allocatedWorkers: 0, maxCapacity: 50 });
         }
 
-        // Engine.init generates map + places starting buildings (core, wind, house)
         if (typeof Engine !== 'undefined' && typeof Engine.init === 'function') {
             Engine.init(seed, difficulty);
         }
 
-        // Now reset Economy to actual starting values
         if (typeof Economy !== 'undefined' && typeof Economy.init === 'function') {
             Economy.init(startMoney, { iron: 0, coal: startCoal, uranium: 0 });
         }
 
-        // Workers — recalculates capacity from placed housing, starts with 4 workers
         if (typeof Workers !== 'undefined' && typeof Workers.init === 'function') {
             Workers.init();
         }
 
-        // Render, UI, Input
         if (typeof Render !== 'undefined' && typeof Render.init === 'function') {
             Render.init();
         }
@@ -68,15 +61,12 @@ var Main = (function () {
             Input.init();
         }
 
-        // Save module
         if (typeof Save !== 'undefined' && typeof Save.init === 'function') {
             Save.init();
         }
 
-        // Show game screen, hide menu
         _showScreen('game');
-
-        // Start simulation & render loops
+        _updatePauseSlotIndicator();
         _startLoops();
         _initialized = true;
 
@@ -93,10 +83,12 @@ var Main = (function () {
     }
 
     /**
-     * Load a previously saved game.
+     * Load a previously saved game from a specific slot.
      */
-    function _loadGame() {
-        if (typeof Save === 'undefined' || !Save.hasSave()) return;
+    function _loadGame(slot) {
+        if (typeof Save === 'undefined') return;
+        if (typeof slot === 'number') Save.setSlot(slot);
+        if (!Save.hasSaveInSlot(Save.getSlot())) return;
 
         if (Save.load()) {
             if (typeof Render !== 'undefined' && typeof Render.init === 'function') {
@@ -110,6 +102,7 @@ var Main = (function () {
             }
 
             _showScreen('game');
+            _updatePauseSlotIndicator();
             _startLoops();
             _initialized = true;
         }
@@ -118,7 +111,6 @@ var Main = (function () {
     // ---- Game loops ---------------------------------------------------------
 
     function _startLoops() {
-        // Simulation tick — fixed interval
         if (_tickInterval) clearInterval(_tickInterval);
         _tickInterval = setInterval(function () {
             if (typeof Engine === 'undefined') return;
@@ -132,25 +124,22 @@ var Main = (function () {
                 Save.tick();
             }
 
-            // Update UI twice per second (every 5 ticks at 10 tps)
             var tickCount = (typeof Engine.getTickCount === 'function') ? Engine.getTickCount() : 0;
             if (tickCount % 5 === 0 && typeof UI !== 'undefined' && typeof UI.update === 'function') {
                 UI.update();
             }
 
-            // Check game over
             if (typeof Engine.getCoreHP === 'function' && Engine.getCoreHP() <= 0) {
                 _gameOver();
             }
         }, _getTickRate());
 
-        // Render loop — requestAnimationFrame
         _lastFrameTime = performance.now();
 
         function renderFrame(timestamp) {
             var dt = (timestamp - _lastFrameTime) / 1000;
             _lastFrameTime = timestamp;
-            if (dt > 0.1) dt = 0.1; // Cap delta time
+            if (dt > 0.1) dt = 0.1;
 
             if (typeof Input !== 'undefined' && typeof Input.update === 'function') {
                 Input.update(dt);
@@ -215,34 +204,117 @@ var Main = (function () {
         }
     }
 
-    /**
-     * If a save exists, insert a Continue button at the top of the difficulty grid.
-     */
-    function _showContinueButton() {
-        if (typeof Save === 'undefined' || !Save.hasSave()) return;
+    // ---- Save slot UI -------------------------------------------------------
 
-        var grid = document.querySelector('#difficulty-select .difficulty-grid');
-        if (!grid) return;
+    function _refreshSlotList() {
+        var container = document.getElementById('save-slot-list');
+        if (!container) return;
+        container.innerHTML = '';
 
-        // Don't add if already present
-        if (document.getElementById('btn-continue-game')) return;
+        var i;
+        for (i = 1; i <= 5; i++) {
+            var info = (typeof Save !== 'undefined' && Save.getSlotInfo) ? Save.getSlotInfo(i) : null;
+            var entry = document.createElement('div');
+            entry.className = 'save-slot-entry';
 
-        var continueBtn = document.createElement('button');
-        continueBtn.id = 'btn-continue-game';
-        continueBtn.className = 'difficulty-btn';
-        continueBtn.setAttribute('data-action', 'loadGame');
-        continueBtn.innerHTML =
-            '<span class="diff-icon">💾</span>' +
-            '<span class="diff-name">Continue</span>' +
-            '<span class="diff-desc">Load saved game</span>';
-        grid.insertBefore(continueBtn, grid.firstChild);
+            var label = document.createElement('div');
+            label.className = 'save-slot-label';
+
+            if (info) {
+                var d = new Date(info.timestamp);
+                var dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+                var diffName = info.difficulty.charAt(0).toUpperCase() + info.difficulty.slice(1);
+                label.innerHTML = '<strong>Slot ' + i + '</strong> — Wave ' + info.wave +
+                    ' · ' + diffName + '<br><span class="save-slot-date">' + dateStr + '</span>';
+            } else {
+                label.innerHTML = '<strong>Slot ' + i + '</strong> — <span class="save-slot-empty">Empty</span>';
+            }
+
+            var actions = document.createElement('div');
+            actions.className = 'save-slot-actions';
+
+            var loadBtn = document.createElement('button');
+            loadBtn.className = 'menu-btn save-slot-btn';
+            loadBtn.textContent = 'Load';
+            loadBtn.setAttribute('data-action', 'load-slot');
+            loadBtn.setAttribute('data-slot', i);
+            if (!info) {
+                loadBtn.disabled = true;
+            }
+
+            actions.appendChild(loadBtn);
+
+            if (info) {
+                var delBtn = document.createElement('button');
+                delBtn.className = 'menu-btn save-slot-btn save-slot-del';
+                delBtn.textContent = '🗑';
+                delBtn.setAttribute('data-action', 'delete-slot');
+                delBtn.setAttribute('data-slot', i);
+                actions.appendChild(delBtn);
+            }
+
+            entry.appendChild(label);
+            entry.appendChild(actions);
+            container.appendChild(entry);
+        }
+    }
+
+    function _showSlotPicker(callback) {
+        var slot = prompt('Choose a save slot (1-5):', '1');
+        if (slot === null) return;
+        var n = parseInt(slot, 10);
+        if (isNaN(n) || n < 1 || n > 5) {
+            alert('Please enter a number between 1 and 5.');
+            return;
+        }
+        callback(n);
+    }
+
+    function _updatePauseSlotIndicator() {
+        var el = document.getElementById('pause-slot-num');
+        if (el && typeof Save !== 'undefined' && Save.getSlot) {
+            el.textContent = Save.getSlot();
+        }
+    }
+
+    // ---- Music menu controls ------------------------------------------------
+
+    function _initMenuMusic() {
+        var toggleBtn = document.getElementById('menu-music-toggle');
+        var volumeSlider = document.getElementById('menu-music-volume');
+
+        if (typeof Music !== 'undefined') {
+            // Sync UI with saved settings
+            if (toggleBtn) {
+                toggleBtn.textContent = Music.isEnabled() ? '🔊 Music On' : '🔇 Music Off';
+            }
+            if (volumeSlider) {
+                volumeSlider.value = Math.round(Music.getVolume() * 100);
+            }
+
+            // Start playing
+            Music.play();
+        }
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function () {
+                if (typeof Music === 'undefined') return;
+                var enabled = Music.toggle();
+                toggleBtn.textContent = enabled ? '🔊 Music On' : '🔇 Music Off';
+            });
+        }
+
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', function () {
+                if (typeof Music === 'undefined') return;
+                Music.setVolume(parseInt(volumeSlider.value, 10) / 100);
+            });
+        }
     }
 
     // ---- DOM Ready & delegation ---------------------------------------------
 
     document.addEventListener('DOMContentLoaded', function () {
-        // Click delegation for menu-level actions only.
-        // In-game actions (build, pause, etc.) are handled by UI.init().
         document.addEventListener('click', function (e) {
             var target = e.target.closest('[data-action]');
             if (!target) return;
@@ -253,7 +325,6 @@ var Main = (function () {
                 var difficulty = target.getAttribute('data-difficulty');
                 if (difficulty && typeof Config !== 'undefined' &&
                     Config.DIFFICULTY && Config.DIFFICULTY[difficulty]) {
-                    // Highlight selected button green
                     var allBtns = document.querySelectorAll('.difficulty-btn');
                     for (var bi = 0; bi < allBtns.length; bi++) {
                         allBtns[bi].classList.remove('selected');
@@ -263,10 +334,24 @@ var Main = (function () {
                 }
             } else if (action === 'newGame' || action === 'new-game') {
                 if (_selectedDifficulty) {
-                    _startGame(_selectedDifficulty);
+                    _showSlotPicker(function (slot) {
+                        if (typeof Save !== 'undefined') Save.setSlot(slot);
+                        _startGame(_selectedDifficulty);
+                    });
                 }
-            } else if (action === 'loadGame' || action === 'load-game') {
-                _loadGame();
+            } else if (action === 'load-slot') {
+                var loadSlot = parseInt(target.getAttribute('data-slot'), 10);
+                if (loadSlot >= 1 && loadSlot <= 5) {
+                    _loadGame(loadSlot);
+                }
+            } else if (action === 'delete-slot') {
+                var delSlot = parseInt(target.getAttribute('data-slot'), 10);
+                if (delSlot >= 1 && delSlot <= 5) {
+                    if (typeof Save !== 'undefined' && Save.deleteSlot) {
+                        Save.deleteSlot(delSlot);
+                        _refreshSlotList();
+                    }
+                }
             } else if (action === 'saveGame' || action === 'save-game') {
                 if (typeof Save !== 'undefined' && typeof Save.save === 'function') {
                     Save.save();
@@ -275,12 +360,13 @@ var Main = (function () {
                 _stopLoops();
                 _initialized = false;
                 _showScreen('menu');
-                _showContinueButton();
+                _refreshSlotList();
             }
         });
 
         // Initial screen state
-        _showContinueButton();
+        _refreshSlotList();
+        _initMenuMusic();
         _showScreen('menu');
     });
 
@@ -289,6 +375,7 @@ var Main = (function () {
     return {
         startGame: _startGame,
         loadGame: _loadGame,
+        refreshSlotList: _refreshSlotList,
         isInitialized: function () { return _initialized; }
     };
 })();
