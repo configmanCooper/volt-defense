@@ -88,7 +88,7 @@ body {
 .menu-btn:disabled:hover { background: #1a1a2e; color: #555; }
 
 /* ── Game Screen ── */
-#game-screen { position: relative; width: 1920px; height: 1080px; margin: 0 auto; }
+#game-screen { position: relative; width: 100vw; height: 100vh; margin: 0 auto; overflow: hidden; }
 
 /* ── HUD Bar ── */
 #hud-bar {
@@ -733,9 +733,6 @@ kbd {
    ═══════════════════════════════════════════════════════════ */
 
 @media (max-width: 900px) {
-    /* Game screen fills viewport */
-    #game-screen { width: 100vw !important; height: 100vh !important; }
-
     /* Title screen scales down */
     .game-title { font-size: 36px; letter-spacing: 2px; }
     .game-subtitle { font-size: 14px; letter-spacing: 3px; margin-bottom: 20px; }

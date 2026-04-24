@@ -1277,20 +1277,29 @@ var UI = (function () {
 
         showModal: function (title, content, buttons) {
             if (!_elements.modalOverlay || !_elements.modalContent) return;
-            var html = '';
-            html += '<h2 class="modal-title">' + title + '</h2>';
-            html += '<div class="modal-body">' + content + '</div>';
-            if (buttons && buttons.length > 0) {
-                html += '<div class="modal-buttons">';
-                for (var i = 0; i < buttons.length; i++) {
-                    var btn = buttons[i];
-                    var action = btn.action || 'close-modal';
-                    var cls = btn.className || 'modal-btn';
-                    html += '<button class="' + cls + '" data-action="' + action + '">' + btn.label + '</button>';
+            // Set title in header element
+            var titleEl = document.getElementById('modal-title');
+            if (titleEl) titleEl.textContent = title;
+            // Set content in body
+            _elements.modalContent.innerHTML = content;
+            // Set buttons in footer
+            var footerEl = document.getElementById('modal-footer');
+            if (footerEl) {
+                if (buttons && buttons.length > 0) {
+                    var btnHtml = '';
+                    for (var i = 0; i < buttons.length; i++) {
+                        var btn = buttons[i];
+                        var action = btn.action || 'close-modal';
+                        var cls = btn.className || 'menu-btn';
+                        btnHtml += '<button class="' + cls + '" data-action="' + action + '">' + btn.label + '</button>';
+                    }
+                    footerEl.innerHTML = btnHtml;
+                    footerEl.style.display = 'flex';
+                } else {
+                    footerEl.innerHTML = '';
+                    footerEl.style.display = 'none';
                 }
-                html += '</div>';
             }
-            _elements.modalContent.innerHTML = html;
             _elements.modalOverlay.style.display = 'flex';
         },
 
@@ -1300,6 +1309,13 @@ var UI = (function () {
             }
             if (_elements.modalContent) {
                 _elements.modalContent.innerHTML = '';
+            }
+            var titleEl = document.getElementById('modal-title');
+            if (titleEl) titleEl.textContent = '';
+            var footerEl = document.getElementById('modal-footer');
+            if (footerEl) {
+                footerEl.innerHTML = '';
+                footerEl.style.display = 'none';
             }
         },
 
@@ -1453,7 +1469,7 @@ var UI = (function () {
             ]);
 
             // Attach click handlers for toggling descriptions
-            var modalBody = document.querySelector('.modal-body');
+            var modalBody = document.getElementById('modal-body');
             if (modalBody) {
                 modalBody.addEventListener('click', function (evt) {
                     var row = evt.target.closest('tr[data-glossary-idx]');
@@ -1586,7 +1602,7 @@ var UI = (function () {
             ]);
 
             // Attach click handlers for toggling descriptions
-            var modalBody = document.querySelector('.modal-body');
+            var modalBody = document.getElementById('modal-body');
             if (modalBody) {
                 modalBody.addEventListener('click', function (evt) {
                     var row = evt.target.closest('tr[data-weapons-glossary-idx]');

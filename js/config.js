@@ -16,15 +16,14 @@ var Config = {
     MAP_WIDTH: 10000,
     MAP_HEIGHT: 10000,
     GRID_CELL_SIZE: 40,
-    VIEWPORT_WIDTH: Math.min(window.innerWidth, 1920),
-    VIEWPORT_HEIGHT: Math.min(window.innerHeight, 1080),
+    VIEWPORT_WIDTH: Math.min(window.innerWidth || 1920, 1920),
+    VIEWPORT_HEIGHT: Math.min(window.innerHeight || 1080, 1080),
 
     // Day/Night & Wind
     DAY_NIGHT_CYCLE: 24,        // seconds for full cycle (12s day, 12s night)
     WIND_CHANGE_INTERVAL: 24,   // seconds between wind speed changes
     WIND_MAX_SPEED: 30,         // mph max
     WIND_BASELINE_SPEED: 15,    // mph where turbines produce rated output
-    WIND_MAX_SPEED: 30,         // maximum wind speed in mph
 
     // Cables
     CABLE_MAX_LENGTH: 200,

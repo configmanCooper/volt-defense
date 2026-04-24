@@ -260,8 +260,13 @@ var Input = (function () {
             var canvas = document.getElementById('game-canvas');
             if (!canvas) return;
 
+            // Touch-to-mouse conflict guard (declared here for hoisting clarity)
+            var _lastTouchEnd = 0;
+
             // ---- Mouse move ----
             canvas.addEventListener('mousemove', function (e) {
+                // Skip synthetic mouse events from touch
+                if (_lastTouchEnd && performance.now() - _lastTouchEnd < 500) return;
                 var rect = canvas.getBoundingClientRect();
                 _mouseScreen.x = e.clientX - rect.left;
                 _mouseScreen.y = e.clientY - rect.top;
@@ -332,6 +337,8 @@ var Input = (function () {
 
             // ---- Mouse down ----
             canvas.addEventListener('mousedown', function (e) {
+                // Skip synthetic mouse events from touch
+                if (_lastTouchEnd && performance.now() - _lastTouchEnd < 500) return;
                 if (e.button === 0) {
                     if (_isPaused()) return;
                     // Throttle rapid clicks to prevent freezing
@@ -475,7 +482,6 @@ var Input = (function () {
             var _pinchStartDist = 0;
             var _pinchStartZoom = 1;
             var _touchMoved = false;
-            var _touchStartTime = 0;
 
             canvas.addEventListener('touchstart', function (e) {
                 e.preventDefault();
@@ -484,7 +490,6 @@ var Input = (function () {
                     var t = e.touches[0];
                     _touchId = t.identifier;
                     _touchMoved = false;
-                    _touchStartTime = performance.now();
                     _mouseScreen.x = t.clientX - rect.left;
                     _mouseScreen.y = t.clientY - rect.top;
                     if (typeof Render !== 'undefined' && Render.screenToWorld) {
@@ -646,7 +651,9 @@ var Input = (function () {
                         }
                     }
                     _touchId = null;
+                    _touchMoved = false;
                     _isDragging = false;
+                    _lastTouchEnd = performance.now();
                 }
 
                 // Reset pinch if second finger lifted

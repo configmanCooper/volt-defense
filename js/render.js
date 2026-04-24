@@ -2245,7 +2245,7 @@ var Render = (function () {
         },
 
         setZoom: function (z) {
-            if (z < 0.25) z = 0.25;
+            if (z < 0.5) z = 0.5;
             if (z > 3.0) z = 3.0;
             // Zoom toward center of viewport
             var centerWX = _camera.x + (Config.VIEWPORT_WIDTH / _zoom) / 2;
