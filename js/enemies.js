@@ -12,6 +12,8 @@ var Enemies = (function () {
     var _totalKills = 0;
     var _totalEscaped = 0;
     var _spawnPoints = [];
+    var _reachableSpawnsCache = null;  // cached list of spawn points that can reach core
+    var _buildingCountAtCache = -1;    // building count when cache was computed
 
     // ---- Helpers -----------------------------------------------------------
 
@@ -1102,32 +1104,37 @@ var Enemies = (function () {
                 ];
             }
 
-            // First, find which spawn points can currently reach the core (without new building)
-            _tempBlockedCells = {};
-            var reachableSpawns = [];
-            for (var s = 0; s < spawnPts.length; s++) {
-                var path = _findPath(spawnPts[s].x, spawnPts[s].y);
-                if (path) {
-                    reachableSpawns.push(spawnPts[s]);
+            // Use cached reachable spawns if building count hasn't changed
+            var currentBuildingCount = (typeof Buildings !== 'undefined' && Buildings.getAll)
+                ? Buildings.getAll().length : 0;
+
+            if (_reachableSpawnsCache === null || _buildingCountAtCache !== currentBuildingCount) {
+                _tempBlockedCells = {};
+                _reachableSpawnsCache = [];
+                for (var s = 0; s < spawnPts.length; s++) {
+                    var path = _findPath(spawnPts[s].x, spawnPts[s].y);
+                    if (path) {
+                        _reachableSpawnsCache.push(spawnPts[s]);
+                    }
                 }
+                _buildingCountAtCache = currentBuildingCount;
             }
 
             // If no spawn points can currently reach, allow placement
-            if (reachableSpawns.length === 0) {
+            if (_reachableSpawnsCache.length === 0) {
                 _tempBlockedCells = {};
                 return true;
             }
 
-            // Now check that ALL currently-reachable spawn points can still reach
-            // with the new building in place
+            // Check that ALL cached reachable spawn points can still reach with new building
             _tempBlockedCells = {};
             for (var i = 0; i < blockedCells.length; i++) {
                 _tempBlockedCells[blockedCells[i].x + ',' + blockedCells[i].y] = true;
             }
 
             var allStillReachable = true;
-            for (var r = 0; r < reachableSpawns.length; r++) {
-                var testPath = _findPath(reachableSpawns[r].x, reachableSpawns[r].y);
+            for (var r = 0; r < _reachableSpawnsCache.length; r++) {
+                var testPath = _findPath(_reachableSpawnsCache[r].x, _reachableSpawnsCache[r].y);
                 if (!testPath) {
                     allStillReachable = false;
                     break;
