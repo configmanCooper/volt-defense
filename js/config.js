@@ -608,7 +608,7 @@ var Config = {
         flamethrower: {
             name: 'Flamethrower',
             category: 'weapons',
-            cost: { money: 600, coal: 30 },
+            cost: { money: 600, oil: 30 },
             size: [1, 1],
             hp: 70,
             workersRequired: 2,
@@ -621,11 +621,11 @@ var Config = {
             baseDPS: 8,
             range: 150,
             energyDraw: 20,
-            coalPerTick: 0.02,
+            oilPerTick: 0.02,
             burnDPS: 3,
             burnDuration: 30,
             upgradeTo: null,
-            description: 'Short-range AoE that damages all enemies in range. Burns 1 coal per 50 ticks while firing. Applies burning DOT: 3 DPS for 3 seconds.',
+            description: 'Short-range AoE that damages all enemies in range. Burns 1 oil per 50 ticks while firing. Applies burning DOT: 3 DPS for 3 seconds.',
             icon: '🔥'
         },
 

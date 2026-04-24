@@ -41,7 +41,16 @@ var UI = (function () {
         // Energy section
         if (def.energyGeneration > 0 || def.energyConsumption > 0 || def.energyStorageCapacity > 0) {
             h += '<div class="bic-section">Energy</div>';
-            if (def.energyGeneration > 0) h += _bicStat('Generation', '<span style="color:#44cc44">+' + def.energyGeneration + '/s</span>');
+            if (def.energyGeneration > 0) {
+                var genText = '+' + def.energyGeneration + '/s';
+                if (typeKey === 'wind') {
+                    var ws = (typeof Energy !== 'undefined' && Energy.getWindSpeed) ? Energy.getWindSpeed() : 15;
+                    var baseline = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED) ? Config.WIND_BASELINE_SPEED : 15;
+                    var actGen = Math.round(def.energyGeneration * (ws / baseline) * 10) / 10;
+                    genText = '+' + actGen + '/s <span style="color:#aaa">(wind: ' + ws + ' mph)</span>';
+                }
+                h += _bicStat('Generation', '<span style="color:#44cc44">' + genText + '</span>');
+            }
             if (def.energyConsumption > 0) h += _bicStat('Consumption', '<span style="color:#cc4444">-' + def.energyConsumption + '/s</span>');
             if (def.energyStorageCapacity > 0) h += _bicStat('Storage', def.energyStorageCapacity);
             if (def.maxChargeRate > 0) h += _bicStat('Charge Rate', def.maxChargeRate + '/s');
@@ -584,7 +593,16 @@ var UI = (function () {
                 // Energy stats
                 if (def.energyGeneration > 0 || def.energyConsumption > 0 || def.energyStorageCapacity > 0) {
                     html += '<div class="tt-section">Energy</div>';
-                    if (def.energyGeneration > 0) html += '<div class="tt-row"><span class="tt-label">Generation</span><span class="tt-value" style="color:#44cc44">+' + def.energyGeneration + '/s</span></div>';
+                    if (def.energyGeneration > 0) {
+                        var ttGenText = '+' + def.energyGeneration + '/s';
+                        if (key === 'wind') {
+                            var ttWs = (typeof Energy !== 'undefined' && Energy.getWindSpeed) ? Energy.getWindSpeed() : 15;
+                            var ttBase = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED) ? Config.WIND_BASELINE_SPEED : 15;
+                            var ttActGen = Math.round(def.energyGeneration * (ttWs / ttBase) * 10) / 10;
+                            ttGenText = '+' + ttActGen + '/s <span style="color:#aaa">(wind: ' + ttWs + ' mph)</span>';
+                        }
+                        html += '<div class="tt-row"><span class="tt-label">Generation</span><span class="tt-value" style="color:#44cc44">' + ttGenText + '</span></div>';
+                    }
                     if (def.energyConsumption > 0) html += '<div class="tt-row"><span class="tt-label">Consumption</span><span class="tt-value" style="color:#cc4444">-' + def.energyConsumption + '/s</span></div>';
                     if (def.energyStorageCapacity > 0) html += '<div class="tt-row"><span class="tt-label">Storage</span><span class="tt-value">' + def.energyStorageCapacity + '</span></div>';
                     if (def.maxChargeRate > 0) html += '<div class="tt-row"><span class="tt-label">Charge Rate</span><span class="tt-value">' + def.maxChargeRate + '/s</span></div>';
@@ -691,7 +709,26 @@ var UI = (function () {
 
             // Energy info
             if (def.energyGeneration > 0) {
-                html += '<div class="info-stat">⚡ Generation: ' + def.energyGeneration + '/s</div>';
+                var actualGen = def.energyGeneration;
+                var genLabel = '';
+                if (building.type === 'wind') {
+                    var ws = (typeof Energy !== 'undefined' && Energy.getWindSpeed) ? Energy.getWindSpeed() : 15;
+                    var baseline = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED) ? Config.WIND_BASELINE_SPEED : 15;
+                    actualGen = Math.round(def.energyGeneration * (ws / baseline) * 10) / 10;
+                    genLabel = ' (wind: ' + ws + ' mph)';
+                } else if (building.type === 'hydro_plant') {
+                    var effSpeed = 15;
+                    if (typeof Map !== 'undefined' && typeof Map.getEffectiveWaterSpeed === 'function') {
+                        effSpeed = Map.getEffectiveWaterSpeed(building.gridX, building.gridY);
+                    }
+                    actualGen = Math.round(def.energyGeneration * (effSpeed / 15) * 10) / 10;
+                    genLabel = ' (flow: ' + Math.round(effSpeed * 10) / 10 + ' mph)';
+                } else if (building.type === 'solar') {
+                    var isDay = (typeof Energy !== 'undefined' && Energy.isDay) ? Energy.isDay() : true;
+                    if (!isDay) { actualGen = 0; genLabel = ' (night)'; }
+                    else { genLabel = ' (day)'; }
+                }
+                html += '<div class="info-stat">⚡ Generation: ' + actualGen + '/s' + genLabel + '</div>';
             }
             if (def.energyConsumption > 0) {
                 html += '<div class="info-stat">⚡ Consumption: ' + def.energyConsumption + '/s</div>';

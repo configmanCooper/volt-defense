@@ -561,11 +561,11 @@ var Combat = (function() {
             var energyDraw = (def.energyDraw || 20) / tps;
             if (b.energy < energyDraw) { continue; }
 
-            // Check coal
-            var coalDraw = (def.coalPerTick || 0.02);
-            if (coalDraw > 0) {
+            // Check oil fuel
+            var oilDraw = (def.oilPerTick || 0.02);
+            if (oilDraw > 0) {
                 if (typeof Economy !== 'undefined' && Economy.getResource) {
-                    if (Economy.getResource('coal') < coalDraw) { continue; }
+                    if (Economy.getResource('oil') < oilDraw) { continue; }
                 } else { continue; }
             }
 
@@ -591,8 +591,8 @@ var Combat = (function() {
 
             if (anyInRange) {
                 b.energy -= energyDraw;
-                if (coalDraw > 0 && typeof Economy !== 'undefined' && Economy.spendResource) {
-                    Economy.spendResource('coal', coalDraw);
+                if (oilDraw > 0 && typeof Economy !== 'undefined' && Economy.spendResource) {
+                    Economy.spendResource('oil', oilDraw);
                 }
                 b.flameActive = true;
             } else {
