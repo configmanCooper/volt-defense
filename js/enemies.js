@@ -143,7 +143,10 @@ var Enemies = (function () {
      * If targetBuildingId is provided, buildings occupying the cell are
      * treated as unwalkable UNLESS they are the target building.
      */
-    function _isWalkable(gx, gy, targetBuildingId) {
+    function _isWalkable(gx, gy, targetBuildingId, endGx, endGy) {
+        // Always allow the goal cell
+        if (gx === endGx && gy === endGy) return true;
+
         var gridCols = Math.floor(Config.MAP_WIDTH / Config.GRID_CELL_SIZE);
         var gridRows = Math.floor(Config.MAP_HEIGHT / Config.GRID_CELL_SIZE);
         if (gx < 0 || gy < 0 || gx >= gridCols || gy >= gridRows) {
@@ -166,6 +169,8 @@ var Enemies = (function () {
         if (typeof Buildings !== 'undefined' && Buildings.getAt) {
             var bld = Buildings.getAt(gx, gy);
             if (bld && bld.hp > 0) {
+                // Allow walking to the core
+                if (bld.type === 'core') return true;
                 if (!targetBuildingId || bld.id !== targetBuildingId) {
                     return false;
                 }
@@ -332,7 +337,7 @@ var Enemies = (function () {
                 var nk = key(nx, ny);
 
                 if (closedSet[nk]) { continue; }
-                if (!_isWalkable(nx, ny, targetBuildingId)) { continue; }
+                if (!_isWalkable(nx, ny, targetBuildingId, endGrid.gx, endGrid.gy)) { continue; }
 
                 var tentativeG = current.g + 1;
                 var existing = openHeap.get(nk);
@@ -376,11 +381,12 @@ var Enemies = (function () {
         function key(gx, gy) { return gx + gy * gridCols; }
 
         function isValid(gx, gy) {
+            // Always allow the goal cell
+            if (gx === endGrid.gx && gy === endGrid.gy) return true;
             var gridRows = Math.floor(Config.MAP_HEIGHT / Config.GRID_CELL_SIZE);
             if (gx < 0 || gy < 0 || gx >= gridCols || gy >= gridRows) return false;
             var terrain = Map.getTerrain(gx, gy);
             if (waterOnly) {
-                // Only allow water tiles (not deep_water, not land)
                 if (terrain !== Config.TERRAIN_TYPES.water) return false;
             } else if (canSwim) {
                 if (terrain === Config.TERRAIN_TYPES.deep_water) return false;
@@ -391,6 +397,7 @@ var Enemies = (function () {
             if (typeof Buildings !== 'undefined' && Buildings.getAt) {
                 var bld = Buildings.getAt(gx, gy);
                 if (bld && bld.hp > 0) {
+                    if (bld.type === 'core') return true;
                     if (!targetBuildingId || bld.id !== targetBuildingId) {
                         return false;
                     }
@@ -744,7 +751,7 @@ var Enemies = (function () {
             canSwim: false,
             targetCategory: null,
             targetBuildingId: null,
-            repathTimer: 0,
+            repathTimer: _nextId % 20,
             isBoss: false,
             mechanic: def.mechanic || null
         };
@@ -914,16 +921,17 @@ var Enemies = (function () {
             return;
         }
 
-        // Targeted pathing: repath toward target buildings
-        if (enemy.targetCategory || enemy.targetBuildingId) {
-            if (enemy.repathTimer == null) enemy.repathTimer = 0;
-            enemy.repathTimer--;
+        // Periodic repath for ALL enemies
+        if (enemy.repathTimer == null) enemy.repathTimer = 0;
+        enemy.repathTimer--;
 
-            if (enemy.repathTimer <= 0) {
-                enemy.repathTimer = 20;
+        if (enemy.repathTimer <= 0) {
+            enemy.repathTimer = 20; // repath every 2 seconds
+
+            // Targeted pathing: try to find specific target building
+            if (enemy.targetCategory || enemy.targetBuildingId) {
                 var targetPos = _findTargetBuilding(enemy);
                 if (targetPos) {
-                    // River serpents: use water-only pathing while water buildings exist
                     var useWaterOnly = false;
                     if (enemy.special === 'river_spawn' && enemy.targetCategory === 'water_buildings') {
                         useWaterOnly = true;
@@ -934,22 +942,27 @@ var Enemies = (function () {
                         enemy.pathIndex = 0;
                         enemy.targetBuildingId = targetPos.buildingId;
                     } else {
-                        // Can't reach target — fall through to core
+                        // Can't reach target — fall through to core pathing below
                         enemy.targetBuildingId = null;
-                        var corePos2 = _getCorePosition();
-                        var corePath = _findPathTo(enemy.x, enemy.y, corePos2.x, corePos2.y, enemy.canSwim || false, false, null);
-                        enemy.path = corePath || _directPath(enemy.x, enemy.y, corePos2.x, corePos2.y);
-                        enemy.pathIndex = 0;
                     }
                 } else {
                     enemy.targetBuildingId = null;
-                    // River serpents with no water buildings: switch to normal land+water pathing
                     if (enemy.special === 'river_spawn') {
                         enemy.canSwim = true;
                     }
-                    var corePos = _getCorePosition();
-                    var corePath2 = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null);
-                    enemy.path = corePath2 || _directPath(enemy.x, enemy.y, corePos.x, corePos.y);
+                }
+            }
+
+            // Core pathing: if no target or target unreachable, path to core
+            if (!enemy.targetBuildingId) {
+                var corePos = _getCorePosition();
+                var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null);
+                if (corePath) {
+                    enemy.path = corePath;
+                    enemy.pathIndex = 0;
+                } else {
+                    // A* failed — use direct path as last resort
+                    enemy.path = _directPath(enemy.x, enemy.y, corePos.x, corePos.y);
                     enemy.pathIndex = 0;
                 }
             }
