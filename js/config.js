@@ -1096,9 +1096,9 @@ var Config = {
         },
         runner: {
             name: 'Runner',
-            hp: 30,
+            hp: 15,
             speed: 140,
-            damage: 5,
+            damage: 3,
             armor: 0,
             killReward: 16,
             icon: '💨',
