@@ -306,7 +306,18 @@ var Combat = (function() {
 
             if (!b.active || b.hp <= 0 || b.energy <= 0) {
                 b.laserRampTime = 0;
+                if (b.energy <= 0) b.recharging = true;
                 continue;
+            }
+
+            // Recharge threshold: wait until 50% energy before firing again
+            var rechargeCap = def.energyStorageCapacity || 90;
+            if (b.recharging) {
+                if (b.energy < rechargeCap * 0.5) {
+                    b.laserRampTime = 0;
+                    continue;
+                }
+                b.recharging = false;
             }
 
             // Check for jammer range reduction
@@ -348,6 +359,7 @@ var Combat = (function() {
             // Energy check — stop firing if insufficient
             if (b.energy < energyDrawThisTick) {
                 b.laserRampTime = 0;
+                b.recharging = true;
                 continue;
             }
             b.energy -= energyDrawThisTick;
@@ -1178,7 +1190,18 @@ var Combat = (function() {
 
             if (!b.active || b.hp <= 0 || b.energy <= 0) {
                 b.fusionRampTime = 0;
+                if (b.energy <= 0) b.recharging = true;
                 continue;
+            }
+
+            // Recharge threshold: wait until 50% energy before firing again
+            var fusionCap = def.energyStorageCapacity || 240;
+            if (b.recharging) {
+                if (b.energy < fusionCap * 0.5) {
+                    b.fusionRampTime = 0;
+                    continue;
+                }
+                b.recharging = false;
             }
 
             var effectiveRange = _getEffectiveRange(b, def.range);
@@ -1231,6 +1254,7 @@ var Combat = (function() {
             // Energy check — stop firing if insufficient
             if (b.energy < energyDrawThisTick) {
                 b.fusionRampTime = 0;
+                b.recharging = true;
                 continue;
             }
             b.energy -= energyDrawThisTick;
