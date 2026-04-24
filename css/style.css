@@ -727,3 +727,147 @@ kbd {
     font-size: 12px;
     color: #ffd700;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Mobile Responsive Overrides
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+    /* Game screen fills viewport */
+    #game-screen { width: 100vw !important; height: 100vh !important; }
+
+    /* Title screen scales down */
+    .game-title { font-size: 36px; letter-spacing: 2px; }
+    .game-subtitle { font-size: 14px; letter-spacing: 3px; margin-bottom: 20px; }
+    #difficulty-select h2 { font-size: 16px; }
+
+    /* Difficulty buttons wrap */
+    .difficulty-grid { flex-wrap: wrap; gap: 8px; padding: 0 12px; }
+    .difficulty-btn { width: 140px; min-width: 120px; padding: 10px 8px; }
+
+    /* Menu buttons */
+    .menu-btn { padding: 12px 24px; font-size: 14px; min-height: 44px; }
+
+    /* HUD bar wraps on small screens */
+    #hud-bar {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 4px 8px;
+        font-size: 12px;
+        gap: 6px 12px;
+    }
+    .hud-label { font-size: 11px; }
+    .hud-value { font-size: 12px; }
+    .hud-timer { font-size: 11px; }
+    .hud-resources span { font-size: 11px; }
+    .hud-btn { padding: 4px 10px; min-width: 36px; min-height: 36px; font-size: 16px; }
+
+    /* Build bar */
+    #build-categories { gap: 2px; padding: 4px 4px; flex-wrap: nowrap; overflow-x: auto; }
+    .cat-btn { width: 48px; height: 44px; min-width: 44px; flex-shrink: 0; }
+    .cat-label { font-size: 7px; }
+
+    /* Build submenu wraps */
+    #build-submenu {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        max-height: 140px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        gap: 4px;
+        padding: 6px 8px;
+    }
+    .build-btn { min-width: 80px; flex: 0 0 auto; padding: 6px 8px; font-size: 11px; }
+    .build-btn .build-icon { font-size: 20px; }
+    .build-btn .build-cost { font-size: 10px; }
+
+    /* Build info card repositioned */
+    #build-info-card {
+        right: 8px;
+        bottom: 130px;
+        width: calc(100vw - 16px);
+        max-width: 300px;
+        font-size: 12px;
+    }
+
+    /* Info panel responsive */
+    #info-panel {
+        width: calc(100vw - 16px);
+        max-width: 260px;
+        right: 4px;
+        max-height: calc(100vh - 140px);
+        font-size: 12px;
+    }
+    .info-btn { padding: 10px 0; font-size: 13px; min-height: 40px; }
+
+    /* Modal responsive */
+    #modal-box { min-width: 280px; max-width: calc(100vw - 24px); }
+    #modal-body { padding: 12px; font-size: 13px; }
+    #modal-close { font-size: 28px; padding: 4px 8px; min-width: 40px; min-height: 40px; }
+
+    /* Toasts */
+    #toast-container { top: auto; bottom: 60px; right: 8px; left: 8px; }
+    .toast { max-width: 100%; font-size: 12px; }
+
+    /* Pause overlay */
+    .pause-content h2 { font-size: 24px; }
+    .pause-content .menu-btn { min-height: 44px; font-size: 14px; }
+
+    /* Load/Save panels */
+    #load-game-panel { width: calc(100vw - 32px); max-width: 420px; }
+    .pause-load-panel { width: calc(100vw - 32px); max-width: 380px; }
+    .save-slot-btn { min-height: 40px; padding: 8px 14px; font-size: 13px; }
+
+    /* Mode indicator */
+    #mode-indicator { font-size: 12px; padding: 4px 12px; }
+
+    /* Music controls */
+    #menu-music-controls { flex-wrap: wrap; gap: 8px; }
+    .music-btn { padding: 8px 16px; font-size: 13px; min-height: 44px; }
+
+    /* Debug bar */
+    #debug-bar { width: calc(100vw - 20px); font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+    .game-title { font-size: 28px; }
+    .game-subtitle { font-size: 12px; margin-bottom: 16px; }
+    .difficulty-grid { flex-direction: column; align-items: center; }
+    .difficulty-btn { width: 90%; max-width: 220px; }
+
+    #hud-bar { font-size: 11px; gap: 4px 8px; padding: 3px 6px; }
+    .hud-btn { padding: 3px 8px; min-width: 32px; min-height: 32px; }
+
+    .cat-btn { width: 40px; height: 40px; font-size: 16px; }
+    .cat-label { display: none; }
+
+    #info-panel { max-width: 220px; }
+    .info-btn { padding: 8px 0; font-size: 12px; }
+
+    #build-info-card { bottom: 110px; }
+}
+
+/* Landscape mobile — optimize vertical space */
+@media (max-height: 500px) and (max-width: 900px) {
+    #hud-bar { padding: 2px 6px; gap: 4px 8px; }
+    .hud-btn { min-height: 28px; }
+    #build-categories { padding: 2px 4px; }
+    .cat-btn { height: 36px; width: 40px; }
+    #build-submenu { max-height: 90px; padding: 4px 6px; }
+    .build-btn { padding: 4px 6px; min-width: 70px; }
+    #info-panel { max-height: calc(100vh - 100px); }
+}
+
+/* Touch device hints — hide keyboard shortcuts */
+@media (hover: none) and (pointer: coarse) {
+    kbd { display: none; }
+    .info-btn { min-height: 44px; font-size: 13px; }
+    .cat-btn { min-width: 48px; min-height: 44px; }
+    .build-btn { min-height: 50px; }
+    .menu-btn { min-height: 48px; }
+    #modal-close { min-width: 44px; min-height: 44px; }
+    .save-slot-btn { min-height: 44px; }
+    .debug-toggle { min-height: 36px; padding: 4px 12px; }
+    .debug-cat-btn { min-height: 36px; padding: 4px 12px; }
+    .debug-enemy-btn { min-height: 36px; padding: 4px 10px; }
+}

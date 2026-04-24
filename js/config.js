@@ -16,8 +16,8 @@ var Config = {
     MAP_WIDTH: 10000,
     MAP_HEIGHT: 10000,
     GRID_CELL_SIZE: 40,
-    VIEWPORT_WIDTH: 1920,
-    VIEWPORT_HEIGHT: 1080,
+    VIEWPORT_WIDTH: Math.min(window.innerWidth, 1920),
+    VIEWPORT_HEIGHT: Math.min(window.innerHeight, 1080),
 
     // Day/Night & Wind
     DAY_NIGHT_CYCLE: 24,        // seconds for full cycle (12s day, 12s night)

@@ -2070,15 +2070,35 @@ var Render = (function () {
         init: function () {
             _canvas = document.getElementById('game-canvas');
             if (!_canvas) return;
-            _canvas.width = Config.VIEWPORT_WIDTH;
-            _canvas.height = Config.VIEWPORT_HEIGHT;
-            _ctx = _canvas.getContext('2d');
 
-            // Off-screen terrain canvas
+            // Dynamic sizing for mobile/desktop
+            var viewW = window.innerWidth;
+            var viewH = window.innerHeight;
+            var dpr = window.devicePixelRatio || 1;
+            // Cap DPR at 2 for performance on high-DPI phones
+            if (dpr > 2) dpr = 2;
+
+            // Update Config to match actual viewport
+            Config.VIEWPORT_WIDTH = viewW;
+            Config.VIEWPORT_HEIGHT = viewH;
+
+            // Set canvas size with DPI scaling
+            _canvas.width = Math.round(viewW * dpr);
+            _canvas.height = Math.round(viewH * dpr);
+            _canvas.style.width = viewW + 'px';
+            _canvas.style.height = viewH + 'px';
+            _ctx = _canvas.getContext('2d');
+            _ctx.scale(dpr, dpr);
+
+            // Store DPR for coordinate transforms
+            _canvas._dpr = dpr;
+
+            // Off-screen terrain canvas (same logical size)
             _terrainCanvas = document.createElement('canvas');
-            _terrainCanvas.width = Config.VIEWPORT_WIDTH;
-            _terrainCanvas.height = Config.VIEWPORT_HEIGHT;
+            _terrainCanvas.width = Math.round(viewW * dpr);
+            _terrainCanvas.height = Math.round(viewH * dpr);
             _terrainCtx = _terrainCanvas.getContext('2d');
+            _terrainCtx.scale(dpr, dpr);
 
             // Center camera on core building (may not be at map center)
             var coreBld = (typeof Buildings !== 'undefined' && Buildings.getCore) ? Buildings.getCore() : null;
@@ -2093,6 +2113,32 @@ var Render = (function () {
                 _camera.y = Config.MAP_HEIGHT / 2 - Config.VIEWPORT_HEIGHT / 2;
             }
             _clampCamera();
+
+            // Handle window resize (orientation change, etc.)
+            window.addEventListener('resize', function () {
+                var newW = window.innerWidth;
+                var newH = window.innerHeight;
+                var newDpr = Math.min(window.devicePixelRatio || 1, 2);
+                Config.VIEWPORT_WIDTH = newW;
+                Config.VIEWPORT_HEIGHT = newH;
+                _canvas.width = Math.round(newW * newDpr);
+                _canvas.height = Math.round(newH * newDpr);
+                _canvas.style.width = newW + 'px';
+                _canvas.style.height = newH + 'px';
+                _ctx = _canvas.getContext('2d');
+                _ctx.scale(newDpr, newDpr);
+                _canvas._dpr = newDpr;
+                _terrainCanvas.width = Math.round(newW * newDpr);
+                _terrainCanvas.height = Math.round(newH * newDpr);
+                _terrainCtx = _terrainCanvas.getContext('2d');
+                _terrainCtx.scale(newDpr, newDpr);
+                _terrainDirty = true;
+                if (_minimapCanvas) {
+                    _minimapCanvas = null;
+                    _minimapCtx = null;
+                }
+                _clampCamera();
+            });
 
             _terrainDirty = true;
             _lastTime = 0;
