@@ -177,6 +177,17 @@ var Engine = (function() {
             // 6. Enemies — movement, attacks
             if (typeof Enemies !== 'undefined' && Enemies.tick) { Enemies.tick(); }
 
+            // 6b. Destroy buildings at 0 HP
+            if (typeof Buildings !== 'undefined' && Buildings.getAll && Buildings.remove) {
+                var allB = Buildings.getAll();
+                for (var bi = allB.length - 1; bi >= 0; bi--) {
+                    var bld = allB[bi];
+                    if (bld.hp <= 0 && bld.type !== 'core') {
+                        Buildings.remove(bld.id, true);
+                    }
+                }
+            }
+
             // 7. Wave timer
             if (_state.waveTimer > 0) {
                 _state.waveTimer -= 1 / tps;

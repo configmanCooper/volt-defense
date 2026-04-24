@@ -333,7 +333,9 @@ var Buildings = (function() {
                 // Mining-specific
                 depositRef: null,
                 // Consumer battery
-                sellReady: false
+                sellReady: false,
+                // Cable flow rules: { 'neighborId': 'both'|'charge'|'discharge' }
+                cableRules: {}
             };
 
             // Link miner to deposit
@@ -371,7 +373,7 @@ var Buildings = (function() {
             return building;
         },
 
-        remove: function(buildingId) {
+        remove: function(buildingId, noRefund) {
             var building = _getById(buildingId);
             if (!building) return false;
 
@@ -391,8 +393,8 @@ var Buildings = (function() {
                 Workers.freeWorkers(workersToFree);
             }
 
-            // Refund
-            if (def && def.cost) {
+            // Refund (skip if destroyed)
+            if (!noRefund && def && def.cost) {
                 _addRefund(def.cost, _getRefundRatio());
             }
 
@@ -641,6 +643,20 @@ var Buildings = (function() {
             return _cables;
         },
 
+        // Cable flow rules for batteries/capacitors
+        getCableRule: function(buildingId, neighborId) {
+            var b = _getById(buildingId);
+            if (!b || !b.cableRules) return 'both';
+            return b.cableRules[neighborId] || 'both';
+        },
+
+        setCableRule: function(buildingId, neighborId, rule) {
+            var b = _getById(buildingId);
+            if (!b) return;
+            if (!b.cableRules) b.cableRules = {};
+            b.cableRules[neighborId] = rule;
+        },
+
         getCount: function() {
             return _buildings.length;
         },
@@ -712,7 +728,8 @@ var Buildings = (function() {
                     shieldHP: b.shieldHP,
                     shieldMaxHP: b.shieldMaxHP,
                     shieldActive: b.shieldActive,
-                    sellReady: b.sellReady
+                    sellReady: b.sellReady,
+                    cableRules: b.cableRules || {}
                 });
             }
             var cableData = [];
@@ -763,7 +780,8 @@ var Buildings = (function() {
                         shieldMaxHP: saved.shieldMaxHP || (def && def.shieldHP ? def.shieldHP : 0),
                         shieldActive: saved.shieldActive || false,
                         depositRef: null,
-                        sellReady: saved.sellReady || false
+                        sellReady: saved.sellReady || false,
+                        cableRules: saved.cableRules || {}
                     };
 
                     // Re-link miner deposits

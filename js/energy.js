@@ -368,6 +368,17 @@ var Energy = (function() {
                         var nDef = _getDef(nBuilding.type);
                         if (!nDef) continue;
 
+                        // Check cable flow rules
+                        // Current node discharging toward neighbor
+                        var currentBuilding = Buildings.getById(currentId);
+                        if (currentBuilding && currentBuilding.cableRules && currentBuilding.cableRules[nId] === 'charge') {
+                            continue; // current only accepts charge from neighbor, won't discharge
+                        }
+                        // Neighbor accepting charge from current
+                        if (nBuilding.cableRules && nBuilding.cableRules[currentId] === 'discharge') {
+                            continue; // neighbor only discharges to current, won't accept charge
+                        }
+
                         // Track min throughput along path
                         var cableTP = _cachedCableThroughput(currentId, nId) / tps;
                         minThroughputMap[nId] = Math.min(currentMinTP, cableTP);
