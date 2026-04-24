@@ -1170,6 +1170,73 @@ var Render = (function () {
     }
 
     // ------------------------------------------------------------------------
+    // Layer: Plasma projectiles (green/purple glow)
+    // ------------------------------------------------------------------------
+    function _drawPlasmaProjectiles(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getProjectiles !== 'function') return;
+        var projectiles = Combat.getProjectiles();
+        if (!projectiles) return;
+
+        for (var i = 0; i < projectiles.length; i++) {
+            var p = projectiles[i];
+            if (p.type !== 'plasma') continue;
+            if (!_isInViewport(p.x, p.y, 20)) continue;
+
+            ctx.save();
+            ctx.shadowColor = '#cc44ff';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = '#bb55ff';
+            ctx.beginPath();
+            ctx.arc(Math.floor(p.x), Math.floor(p.y), 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(Math.floor(p.x), Math.floor(p.y), 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: Fusion beams (cyan/white intense beam)
+    // ------------------------------------------------------------------------
+    function _drawFusionBeams(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getFusionBeams !== 'function') return;
+        var beams = Combat.getFusionBeams();
+        if (!beams || !beams.length) return;
+
+        for (var i = 0; i < beams.length; i++) {
+            var beam = beams[i];
+            var intensity = Math.min(beam.rampLevel / 8, 1);
+            var width = 2 + intensity * 6;
+
+            ctx.save();
+            ctx.lineCap = 'round';
+
+            // Outer glow
+            ctx.strokeStyle = 'rgba(0, 255, 255, ' + (0.2 + intensity * 0.3) + ')';
+            ctx.lineWidth = width + 6;
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 15 + intensity * 15;
+            ctx.beginPath();
+            ctx.moveTo(Math.floor(beam.fromX), Math.floor(beam.fromY));
+            ctx.lineTo(Math.floor(beam.toX), Math.floor(beam.toY));
+            ctx.stroke();
+
+            // Core beam
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.6 + intensity * 0.4) + ')';
+            ctx.lineWidth = width;
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.moveTo(Math.floor(beam.fromX), Math.floor(beam.fromY));
+            ctx.lineTo(Math.floor(beam.toX), Math.floor(beam.toY));
+            ctx.stroke();
+
+            ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
     // Layer: Damage numbers
     // ------------------------------------------------------------------------
     function _drawDamageNumbers(ctx) {
@@ -1544,6 +1611,8 @@ var Render = (function () {
             _drawEmpBlasts(_ctx);
             _drawFlameEffects(_ctx);
             _drawDrones(_ctx);
+            _drawPlasmaProjectiles(_ctx);
+            _drawFusionBeams(_ctx);
             _drawDamageNumbers(_ctx);
             _drawPlacementPreview(_ctx);
 

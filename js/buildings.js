@@ -224,7 +224,8 @@ var Buildings = (function() {
             }
 
             // Check that placing this building doesn't block all enemy paths to core
-            if (typeof Enemies !== 'undefined' && Enemies.canReachCoreWith) {
+            // Skip for core itself — destination IS the core
+            if (typeKey !== 'core' && typeof Enemies !== 'undefined' && Enemies.canReachCoreWith) {
                 if (!Enemies.canReachCoreWith(cells)) {
                     return { allowed: false, reason: 'Would block all enemy paths to the core.' };
                 }

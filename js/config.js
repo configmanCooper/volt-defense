@@ -49,6 +49,10 @@ var Config = {
     MISSILE_HOMING_ANGLE: 15,
     MISSILE_MAX_RANGE_MULT: 1.5,
 
+    // Fusion Beam
+    FUSION_RAMP_INTERVAL: 0.33,  // ramps 3x faster than lasers
+    FUSION_ARMOR_BYPASS: 0.8,    // pierces most armor
+
     // Shield
     SHIELD_DIAMETER: 400,
     SHIELD_POWER_DRAIN_ON_HIT: 50,
@@ -679,6 +683,52 @@ var Config = {
             upgradeTo: null,
             description: 'Spawns autonomous drones that seek and destroy enemies. Max 3 active drones.',
             icon: '🛸'
+        },
+
+        // ---- Uranium Weapons --------------------------------------------------
+        plasma_cannon: {
+            name: 'Plasma Cannon',
+            category: 'weapons',
+            cost: { money: 3000, uranium: 20 },
+            size: [1, 1],
+            hp: 100,
+            workersRequired: 3,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 1200,
+            maxChargeRate: 300,
+            maxDischargeRate: 0,
+            pollution: 5,
+            range: 500,
+            damage: 45,
+            energyPerShot: 400,
+            uraniumPerShot: 1,
+            reloadTicks: 15,
+            armorBypass: 1.0,
+            upgradeTo: null,
+            description: 'Fires superheated plasma bolts that ignore all enemy armor. Uses uranium fuel rods.',
+            icon: '🔮'
+        },
+        fusion_beam: {
+            name: 'Fusion Beam',
+            category: 'weapons',
+            cost: { money: 5000, uranium: 50, iron: 80 },
+            size: [2, 2],
+            hp: 150,
+            workersRequired: 5,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 3000,
+            maxChargeRate: 500,
+            maxDischargeRate: 0,
+            pollution: 8,
+            range: 1200,
+            baseDPS: 20,
+            energyDraw: 80,
+            uraniumPerSecond: 0.5,
+            upgradeTo: null,
+            description: 'Ultra-long-range continuous beam. Ramps 3x faster than lasers, ignores most armor. Consumes uranium.',
+            icon: '⚛️'
         },
 
         // ---- Defense ------------------------------------------------------

@@ -355,6 +355,41 @@ var Combat = (function() {
         for (var i = 0; i < _projectiles.length; i++) {
             var p = _projectiles[i];
 
+            // Plasma projectile handling
+            if (p.type === 'plasma') {
+                var pTarget = null;
+                if (typeof Enemies !== 'undefined' && Enemies.getById) {
+                    pTarget = Enemies.getById(p.targetId);
+                }
+                if (!pTarget || pTarget.hp <= 0) { continue; }
+
+                // Homing
+                var pDesired = Math.atan2(pTarget.y - p.y, pTarget.x - p.x);
+                var pDiff = pDesired - p.angle;
+                while (pDiff > Math.PI) { pDiff -= 2 * Math.PI; }
+                while (pDiff < -Math.PI) { pDiff += 2 * Math.PI; }
+                var pMaxTurn = homingRad / tps;
+                if (pDiff > pMaxTurn) { pDiff = pMaxTurn; }
+                else if (pDiff < -pMaxTurn) { pDiff = -pMaxTurn; }
+                p.angle += pDiff;
+
+                var pMoveDist = p.speed / tps;
+                p.x += Math.cos(p.angle) * pMoveDist;
+                p.y += Math.sin(p.angle) * pMoveDist;
+                p.distanceTraveled += pMoveDist;
+
+                var pHitDist = _distance(p.x, p.y, pTarget.x, pTarget.y);
+                if (pHitDist <= hitDist) {
+                    if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                        Enemies.damageEnemy(p.targetId, p.damage, p.armorBypass || 1.0);
+                    }
+                    continue;
+                }
+                if (p.distanceTraveled > p.maxDistance) { continue; }
+                surviving.push(p);
+                continue;
+            }
+
             // Mortar projectile handling
             if (p.isMortar) {
                 var moveDistMortar = p.speed / tps;
@@ -933,6 +968,181 @@ var Combat = (function() {
         _drones = survivingDrones;
     }
 
+    // ---- Plasma Cannon ----
+
+    var _plasmaProjectiles = [];
+
+    function _processPlasmaCanons() {
+        var buildings = _getAllBuildings();
+        var tps = _tps();
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'plasma_cannon') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0) { continue; }
+
+            // Reload timer
+            if (b.reloadTimer == null) { b.reloadTimer = 0; }
+            if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+
+            // Find closest enemy in range
+            var enemy = null;
+            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
+                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
+            }
+            if (!enemy) { continue; }
+
+            // Check energy
+            var energyCost = def.energyPerShot || 400;
+            if (b.energy < energyCost) { continue; }
+
+            // Check uranium
+            var uraniumCost = def.uraniumPerShot || 1;
+            var hasUranium = true;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                hasUranium = Economy.getResource('uranium') >= uraniumCost;
+            } else { hasUranium = false; }
+            if (!hasUranium) { continue; }
+
+            // Fire
+            b.energy -= energyCost;
+            if (typeof Economy !== 'undefined' && Economy.spendResource) {
+                Economy.spendResource('uranium', uraniumCost);
+            }
+            b.reloadTimer = def.reloadTicks || 15;
+
+            // Create plasma projectile
+            var dx = enemy.x - center.x;
+            var dy = enemy.y - center.y;
+            var angle = Math.atan2(dy, dx);
+            _projectiles.push({
+                id: _nextProjectileId++,
+                x: center.x,
+                y: center.y,
+                targetId: enemy.id,
+                damage: def.damage || 45,
+                speed: 350,
+                type: 'plasma',
+                angle: angle,
+                distanceTraveled: 0,
+                maxDistance: effectiveRange * 1.5,
+                armorBypass: def.armorBypass || 1.0
+            });
+        }
+    }
+
+    // ---- Fusion Beam ----
+
+    var _fusionBeams = [];
+
+    function _processFusionBeams() {
+        var buildings = _getAllBuildings();
+        var tps = _tps();
+
+        _fusionBeams = [];
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'fusion_beam') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+
+            if (!b.active || b.hp <= 0 || b.energy <= 0) {
+                b.fusionRampTime = 0;
+                continue;
+            }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+
+            // Find closest enemy in range
+            var enemy = null;
+            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
+                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
+            }
+
+            if (!enemy) {
+                b.fusionRampTime = 0;
+                b.target = null;
+                continue;
+            }
+
+            // Target switch resets ramp
+            if (b.target !== enemy.id) {
+                b.fusionRampTime = 0;
+            }
+            b.target = enemy.id;
+
+            if (b.fusionRampTime == null) { b.fusionRampTime = 0; }
+            var rampInterval = (typeof Config !== 'undefined' && Config.FUSION_RAMP_INTERVAL != null)
+                ? Config.FUSION_RAMP_INTERVAL : 0.33;
+            b.fusionRampTime += 1 / tps;
+
+            // Ramp multiplier: doubles every rampInterval seconds, capped at 32
+            var maxRamp = 32;
+            var rampMultiplier = Math.pow(2, Math.min(b.fusionRampTime / rampInterval, Math.log2(maxRamp)));
+
+            var dps = (def.baseDPS || 20) * rampMultiplier;
+            var damageThisTick = dps / tps;
+            var energyDrawThisTick = (def.energyDraw || 80) * rampMultiplier / tps;
+
+            // Uranium consumption
+            var uraniumPerTick = (def.uraniumPerSecond || 0.5) / tps;
+            var hasUranium = true;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                hasUranium = Economy.getResource('uranium') >= uraniumPerTick;
+            } else { hasUranium = false; }
+
+            if (!hasUranium) {
+                b.fusionRampTime = 0;
+                b.target = null;
+                continue;
+            }
+
+            // Energy check
+            if (b.energy < energyDrawThisTick) {
+                var ratio = b.energy / energyDrawThisTick;
+                damageThisTick *= ratio;
+                b.energy = 0;
+            } else {
+                b.energy -= energyDrawThisTick;
+            }
+
+            // Consume uranium
+            if (typeof Economy !== 'undefined' && Economy.spendResource) {
+                Economy.spendResource('uranium', uraniumPerTick);
+            }
+
+            // Apply damage with high armor bypass
+            var armorBypass = (typeof Config !== 'undefined' && Config.FUSION_ARMOR_BYPASS != null)
+                ? Config.FUSION_ARMOR_BYPASS : 0.8;
+            var killed = false;
+            if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                killed = Enemies.damageEnemy(enemy.id, damageThisTick, armorBypass);
+            }
+
+            // Add beam for rendering
+            _fusionBeams.push({
+                fromX: center.x,
+                fromY: center.y,
+                toX: enemy.x,
+                toY: enemy.y,
+                rampLevel: rampMultiplier,
+                buildingId: b.id
+            });
+
+            if (killed) {
+                b.target = null;
+                b.fusionRampTime = 0;
+            }
+        }
+    }
+
     // ---- 6. Handle Special Enemies ----
 
     function _handleSpecialEnemies() {
@@ -1105,6 +1315,8 @@ var Combat = (function() {
             _processEmpTowers();
             _processMortars();
             _processDroneBays();
+            _processPlasmaCanons();
+            _processFusionBeams();
             _handleSpecialEnemies();
         },
 
@@ -1117,6 +1329,7 @@ var Combat = (function() {
         getRailShots: function() { return _railShots; },
         getEmpBlasts: function() { return _empBlasts; },
         getDrones: function() { return _drones; },
+        getFusionBeams: function() { return _fusionBeams; },
 
         getSerializableState: function() {
             var projData = [];
