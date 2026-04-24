@@ -431,49 +431,94 @@ var Energy = (function() {
                     return _priorityMap[a.id] - _priorityMap[b.id];
                 });
 
-                // Distribute energy to reachable buildings
-                for (var r = 0; r < reachable.length; r++) {
+                // Distribute energy to reachable buildings, splitting equally among same-priority groups
+                var r = 0;
+                while (r < reachable.length) {
                     if (gen.energy <= 0 || totalDischarged >= maxDischarge) break;
 
-                    var receiver = reachable[r];
-                    var recDef = _getDef(receiver.type);
-                    if (!recDef) continue;
-
-                    var recCapacity = recDef.energyStorageCapacity || 0;
-                    var recRemaining = recCapacity - receiver.energy;
-                    if (recRemaining <= 0) continue;
-
-                    var recChargeRate = (recDef.maxChargeRate || 0) / tps;
-
-                    // Determine transfer amount
-                    var transferable = gen.energy;
-                    transferable = Math.min(transferable, maxDischarge - totalDischarged);
-                    var pathThroughput = minThroughputMap[receiver.id] || (cableMaxThroughput / tps);
-                    transferable = Math.min(transferable, pathThroughput);
-                    if (recChargeRate > 0) {
-                        transferable = Math.min(transferable, recChargeRate);
+                    // Find the group of consumers with the same priority
+                    var groupPylonPri = pylonPriorityMap[reachable[r].id] || 1;
+                    var groupTypePri = _priorityMap[reachable[r].id];
+                    var groupStart = r;
+                    while (r < reachable.length) {
+                        var rPylonPri = pylonPriorityMap[reachable[r].id] || 1;
+                        var rTypePri = _priorityMap[reachable[r].id];
+                        if (rPylonPri !== groupPylonPri || rTypePri !== groupTypePri) break;
+                        r++;
                     }
-                    transferable = Math.min(transferable, recRemaining);
+                    var groupEnd = r; // exclusive
 
-                    if (transferable <= 0) continue;
+                    // Collect group members that still need energy
+                    var groupMembers = [];
+                    for (var gi = groupStart; gi < groupEnd; gi++) {
+                        var grp = reachable[gi];
+                        var grpDef = _getDef(grp.type);
+                        if (!grpDef) continue;
+                        var grpCapacity = grpDef.energyStorageCapacity || 0;
+                        var grpRemaining = grpCapacity - grp.energy;
+                        if (grpRemaining <= 0) continue;
+                        var grpChargeRate = (grpDef.maxChargeRate || 0) / tps;
+                        var grpPathTP = minThroughputMap[grp.id] || (cableMaxThroughput / tps);
+                        var grpMax = grpRemaining;
+                        grpMax = Math.min(grpMax, grpPathTP);
+                        if (grpChargeRate > 0) grpMax = Math.min(grpMax, grpChargeRate);
+                        if (grpMax > 0) {
+                            groupMembers.push({ building: grp, maxAccept: grpMax });
+                        }
+                    }
 
-                    // Transfer
-                    gen.energy -= transferable;
-                    receiver.energy += transferable;
-                    totalDischarged += transferable;
-                    // Mark both nodes for cable glow
-                    _activeFlowNodes[gen.id] = true;
-                    _activeFlowNodes[receiver.id] = true;
+                    if (groupMembers.length === 0) continue;
 
-                    // Record flow along the path for cable flow labels
-                    var pathNode = receiver.id;
-                    while (parentMap[pathNode] !== undefined) {
-                        var parentNode = parentMap[pathNode];
-                        var flowKey = parentNode < pathNode ? parentNode + '-' + pathNode : pathNode + '-' + parentNode;
-                        var flowDir = parentNode < pathNode ? 1 : -1;
-                        if (!_cableFlowThisTick[flowKey]) _cableFlowThisTick[flowKey] = 0;
-                        _cableFlowThisTick[flowKey] += transferable * flowDir;
-                        pathNode = parentNode;
+                    // Distribute equally among group, respecting each member's max
+                    var budgetLeft = Math.min(gen.energy, maxDischarge - totalDischarged);
+                    var remaining = groupMembers.length;
+                    // Multi-pass: if some members hit their cap, redistribute remainder
+                    var allocated = [];
+                    for (gi = 0; gi < groupMembers.length; gi++) allocated[gi] = 0;
+                    while (budgetLeft > 0.0001 && remaining > 0) {
+                        var share = budgetLeft / remaining;
+                        var anyLimited = false;
+                        remaining = 0;
+                        for (gi = 0; gi < groupMembers.length; gi++) {
+                            if (allocated[gi] < 0) continue; // already finalized
+                            var canTake = groupMembers[gi].maxAccept - allocated[gi];
+                            if (canTake <= 0) { allocated[gi] = -allocated[gi] || -0.0001; continue; }
+                            if (share >= canTake) {
+                                allocated[gi] += canTake;
+                                budgetLeft -= canTake;
+                                allocated[gi] = -allocated[gi]; // mark finalized (negative)
+                                anyLimited = true;
+                            } else {
+                                allocated[gi] += share;
+                                budgetLeft -= share;
+                                remaining++;
+                            }
+                        }
+                        if (!anyLimited) break;
+                    }
+
+                    // Apply transfers
+                    for (gi = 0; gi < groupMembers.length; gi++) {
+                        var transferable = Math.abs(allocated[gi]);
+                        if (transferable <= 0.0001) continue;
+                        var receiver = groupMembers[gi].building;
+
+                        gen.energy -= transferable;
+                        receiver.energy += transferable;
+                        totalDischarged += transferable;
+                        _activeFlowNodes[gen.id] = true;
+                        _activeFlowNodes[receiver.id] = true;
+
+                        // Record flow along the path for cable flow labels
+                        var pathNode = receiver.id;
+                        while (parentMap[pathNode] !== undefined) {
+                            var parentNode = parentMap[pathNode];
+                            var flowKey = parentNode < pathNode ? parentNode + '-' + pathNode : pathNode + '-' + parentNode;
+                            var flowDir = parentNode < pathNode ? 1 : -1;
+                            if (!_cableFlowThisTick[flowKey]) _cableFlowThisTick[flowKey] = 0;
+                            _cableFlowThisTick[flowKey] += transferable * flowDir;
+                            pathNode = parentNode;
+                        }
                     }
                 }
             }
