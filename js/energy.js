@@ -550,6 +550,22 @@ var Energy = (function() {
             }
 
             // ============================================================
+            // Step 2b: Snap energy to avoid floating point drift
+            // ============================================================
+            for (i = 0; i < allBuildings.length; i++) {
+                building = allBuildings[i];
+                def = _getDef(building.type);
+                if (!def) continue;
+                var cap = def.energyStorageCapacity || 0;
+                if (cap > 0 && building.energy > cap - 0.5) {
+                    building.energy = cap;
+                }
+                if (building.energy < 0.01) {
+                    building.energy = 0;
+                }
+            }
+
+            // ============================================================
             // Step 3: Consumption + Carbon Collection + Stats (consolidated)
             // ============================================================
             var totalConsumption = 0;
