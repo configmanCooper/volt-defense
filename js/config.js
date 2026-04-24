@@ -82,8 +82,8 @@ var Config = {
     // Waves
     FIRST_WAVE_DELAY: 180,                  // seconds
     WAVE_INTERVAL: 90,                      // seconds
-    WAVE_COMPLETION_BASE: 250,
-    WAVE_COMPLETION_SCALE: 50,
+    WAVE_COMPLETION_BASE: 375,
+    WAVE_COMPLETION_SCALE: 75,
 
     // Starting resources
     START_MONEY: 2000,
