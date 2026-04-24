@@ -46,6 +46,20 @@ var Energy = (function() {
         return (typeof Config !== 'undefined' && Config.CABLE_MAX_THROUGHPUT) ? Config.CABLE_MAX_THROUGHPUT : 50;
     }
 
+    function _getHCCableMaxThroughput() {
+        return (typeof Config !== 'undefined' && Config.HC_CABLE_MAX_THROUGHPUT) ? Config.HC_CABLE_MAX_THROUGHPUT : 500;
+    }
+
+    function _getCableThroughput(fromId, toId) {
+        if (typeof Buildings !== 'undefined' && Buildings.getCableBetween) {
+            var cable = Buildings.getCableBetween(fromId, toId);
+            if (cable && cable.type === 'high_capacity') {
+                return _getHCCableMaxThroughput();
+            }
+        }
+        return _getCableMaxThroughput();
+    }
+
     function _getEnergyPriority(building) {
         var def = _getDef(building.type);
         if (!def) return PRIORITY_BATTERIES;
@@ -321,10 +335,13 @@ var Energy = (function() {
                 var visited = {};
                 var queue = [gen.id];
                 visited[gen.id] = true;
-                var reachable = []; // {building, distance} of consumers/storage reachable
+                var reachable = [];
+                var minThroughputMap = {}; // buildingId -> min cable throughput along path
+                minThroughputMap[gen.id] = Infinity;
 
                 while (queue.length > 0) {
                     var currentId = queue.shift();
+                    var currentMinTP = minThroughputMap[currentId] || Infinity;
                     var neighbors = adjacency[currentId] || [];
                     for (var n = 0; n < neighbors.length; n++) {
                         var nId = neighbors[n];
@@ -336,6 +353,10 @@ var Energy = (function() {
 
                         var nDef = _getDef(nBuilding.type);
                         if (!nDef) continue;
+
+                        // Track min throughput along path
+                        var cableTP = _getCableThroughput(currentId, nId) / tps;
+                        minThroughputMap[nId] = Math.min(currentMinTP, cableTP);
 
                         // Check if this building needs/accepts energy
                         var nCapacity = nDef.energyStorageCapacity || 0;
@@ -371,7 +392,8 @@ var Energy = (function() {
                     // Determine transfer amount
                     var transferable = gen.energy;
                     transferable = Math.min(transferable, maxDischarge - totalDischarged);
-                    transferable = Math.min(transferable, cableMaxThroughput);
+                    var pathThroughput = minThroughputMap[receiver.id] || (cableMaxThroughput / tps);
+                    transferable = Math.min(transferable, pathThroughput);
                     if (recChargeRate > 0) {
                         transferable = Math.min(transferable, recChargeRate);
                     }

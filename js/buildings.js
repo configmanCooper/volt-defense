@@ -398,8 +398,9 @@ var Buildings = (function() {
         // ================================================================
         // Cable Management
         // ================================================================
-        canAddCable: function(fromId, toId) {
+        canAddCable: function(fromId, toId, cableType) {
             if (fromId === toId) return { success: false, reason: 'Cannot cable a building to itself.' };
+            if (!cableType) cableType = 'standard';
 
             var fromBuilding = _getById(fromId);
             var toBuilding = _getById(toId);
@@ -431,22 +432,30 @@ var Buildings = (function() {
             }
 
             // Check cost
-            var cableCost = (typeof Config !== 'undefined' && Config.CABLE_COST) ? Config.CABLE_COST : 25;
+            var cableCost;
+            if (cableType === 'high_capacity') {
+                var costPerTile = (typeof Config !== 'undefined' && Config.HC_CABLE_COST_PER_TILE) ? Config.HC_CABLE_COST_PER_TILE : 50;
+                var cellSize = _getCellSize();
+                var tiles = Math.max(1, Math.round(dist / cellSize));
+                cableCost = costPerTile * tiles;
+            } else {
+                cableCost = (typeof Config !== 'undefined' && Config.CABLE_COST) ? Config.CABLE_COST : 25;
+            }
             if (!_canAfford({ money: cableCost })) {
                 return { success: false, reason: 'Cannot afford cable ($' + cableCost + ').' };
             }
 
-            return { success: true };
+            return { success: true, cost: cableCost };
         },
 
-        addCable: function(fromId, toId) {
-            var check = this.canAddCable(fromId, toId);
+        addCable: function(fromId, toId, cableType) {
+            if (!cableType) cableType = 'standard';
+            var check = this.canAddCable(fromId, toId, cableType);
             if (!check.success) return check;
 
-            var cableCost = (typeof Config !== 'undefined' && Config.CABLE_COST) ? Config.CABLE_COST : 25;
-            _deductCost({ money: cableCost });
+            _deductCost({ money: check.cost || 0 });
 
-            _cables.push({ from: fromId, to: toId });
+            _cables.push({ from: fromId, to: toId, type: cableType });
             _adjacencyDirty = true;
 
             return { success: true };
@@ -472,6 +481,16 @@ var Buildings = (function() {
                 }
             }
             return result;
+        },
+
+        getCableBetween: function(fromId, toId) {
+            for (var i = 0; i < _cables.length; i++) {
+                var c = _cables[i];
+                if ((c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)) {
+                    return c;
+                }
+            }
+            return null;
         },
 
         getConnectedBuildings: function(buildingId) {
@@ -625,7 +644,7 @@ var Buildings = (function() {
             }
             var cableData = [];
             for (var j = 0; j < _cables.length; j++) {
-                cableData.push({ from: _cables[j].from, to: _cables[j].to });
+                cableData.push({ from: _cables[j].from, to: _cables[j].to, type: _cables[j].type || 'standard' });
             }
             return {
                 buildings: buildingData,
@@ -684,7 +703,7 @@ var Buildings = (function() {
 
             if (data.cables && data.cables.length) {
                 for (i = 0; i < data.cables.length; i++) {
-                    _cables.push({ from: data.cables[i].from, to: data.cables[i].to });
+                    _cables.push({ from: data.cables[i].from, to: data.cables[i].to, type: data.cables[i].type || 'standard' });
                 }
             }
         }

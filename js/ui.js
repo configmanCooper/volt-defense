@@ -261,7 +261,13 @@ var UI = (function () {
 
             case 'cable-from-building':
                 if (_selectedBuildingId && typeof Input !== 'undefined' && Input.startCableMode) {
-                    Input.startCableMode(_selectedBuildingId);
+                    Input.startCableMode(_selectedBuildingId, 'standard');
+                }
+                break;
+
+            case 'hc-cable-from-building':
+                if (_selectedBuildingId && typeof Input !== 'undefined' && Input.startCableMode) {
+                    Input.startCableMode(_selectedBuildingId, 'high_capacity');
                 }
                 break;
 
@@ -273,6 +279,7 @@ var UI = (function () {
                     '&nbsp; <kbd>ESC</kbd> &nbsp; Cancel placement / deselect<br>' +
                     '<b>Selected Building</b><br>' +
                     '&nbsp; <kbd>C</kbd> &nbsp; Connect cable<br>' +
+                    '&nbsp; <kbd>Shift+C</kbd> &nbsp; HC cable ($50/tile, 500 throughput)<br>' +
                     '&nbsp; <kbd>U</kbd> &nbsp; Upgrade<br>' +
                     '&nbsp; <kbd>Del</kbd> &nbsp; Sell / demolish<br>' +
                     '<b>Camera</b><br>' +
@@ -471,7 +478,9 @@ var UI = (function () {
                     _elements.modeIndicator.className = 'mode-placing';
                     _elements.modeIndicator.style.display = 'block';
                 } else if (inputState === 'cable') {
-                    _elements.modeIndicator.textContent = '🔌 Cable Mode — Click a building to connect  [ESC to cancel]';
+                    var ct = (typeof Input !== 'undefined' && Input.getCableType) ? Input.getCableType() : 'standard';
+                    var cLabel = ct === 'high_capacity' ? 'HC Cable' : 'Cable';
+                    _elements.modeIndicator.textContent = '🔌 ' + cLabel + ' Mode — Click a building to connect  [ESC to cancel]';
                     _elements.modeIndicator.className = 'mode-cable';
                     _elements.modeIndicator.style.display = 'block';
                 } else {
@@ -722,7 +731,8 @@ var UI = (function () {
             // Buttons
             html += '<div class="info-actions">';
             // Cable button
-            html += '<button class="info-btn" data-action="cable-from-building">🔌 Connect Cable [C]</button>';
+            html += '<button class="info-btn" data-action="cable-from-building">🔌 Cable [C]</button>';
+            html += '<button class="info-btn" data-action="hc-cable-from-building">⚡ HC Cable ($50/tile)</button>';
             if (def.upgradeTo && Config.BUILDINGS[def.upgradeTo]) {
                 var upgradeDef = Config.BUILDINGS[def.upgradeTo];
                 var costParts = ['$' + (upgradeDef.cost.money || 0)];

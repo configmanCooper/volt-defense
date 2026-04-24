@@ -30,6 +30,8 @@ var Config = {
     CABLE_MAX_PER_BUILDING: 4,
     CABLE_MAX_THROUGHPUT: 50,
     CABLE_COST: 25,
+    HC_CABLE_MAX_THROUGHPUT: 500,
+    HC_CABLE_COST_PER_TILE: 50,
 
     // Placement
     MAX_PLACEMENT_DISTANCE: 200,
@@ -902,6 +904,23 @@ var Config = {
             upgradeTo: null,
             description: 'Relay node for water tiles. Extends cable network across rivers.',
             icon: '🌊'
+        },
+        hc_pylon: {
+            name: 'HC Pylon',
+            category: 'grid',
+            cost: { money: 400 },
+            size: [1, 1],
+            hp: 60,
+            workersRequired: 0,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 50,
+            maxChargeRate: 500,
+            maxDischargeRate: 500,
+            pollution: 0,
+            upgradeTo: null,
+            description: 'High-capacity relay. 500 energy/tick throughput for heavy power lines.',
+            icon: '⚡'
         },
         core: {
             name: 'Core',

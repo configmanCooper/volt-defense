@@ -605,7 +605,6 @@ var Render = (function () {
         if (!cables || !cables.length) return;
 
         var i, cable, fromB, toB, fc, tc;
-        ctx.lineWidth = 2;
 
         for (i = 0; i < cables.length; i++) {
             cable = cables[i];
@@ -618,6 +617,8 @@ var Render = (function () {
 
             if (!_isInViewport(fc.x, fc.y, 200) && !_isInViewport(tc.x, tc.y, 200)) continue;
 
+            var isHC = cable.type === 'high_capacity';
+
             // Check if energy is flowing through this cable
             var flowing = false;
             if (typeof Energy !== 'undefined' && Energy.isNodeFlowing) {
@@ -627,19 +628,31 @@ var Render = (function () {
             ctx.save();
 
             if (flowing) {
-                // Pulsing glow for active power transfer
-                var pulse = 0.5 + Math.sin(_animFrame * 0.15) * 0.5; // 0..1 pulsing
-                ctx.shadowBlur = 8 + pulse * 8;
-                ctx.shadowColor = 'rgba(0,200,255,' + (0.4 + pulse * 0.4) + ')';
-                ctx.strokeStyle = 'rgba(0,' + Math.floor(180 + pulse * 75) + ',' + Math.floor(220 + pulse * 35) + ',' + (0.7 + pulse * 0.3) + ')';
-                ctx.lineWidth = 2 + pulse;
+                var pulse = 0.5 + Math.sin(_animFrame * 0.15) * 0.5;
+                if (isHC) {
+                    ctx.shadowBlur = 12 + pulse * 12;
+                    ctx.shadowColor = 'rgba(255,180,0,' + (0.5 + pulse * 0.4) + ')';
+                    ctx.strokeStyle = 'rgba(255,' + Math.floor(200 + pulse * 55) + ',0,' + (0.8 + pulse * 0.2) + ')';
+                    ctx.lineWidth = 4 + pulse * 2;
+                } else {
+                    ctx.shadowBlur = 8 + pulse * 8;
+                    ctx.shadowColor = 'rgba(0,200,255,' + (0.4 + pulse * 0.4) + ')';
+                    ctx.strokeStyle = 'rgba(0,' + Math.floor(180 + pulse * 75) + ',' + Math.floor(220 + pulse * 35) + ',' + (0.7 + pulse * 0.3) + ')';
+                    ctx.lineWidth = 2 + pulse;
+                }
             } else {
-                // Inactive cable — dim
                 var active = fromB.active && toB.active;
-                ctx.shadowBlur = active ? 4 : 0;
-                ctx.shadowColor = COLORS.CABLE.glow;
-                ctx.strokeStyle = active ? COLORS.CABLE.active : COLORS.CABLE.normal;
-                ctx.lineWidth = 2;
+                if (isHC) {
+                    ctx.shadowBlur = active ? 6 : 0;
+                    ctx.shadowColor = 'rgba(255,180,0,0.5)';
+                    ctx.strokeStyle = active ? 'rgba(255,180,0,0.7)' : 'rgba(180,120,0,0.4)';
+                    ctx.lineWidth = 3;
+                } else {
+                    ctx.shadowBlur = active ? 4 : 0;
+                    ctx.shadowColor = COLORS.CABLE.glow;
+                    ctx.strokeStyle = active ? COLORS.CABLE.active : COLORS.CABLE.normal;
+                    ctx.lineWidth = 2;
+                }
             }
 
             ctx.beginPath();

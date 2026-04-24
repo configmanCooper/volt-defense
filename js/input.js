@@ -8,6 +8,7 @@ var Input = (function () {
     var _placingType = null;
     var _selectedBuildingId = null;
     var _cableFromId = null;
+    var _cableType = 'standard';  // 'standard' or 'high_capacity'
     var _mouseWorld = { x: 0, y: 0 };
     var _mouseScreen = { x: 0, y: 0 };
     var _mouseGrid = { x: 0, y: 0 };
@@ -169,7 +170,7 @@ var Input = (function () {
             return;
         }
 
-        var result = Buildings.addCable(_cableFromId, building.id);
+        var result = Buildings.addCable(_cableFromId, building.id, _cableType);
         if (result && result.success) {
             if (typeof UI !== 'undefined' && UI.showToast) {
                 UI.showToast('Cable connected!', 'success', 1500);
@@ -420,9 +421,10 @@ var Input = (function () {
                     }
                 }
 
-                // C — cable mode from selected building
+                // C — cable mode, Shift+C — HC cable mode
                 if ((e.key === 'c' || e.key === 'C') && _selectedBuildingId && _state === 'idle') {
-                    Input.startCableMode(_selectedBuildingId);
+                    var cType = e.shiftKey ? 'high_capacity' : 'standard';
+                    Input.startCableMode(_selectedBuildingId, cType);
                 }
 
                 // U — upgrade selected building
@@ -526,12 +528,22 @@ var Input = (function () {
 
         // ---- cable mode ----
 
-        startCableMode: function (fromBuildingId) {
+        startCableMode: function (fromBuildingId, cableTypeOverride) {
             _state = 'cable';
             _cableFromId = fromBuildingId;
+            _cableType = cableTypeOverride || 'standard';
+            var label = _cableType === 'high_capacity' ? 'HC cable' : 'cable';
             if (typeof UI !== 'undefined' && UI.showToast) {
-                UI.showToast('Click a building to connect cable (ESC to cancel)', 'info', 3000);
+                UI.showToast('Click a building to connect ' + label + ' (ESC to cancel)', 'info', 3000);
             }
+        },
+
+        getCableType: function() {
+            return _cableType;
+        },
+
+        setCableType: function(t) {
+            _cableType = t || 'standard';
         },
 
         cancelCable: function () {
