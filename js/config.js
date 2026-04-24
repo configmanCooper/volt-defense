@@ -785,7 +785,7 @@ var Config = {
             pollution: 8,
             range: 1200,
             baseDPS: 25,
-            energyDraw: 80,
+            energyDraw: 60,
             uraniumPerSecond: 0.5,
             upgradeTo: null,
             description: 'Ultra-long-range continuous beam. Ramps 3x faster than lasers, ignores most armor. Consumes uranium.',
