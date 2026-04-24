@@ -1214,7 +1214,7 @@ var Enemies = (function () {
      */
     function _enemyReachedCore(enemy) {
         if (typeof Engine !== 'undefined' && Engine.damageCoreHP) {
-            Engine.damageCoreHP(enemy.damage);
+            Engine.damageCoreHP(enemy.damage * 0.75);
         }
         _totalEscaped++;
 
