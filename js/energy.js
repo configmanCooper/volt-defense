@@ -379,8 +379,11 @@ var Energy = (function() {
                             reachable.push(nBuilding);
                         }
 
-                        // Continue BFS through relay nodes (pylons, batteries, etc.)
-                        queue.push(nId);
+                        // Only continue BFS through nodes that already have energy
+                        // This prevents energy from "teleporting" through empty relays
+                        if (nBuilding.energy > 0 || nCapacity <= 0) {
+                            queue.push(nId);
+                        }
                     }
                 }
 
