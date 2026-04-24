@@ -197,6 +197,7 @@ var UI = (function () {
                             UI.showToast('Cannot build ' + bDef.name + '.', 'error', 2000);
                         }
                     }
+                    _showBuildInfoCard(typeKey);
                     break;
                 }
 
