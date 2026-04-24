@@ -116,14 +116,14 @@ var Config = {
             size: [1, 1],
             hp: 60,
             workersRequired: 1,
-            energyGeneration: 30,
+            energyGeneration: 24,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0,
             upgradeTo: null,
-            description: 'Generates 30 energy during daytime only. No output at night.',
+            description: 'Generates 24 energy during daytime only. No output at night.',
             icon: '☀️'
         },
         wind: {
@@ -133,7 +133,7 @@ var Config = {
             size: [1, 1],
             hp: 50,
             workersRequired: 1,
-            energyGeneration: 25,
+            energyGeneration: 20,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
@@ -141,7 +141,7 @@ var Config = {
             pollution: 0,
             variability: 0.2,
             upgradeTo: null,
-            description: 'Generates 25 energy. Output fluctuates with wind.',
+            description: 'Generates 20 energy. Output fluctuates with wind.',
             icon: '🌀'
         },
         coal_plant: {
@@ -151,7 +151,7 @@ var Config = {
             size: [2, 2],
             hp: 120,
             workersRequired: 3,
-            energyGeneration: 80,
+            energyGeneration: 64,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
@@ -160,7 +160,7 @@ var Config = {
             fuelCost: { coal: 2 },
             fuelInterval: 10,           // ticks
             upgradeTo: 'gas_plant',
-            description: 'Reliable 80 energy. Burns 2 coal every 10 ticks. Pollutes.',
+            description: 'Reliable 64 energy. Burns 2 coal every 10 ticks. Pollutes.',
             icon: '🏭'
         },
         gas_plant: {
@@ -170,7 +170,7 @@ var Config = {
             size: [2, 2],
             hp: 100,
             workersRequired: 3,
-            energyGeneration: 100,
+            energyGeneration: 80,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
@@ -179,7 +179,7 @@ var Config = {
             fuelCost: { coal: 1 },
             fuelInterval: 10,
             upgradeTo: null,
-            description: 'Upgraded plant. 100 energy, less fuel and pollution.',
+            description: 'Upgraded plant. 80 energy, less fuel and pollution.',
             icon: '🏗️'
         },
         nuclear_plant: {
@@ -189,7 +189,7 @@ var Config = {
             size: [2, 2],
             hp: 200,
             workersRequired: 8,
-            energyGeneration: 300,
+            energyGeneration: 240,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
@@ -198,7 +198,7 @@ var Config = {
             fuelCost: { uranium: 1 },
             fuelInterval: 50,
             upgradeTo: null,
-            description: 'Massive 300 energy output. Requires uranium fuel.',
+            description: 'Massive 240 energy output. Requires uranium fuel.',
             icon: '☢️'
         },
         hydro_plant: {
@@ -208,7 +208,7 @@ var Config = {
             size: [1, 1],
             hp: 80,
             workersRequired: 2,
-            energyGeneration: 60,
+            energyGeneration: 48,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
