@@ -842,6 +842,102 @@ var Render = (function () {
     // ------------------------------------------------------------------------
     // Layer: Buildings
     // ------------------------------------------------------------------------
+    // Custom procedural sci-fi core graphic
+    function _drawCoreBuilding(ctx, x, y, w, h, building, selectedId) {
+        var cx = x + w / 2;
+        var cy = y + h / 2;
+        var r = Math.min(w, h) / 2 - 2;
+        var t = _animFrame / 60; // time in seconds at 60fps
+
+        ctx.save();
+
+        // Dark base plate
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#1a1a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+
+        // Outer energy ring (rotating)
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 180, 255, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Rotating arc segments
+        for (var a = 0; a < 3; a++) {
+            var angle = t * 1.5 + (a * Math.PI * 2 / 3);
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, angle, angle + 0.8);
+            ctx.strokeStyle = 'rgba(0, 200, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Inner ring (counter-rotating)
+        var innerR = r * 0.65;
+        for (a = 0; a < 4; a++) {
+            var angle2 = -t * 2.2 + (a * Math.PI / 2);
+            ctx.beginPath();
+            ctx.arc(cx, cy, innerR, angle2, angle2 + 0.5);
+            ctx.strokeStyle = 'rgba(100, 220, 255, 0.7)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+
+        // Pulsing core glow
+        var pulse = 0.5 + 0.5 * Math.sin(t * 3);
+        var glowR = r * 0.35;
+
+        // Outer glow
+        var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR * 2);
+        grad.addColorStop(0, 'rgba(80, 200, 255, ' + (0.3 + pulse * 0.2) + ')');
+        grad.addColorStop(0.5, 'rgba(30, 120, 255, ' + (0.15 + pulse * 0.1) + ')');
+        grad.addColorStop(1, 'rgba(0, 60, 200, 0)');
+        ctx.beginPath();
+        ctx.arc(cx, cy, glowR * 2, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Core center
+        var coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+        coreGrad.addColorStop(0, 'rgba(200, 240, 255, ' + (0.9 + pulse * 0.1) + ')');
+        coreGrad.addColorStop(0.4, 'rgba(60, 180, 255, 0.8)');
+        coreGrad.addColorStop(1, 'rgba(20, 80, 200, 0.3)');
+        ctx.beginPath();
+        ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+
+        // Energy sparks radiating outward
+        for (var s = 0; s < 6; s++) {
+            var sparkAngle = t * 0.8 + s * Math.PI / 3;
+            var sparkDist = innerR + (r - innerR) * ((t * 2 + s) % 1);
+            var sx = cx + Math.cos(sparkAngle) * sparkDist;
+            var sy = cy + Math.sin(sparkAngle) * sparkDist;
+            var sparkSize = 1.5 + Math.sin(t * 5 + s) * 0.5;
+            ctx.beginPath();
+            ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(150, 220, 255, ' + (0.5 + 0.3 * Math.sin(t * 4 + s * 2)) + ')';
+            ctx.fill();
+        }
+
+        // HP bar if damaged
+        if (building.hp < building.maxHp) {
+            _drawHPBar(ctx, cx, y, w, building.hp / building.maxHp);
+        }
+
+        // Selection highlight
+        if (building.id === selectedId) {
+            ctx.strokeStyle = COLORS.UI.selected;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
+        }
+
+        ctx.restore();
+    }
+
     function _drawBuildings(ctx) {
         if (typeof Buildings === 'undefined' || !Buildings || typeof Buildings.getAll !== 'function') return;
         var all = Buildings.getAll();
@@ -873,6 +969,12 @@ var Render = (function () {
             if (!_isInViewport(b.worldX + pw / 2, b.worldY + ph / 2, pw)) continue;
 
             color = COLORS.BUILDING[def.category] || '#888888';
+
+            // Custom draw for core building
+            if (b.type === 'core') {
+                _drawCoreBuilding(ctx, b.worldX, b.worldY, pw, ph, b, selectedId);
+                continue;
+            }
 
             // Building body
             ctx.fillStyle = color;
