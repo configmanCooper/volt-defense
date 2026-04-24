@@ -83,9 +83,18 @@ var Combat = (function() {
                 continue;
             }
 
-            // Shield broken — needs recharge before reactivating
+            // Shield broken — regen slowly before reactivating
             if (b.shieldHP != null && b.shieldHP <= 0) {
                 b.shieldActive = false;
+                // Regen even when broken, using stored energy
+                var shieldMaxHP = def.shieldHP || 500;
+                if (b.energy >= 1) {
+                    b.shieldHP = Math.min((b.shieldHP || 0) + 1, shieldMaxHP);
+                }
+                // Reactivate once shield has recharged to 10%
+                if (b.shieldHP >= shieldMaxHP * 0.1) {
+                    b.shieldActive = true;
+                }
                 continue;
             }
 
@@ -101,7 +110,7 @@ var Combat = (function() {
             // Regenerate shieldHP slowly if below max and energy is available
             var shieldMaxHP = def.shieldHP || 500;
             if (b.shieldHP == null) { b.shieldHP = shieldMaxHP; }
-            if (b.shieldActive && b.shieldHP < shieldMaxHP) {
+            if (b.shieldHP < shieldMaxHP) {
                 if (b.energy >= 1) {
                     b.shieldHP = Math.min(b.shieldHP + 1, shieldMaxHP);
                 }
