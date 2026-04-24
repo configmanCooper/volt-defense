@@ -596,7 +596,7 @@ var Config = {
             maxChargeRate: 150,
             maxDischargeRate: 0,
             pollution: 0,
-            baseDamage: 15,
+            baseDamage: 11,
             range: 250,
             energyDraw: 50,
             chainCount: 3,
