@@ -687,7 +687,7 @@ var Config = {
             range: 400,
             energyPerActivation: 500,
             cooldownTicks: 100,
-            stunDuration: 30,
+            stunDuration: 50,
             upgradeTo: null,
             description: 'Stuns all enemies in range for 30 ticks. High energy cost per activation.',
             icon: '📡'
