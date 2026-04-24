@@ -19,7 +19,8 @@ var Render = (function () {
         DEPOSIT: {
             iron: '#6a5a4a',
             coal: '#3a3a3a',
-            uranium: '#2a4a2a'
+            uranium: '#2a4a2a',
+            oil: '#1a1208'
         },
         BUILDING: {
             power: '#f0c040',
@@ -96,7 +97,7 @@ var Render = (function () {
     };
 
     // Deposit icon labels
-    var DEPOSIT_ICONS = { iron: 'Fe', coal: 'C', uranium: 'U' };
+    var DEPOSIT_ICONS = { iron: 'Fe', coal: 'C', uranium: 'U', oil: 'Oil' };
 
     // Enemy size multipliers (base radius 8)
     var ENEMY_RADIUS = {
@@ -487,6 +488,39 @@ var Render = (function () {
                         ctx.lineTo(sx + cs / 2 + Math.cos(va) * cs * 0.35, sy + cs / 2 + Math.sin(va) * cs * 0.35);
                         ctx.stroke();
                     }
+                    continue;
+                } else if (t === 13) {
+                    // Oil deposit — grass base with dark oily patches
+                    var oilNv = _terrainNoise(col, row);
+                    ctx.fillStyle = 'rgb(' + (48 + Math.floor(oilNv * 22)) + ',' + (108 + Math.floor(oilNv * 30)) + ',' + (36 + Math.floor(oilNv * 10)) + ')';
+                    ctx.fillRect(sx, sy, cs, cs);
+                    // Dark oily ground
+                    ctx.fillStyle = 'rgba(20,15,10,0.5)';
+                    ctx.beginPath();
+                    ctx.ellipse(sx + cs * 0.5, sy + cs * 0.55, cs * 0.4, cs * 0.35, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Oil puddle with sheen
+                    ctx.fillStyle = '#1a1208';
+                    ctx.beginPath();
+                    ctx.ellipse(sx + cs * 0.45, sy + cs * 0.5, cs * 0.25, cs * 0.2, 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Rainbow sheen on oil
+                    var sheenPhase = _animFrame * 0.05 + col * 0.7 + row * 0.3;
+                    var sheenR = 80 + Math.floor(Math.sin(sheenPhase) * 40);
+                    var sheenG = 60 + Math.floor(Math.sin(sheenPhase + 2) * 40);
+                    var sheenB = 100 + Math.floor(Math.sin(sheenPhase + 4) * 40);
+                    ctx.fillStyle = 'rgba(' + sheenR + ',' + sheenG + ',' + sheenB + ',0.25)';
+                    ctx.beginPath();
+                    ctx.ellipse(sx + cs * 0.42, sy + cs * 0.48, cs * 0.15, cs * 0.1, 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Small oil drops
+                    ctx.fillStyle = '#0d0a05';
+                    ctx.beginPath();
+                    ctx.arc(sx + cs * 0.7, sy + cs * 0.35, cs * 0.08, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(sx + cs * 0.3, sy + cs * 0.7, cs * 0.06, 0, Math.PI * 2);
+                    ctx.fill();
                     continue;
                 } else {
                     ctx.fillStyle = COLORS.TERRAIN.grass;
@@ -1391,6 +1425,7 @@ var Render = (function () {
                     else if (t === 10) ctx.fillStyle = COLORS.DEPOSIT.iron;
                     else if (t === 11) ctx.fillStyle = COLORS.DEPOSIT.coal;
                     else if (t === 12) ctx.fillStyle = COLORS.DEPOSIT.uranium;
+                    else if (t === 13) ctx.fillStyle = COLORS.DEPOSIT.oil;
                     else ctx.fillStyle = COLORS.TERRAIN.grass;
 
                     ctx.fillRect(

@@ -100,7 +100,8 @@ var Config = {
         deep_water: 3,
         iron_deposit: 10,
         coal_deposit: 11,
-        uranium_deposit: 12
+        uranium_deposit: 12,
+        oil_deposit: 13
     },
 
     // ------------------------------------------------------------------------
@@ -176,10 +177,10 @@ var Config = {
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0.2,
-            fuelCost: { coal: 1 },
+            fuelCost: { oil: 1 },
             fuelInterval: 10,
             upgradeTo: null,
-            description: 'Upgraded plant. 80 energy, less fuel and pollution.',
+            description: 'Upgraded plant. 80 energy, burns oil for fuel.',
             icon: '🏗️'
         },
         nuclear_plant: {
@@ -405,6 +406,45 @@ var Config = {
             upgradeTo: null,
             description: 'Advanced uranium miner. Extracts 1.2 uranium per cycle.',
             icon: '☢️'
+        },
+
+        oil_drill: {
+            name: 'Oil Drill',
+            category: 'mining',
+            cost: { money: 500 },
+            size: [1, 1],
+            hp: 80,
+            workersRequired: 2,
+            energyGeneration: 0,
+            energyConsumption: 15,
+            energyStorageCapacity: 0,
+            maxChargeRate: 0,
+            maxDischargeRate: 0,
+            pollution: 0.1,
+            requiresTerrain: 'oil_deposit',
+            extractionRate: 1,
+            upgradeTo: 'oil_drill_t2',
+            description: 'Extracts 1 oil per cycle from oil deposits.',
+            icon: '🛢️'
+        },
+        oil_drill_t2: {
+            name: 'Oil Drill T2',
+            category: 'mining',
+            cost: { money: 1000, iron: 40 },
+            size: [1, 1],
+            hp: 120,
+            workersRequired: 3,
+            energyGeneration: 0,
+            energyConsumption: 25,
+            energyStorageCapacity: 0,
+            maxChargeRate: 0,
+            maxDischargeRate: 0,
+            pollution: 0.15,
+            requiresTerrain: 'oil_deposit',
+            extractionRate: 2.5,
+            upgradeTo: null,
+            description: 'Advanced oil drill. Extracts 2.5 oil per cycle.',
+            icon: '🛢️'
         },
 
         // ---- Weapons ------------------------------------------------------

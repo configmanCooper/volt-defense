@@ -35,6 +35,7 @@ var UI = (function () {
         if (cost.iron) h += _bicStat('Iron', cost.iron + ' ⛏️');
         if (cost.coal) h += _bicStat('Coal', cost.coal + ' 🪨');
         if (cost.uranium) h += _bicStat('Uranium', cost.uranium + ' ☢️');
+        if (cost.oil) h += _bicStat('Oil', cost.oil + ' 🛢️');
         if (def.workersRequired > 0) h += _bicStat('Workers', '👷 ' + def.workersRequired);
 
         // Energy section
@@ -181,6 +182,11 @@ var UI = (function () {
                         if (bCost.uranium && typeof Economy !== 'undefined' && Economy.getResource) {
                             if (Economy.getResource('uranium') < bCost.uranium) {
                                 reasons.push('Need ' + bCost.uranium + ' uranium (have ' + Math.floor(Economy.getResource('uranium')) + ')');
+                            }
+                        }
+                        if (bCost.oil && typeof Economy !== 'undefined' && Economy.getResource) {
+                            if (Economy.getResource('oil') < bCost.oil) {
+                                reasons.push('Need ' + bCost.oil + ' oil (have ' + Math.floor(Economy.getResource('oil')) + ')');
                             }
                         }
                         // Check workers
@@ -382,6 +388,7 @@ var UI = (function () {
                 iron: document.getElementById('hud-iron'),
                 coal: document.getElementById('hud-coal'),
                 uranium: document.getElementById('hud-uranium'),
+                oil: document.getElementById('hud-oil'),
                 workers: document.getElementById('hud-workers'),
                 energy: document.getElementById('hud-energy'),
                 pollution: document.getElementById('hud-pollution'),
@@ -428,6 +435,9 @@ var UI = (function () {
             }
             if (_elements.uranium && typeof Economy !== 'undefined' && Economy.getResource) {
                 _elements.uranium.textContent = Math.floor(Economy.getResource('uranium'));
+            }
+            if (_elements.oil && typeof Economy !== 'undefined' && Economy.getResource) {
+                _elements.oil.textContent = Math.floor(Economy.getResource('oil'));
             }
             if (_elements.workers && typeof Workers !== 'undefined' && Workers.getTotalWorkers && Workers.getMaxCapacity) {
                 var totalW = Workers.getTotalWorkers();
@@ -552,6 +562,7 @@ var UI = (function () {
                 if (cost.iron) html += ' +' + cost.iron + '⛏️';
                 if (cost.coal) html += ' +' + cost.coal + '🪨';
                 if (cost.uranium) html += ' +' + cost.uranium + '☢️';
+                if (cost.oil) html += ' +' + cost.oil + '🛢️';
                 html += '</span>';
                 if (def.workersRequired > 0) {
                     html += '<span class="build-workers">👷' + def.workersRequired + '</span>';

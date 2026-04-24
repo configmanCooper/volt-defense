@@ -19,6 +19,7 @@ var Workers = (function () {
         'carbon_collector_t2', 'carbon_collector_t1',
         'coal_miner', 'coal_miner_t2', 'iron_miner', 'iron_miner_t2',
         'uranium_miner', 'uranium_miner_t2',
+        'oil_drill', 'oil_drill_t2',
         'missile_t1', 'missile_t2', 'missile_t3',
         'laser_t1', 'laser_t2', 'laser_t3',
         'shield_t1', 'shield_t2',

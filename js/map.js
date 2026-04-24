@@ -14,6 +14,7 @@ var Map = (function() {
     var TERRAIN_IRON_DEPOSIT = 10;
     var TERRAIN_COAL_DEPOSIT = 11;
     var TERRAIN_URANIUM_DEPOSIT = 12;
+    var TERRAIN_OIL_DEPOSIT = 13;
 
     // ---- private state ----
     var _grid = null;
@@ -225,6 +226,26 @@ var Map = (function() {
             }
         }
 
+        // Oil: 12-18 clusters, each 3-6 cells, 400-1000 units/cell (same frequency as iron)
+        var oilClusters = rng.randomInt(12, 18);
+        for (var i = 0; i < oilClusters; i++) {
+            var spot = findSpot(800, minDistFromCenter);
+            if (!spot) { continue; }
+            var clusterSize = rng.randomInt(3, 6);
+            for (var c = 0; c < clusterSize; c++) {
+                var ox = (c === 0) ? 0 : rng.randomInt(-1, 1);
+                var oy = (c === 0) ? 0 : rng.randomInt(-1, 1);
+                var dx = spot.gx + ox;
+                var dy = spot.gy + oy;
+                if (dx < 0 || dx >= _gridWidth || dy < 0 || dy >= _gridHeight) { continue; }
+                if (grid[dx][dy] === TERRAIN_WATER || grid[dx][dy] === TERRAIN_DEEP_WATER) { continue; }
+                if (grid[dx][dy] >= 10) { continue; }
+                var amount = rng.randomInt(400, 1000);
+                grid[dx][dy] = TERRAIN_OIL_DEPOSIT;
+                deposits.push({ gridX: dx, gridY: dy, type: 'oil', remaining: amount, maxAmount: amount });
+            }
+        }
+
         return deposits;
     }
 
@@ -388,6 +409,11 @@ var Map = (function() {
             }
             if (buildingType === 'uranium_miner') {
                 if (terrain !== TERRAIN_URANIUM_DEPOSIT) { return false; }
+                var dep = this.getDepositAt(gx, gy);
+                return dep && dep.remaining > 0;
+            }
+            if (buildingType === 'oil_drill' || buildingType === 'oil_drill_t2') {
+                if (terrain !== TERRAIN_OIL_DEPOSIT) { return false; }
                 var dep = this.getDepositAt(gx, gy);
                 return dep && dep.remaining > 0;
             }
@@ -605,6 +631,7 @@ var Map = (function() {
                     if (d.type === 'iron') { _grid[d.gridX][d.gridY] = TERRAIN_IRON_DEPOSIT; }
                     else if (d.type === 'coal') { _grid[d.gridX][d.gridY] = TERRAIN_COAL_DEPOSIT; }
                     else if (d.type === 'uranium') { _grid[d.gridX][d.gridY] = TERRAIN_URANIUM_DEPOSIT; }
+                    else if (d.type === 'oil') { _grid[d.gridX][d.gridY] = TERRAIN_OIL_DEPOSIT; }
                 }
             }
         }

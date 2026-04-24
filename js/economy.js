@@ -5,11 +5,11 @@
 
 var Economy = (function () {
     var _money = 0;
-    var _resources = { iron: 0, coal: 0, uranium: 0 };
+    var _resources = { iron: 0, coal: 0, uranium: 0, oil: 0 };
     var _stats = {
         totalEarned: 0,
         totalSpent: 0,
-        totalMined: { iron: 0, coal: 0, uranium: 0 }
+        totalMined: { iron: 0, coal: 0, uranium: 0, oil: 0 }
     };
 
     /**
@@ -44,6 +44,7 @@ var Economy = (function () {
             if (b.type.indexOf('iron') !== -1)    { resourceType = 'iron'; }
             else if (b.type.indexOf('coal') !== -1)   { resourceType = 'coal'; }
             else if (b.type.indexOf('uranium') !== -1) { resourceType = 'uranium'; }
+            else if (b.type.indexOf('oil') !== -1) { resourceType = 'oil'; }
 
             if (resourceType) {
                 _resources[resourceType] += extracted;
@@ -107,12 +108,13 @@ var Economy = (function () {
     return {
         init: function (startMoney, startResources) {
             _money = startMoney || Config.START_MONEY;
-            _resources = { iron: 0, coal: 0, uranium: 0 };
+            _resources = { iron: 0, coal: 0, uranium: 0, oil: 0 };
 
             if (startResources) {
                 if (startResources.iron)    { _resources.iron    = startResources.iron; }
                 if (startResources.coal)    { _resources.coal    = startResources.coal; }
                 if (startResources.uranium) { _resources.uranium = startResources.uranium; }
+                if (startResources.oil)     { _resources.oil     = startResources.oil; }
             } else {
                 _resources.coal = Config.START_COAL || 0;
             }
@@ -120,7 +122,7 @@ var Economy = (function () {
             _stats = {
                 totalEarned: 0,
                 totalSpent: 0,
-                totalMined: { iron: 0, coal: 0, uranium: 0 }
+                totalMined: { iron: 0, coal: 0, uranium: 0, oil: 0 }
             };
         },
 
@@ -164,7 +166,7 @@ var Economy = (function () {
 
             if (adjusted.money && _money < adjusted.money) { return false; }
 
-            var resTypes = ['iron', 'coal', 'uranium'];
+            var resTypes = ['iron', 'coal', 'uranium', 'oil'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
                 if (adjusted[t] && (_resources[t] || 0) < adjusted[t]) {
@@ -188,7 +190,7 @@ var Economy = (function () {
 
             // Pre-check
             if (adjusted.money && _money < adjusted.money) { return false; }
-            var resTypes = ['iron', 'coal', 'uranium'];
+            var resTypes = ['iron', 'coal', 'uranium', 'oil'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
                 if (adjusted[t] && (_resources[t] || 0) < adjusted[t]) {
@@ -220,7 +222,8 @@ var Economy = (function () {
             return {
                 iron: _resources.iron,
                 coal: _resources.coal,
-                uranium: _resources.uranium
+                uranium: _resources.uranium,
+                oil: _resources.oil
             };
         },
 
@@ -241,7 +244,7 @@ var Economy = (function () {
          */
         hasResources: function (cost) {
             if (!cost) { return true; }
-            var resTypes = ['iron', 'coal', 'uranium'];
+            var resTypes = ['iron', 'coal', 'uranium', 'oil'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
                 if (cost[t] && (_resources[t] || 0) < cost[t]) {
@@ -265,7 +268,8 @@ var Economy = (function () {
                 resources: {
                     iron: _resources.iron,
                     coal: _resources.coal,
-                    uranium: _resources.uranium
+                    uranium: _resources.uranium,
+                    oil: _resources.oil
                 },
                 stats: {
                     totalEarned: _stats.totalEarned,
@@ -273,7 +277,8 @@ var Economy = (function () {
                     totalMined: {
                         iron: _stats.totalMined.iron,
                         coal: _stats.totalMined.coal,
-                        uranium: _stats.totalMined.uranium
+                        uranium: _stats.totalMined.uranium,
+                        oil: _stats.totalMined.oil
                     }
                 }
             };
@@ -287,6 +292,7 @@ var Economy = (function () {
                 _resources.iron    = data.resources.iron    || 0;
                 _resources.coal    = data.resources.coal    || 0;
                 _resources.uranium = data.resources.uranium || 0;
+                _resources.oil     = data.resources.oil     || 0;
             }
 
             if (data.stats) {
@@ -296,6 +302,7 @@ var Economy = (function () {
                     _stats.totalMined.iron    = data.stats.totalMined.iron    || 0;
                     _stats.totalMined.coal    = data.stats.totalMined.coal    || 0;
                     _stats.totalMined.uranium = data.stats.totalMined.uranium || 0;
+                    _stats.totalMined.oil     = data.stats.totalMined.oil     || 0;
                 }
             }
         }
