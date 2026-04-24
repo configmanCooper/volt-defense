@@ -10,6 +10,8 @@ var Input = (function () {
     var _cableFromId = null;
     var _cableType = 'standard';  // 'standard' or 'high_capacity'
     var _lastWaterClickTime = 0;
+    var _lastClickTime = 0;
+    var _clickThrottleMs = 150; // minimum ms between processed clicks
     var _mouseWorld = { x: 0, y: 0 };
     var _mouseScreen = { x: 0, y: 0 };
     var _mouseGrid = { x: 0, y: 0 };
@@ -329,6 +331,10 @@ var Input = (function () {
             canvas.addEventListener('mousedown', function (e) {
                 if (e.button === 0) {
                     if (_isPaused()) return;
+                    // Throttle rapid clicks to prevent freezing
+                    var clickNow = performance.now();
+                    if (clickNow - _lastClickTime < _clickThrottleMs) return;
+                    _lastClickTime = clickNow;
                     // Check minimap click first
                     if (typeof Render !== 'undefined' && Render.getMinimapBounds) {
                         var mmBounds = Render.getMinimapBounds();
