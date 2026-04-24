@@ -161,7 +161,7 @@ var Buildings = (function() {
         // ================================================================
         // Placement
         // ================================================================
-        canPlace: function(typeKey, gridX, gridY) {
+        canPlace: function(typeKey, gridX, gridY, skipPathCheck) {
             var def = _getDef(typeKey);
             if (!def) return { allowed: false, reason: 'Unknown building type.' };
 
@@ -225,7 +225,8 @@ var Buildings = (function() {
 
             // Check that placing this building doesn't block all enemy paths to core
             // Skip for core itself — destination IS the core
-            if (typeKey !== 'core' && typeof Enemies !== 'undefined' && Enemies.canReachCoreWith) {
+            // Skip when called for preview (skipPathCheck) to avoid lag
+            if (!skipPathCheck && typeKey !== 'core' && typeof Enemies !== 'undefined' && Enemies.canReachCoreWith) {
                 if (!Enemies.canReachCoreWith(cells)) {
                     return { allowed: false, reason: 'Would block all enemy paths to the core.' };
                 }

@@ -245,7 +245,7 @@ var Input = (function () {
                 // Update placement preview
                 if (_state === 'placing' && _placingType) {
                     if (typeof Buildings !== 'undefined' && Buildings.canPlace) {
-                        var check = Buildings.canPlace(_placingType, _mouseGrid.x, _mouseGrid.y);
+                        var check = Buildings.canPlace(_placingType, _mouseGrid.x, _mouseGrid.y, true);
                         if (typeof Render !== 'undefined' && Render.setPlacementPreview) {
                             Render.setPlacementPreview(_placingType, _mouseGrid.x, _mouseGrid.y, check.allowed);
                         }
