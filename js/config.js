@@ -119,14 +119,14 @@ var Config = {
             size: [1, 1],
             hp: 60,
             workersRequired: 1,
-            energyGeneration: 24,
+            energyGeneration: 12,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0,
             upgradeTo: null,
-            description: 'Generates 24 energy during daytime only. No output at night.',
+            description: 'Generates 12 energy during daytime only. No output at night.',
             icon: '☀️'
         },
         wind: {
@@ -136,7 +136,7 @@ var Config = {
             size: [1, 1],
             hp: 50,
             workersRequired: 1,
-            energyGeneration: 20,
+            energyGeneration: 10,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
@@ -144,7 +144,7 @@ var Config = {
             pollution: 0,
             variability: 0.2,
             upgradeTo: null,
-            description: 'Generates 0-40 energy based on wind speed (20 at 15 mph).',
+            description: 'Generates 0-20 energy based on wind speed (10 at 15 mph).',
             icon: '🌀'
         },
         coal_plant: {
@@ -211,7 +211,7 @@ var Config = {
             size: [1, 1],
             hp: 80,
             workersRequired: 2,
-            energyGeneration: 48,
+            energyGeneration: 24,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
@@ -219,7 +219,7 @@ var Config = {
             pollution: 0,
             requiresTerrain: 'water',
             upgradeTo: null,
-            description: 'Generates up to 48 energy, scaled by water current speed.',
+            description: 'Generates up to 24 energy, scaled by water current speed.',
             icon: '🌊'
         },
 
