@@ -100,12 +100,32 @@ var Input = (function () {
 
     function _showDepositInfo(dep) {
         if (!dep || typeof UI === 'undefined' || !UI.showToast) return;
-        var names = { iron: 'Iron Ore', coal: 'Coal', uranium: 'Uranium' };
-        var icons = { iron: '⛏️', coal: '🪨', uranium: '☢️' };
+        var names = { iron: 'Iron Ore', coal: 'Coal', uranium: 'Uranium', oil: 'Oil' };
+        var icons = { iron: '⛏️', coal: '🪨', uranium: '☢️', oil: '🛢️' };
         var name = names[dep.type] || dep.type;
         var icon = icons[dep.type] || '';
         var pct = dep.maxAmount > 0 ? Math.floor((dep.remaining / dep.maxAmount) * 100) : 0;
         UI.showToast(icon + ' ' + name + ' Deposit — ' + dep.remaining + '/' + dep.maxAmount + ' remaining (' + pct + '%)', 'info', 3000);
+    }
+
+    function _getEnemyAtWorld(wx, wy) {
+        if (typeof Enemies === 'undefined' || !Enemies.getAll) return null;
+        var all = Enemies.getAll();
+        var bestDist = Infinity;
+        var best = null;
+        for (var i = 0; i < all.length; i++) {
+            var e = all[i];
+            if (e.hp <= 0) continue;
+            var dx = e.x - wx;
+            var dy = e.y - wy;
+            var dist = dx * dx + dy * dy;
+            var clickRadius = 20; // generous click area
+            if (dist <= clickRadius * clickRadius && dist < bestDist) {
+                bestDist = dist;
+                best = e;
+            }
+        }
+        return best;
     }
 
     function _getDepositTooltip() {
@@ -289,11 +309,18 @@ var Input = (function () {
                     } else if (_state === 'cable') {
                         _attemptCableConnection();
                     } else {
-                        // Try selecting a building first; if nothing clicked, check deposit, then pan
+                        // Try selecting a building first; if nothing clicked, check enemy, then deposit, then pan
                         var clickedBuilding = _getBuildingAtMouse();
                         if (clickedBuilding) {
                             _attemptSelection();
                         } else {
+                            // Check for enemy click
+                            var clickedEnemy = _getEnemyAtWorld(_mouseWorld.x, _mouseWorld.y);
+                            if (clickedEnemy) {
+                                if (typeof UI !== 'undefined' && UI.showEnemyInfo) {
+                                    UI.showEnemyInfo(clickedEnemy);
+                                }
+                            } else {
                             // Check for deposit or rock click
                             var dep = (typeof Map !== 'undefined' && Map.getDepositAt)
                                 ? Map.getDepositAt(_mouseGrid.x, _mouseGrid.y) : null;
@@ -329,6 +356,7 @@ var Input = (function () {
                             _isDragging = true;
                             _dragStart.x = e.clientX;
                             _dragStart.y = e.clientY;
+                            }
                         }
                     }
                 } else if (e.button === 1 || e.button === 2) {

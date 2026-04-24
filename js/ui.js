@@ -8,6 +8,7 @@ var UI = (function () {
     var _selectedCategory = null;
     var _toastQueue = [];
     var _selectedBuildingId = null;
+    var _selectedEnemyId = null;
     var _maxToasts = 5;
 
     // ---- private helpers ----
@@ -360,6 +361,28 @@ var UI = (function () {
     }
 
     function _updateInfoPanelLive() {
+        // Live update for selected enemy
+        if (_selectedEnemyId) {
+            if (typeof Enemies === 'undefined' || !Enemies.getById) return;
+            var enemy = Enemies.getById(_selectedEnemyId);
+            if (!enemy || enemy.hp <= 0) {
+                _selectedEnemyId = null;
+                if (_elements.infoPanel) {
+                    _elements.infoPanel.innerHTML = '';
+                    _elements.infoPanel.style.display = 'none';
+                }
+                return;
+            }
+            var hpFill = document.getElementById('info-hp-fill');
+            var hpText = document.getElementById('info-hp-text');
+            if (hpFill && hpText) {
+                var hpPct = enemy.maxHp > 0 ? Math.floor((enemy.hp / enemy.maxHp) * 100) : 0;
+                hpFill.style.width = hpPct + '%';
+                hpText.textContent = Math.floor(enemy.hp) + '/' + enemy.maxHp + ' HP';
+            }
+            return;
+        }
+
         if (!_selectedBuildingId) return;
         if (typeof Buildings === 'undefined' || !Buildings.getById) return;
         var building = Buildings.getById(_selectedBuildingId);
@@ -701,6 +724,7 @@ var UI = (function () {
             if (!def) return;
 
             _selectedBuildingId = buildingId;
+            _selectedEnemyId = null;
 
             var hpPct = building.maxHp > 0 ? Math.floor((building.hp / building.maxHp) * 100) : 0;
             var html = '';
@@ -810,8 +834,70 @@ var UI = (function () {
             }
         },
 
+        showEnemyInfo: function (enemy) {
+            if (!enemy) return;
+            var def = (typeof Config !== 'undefined' && Config.ENEMIES) ? Config.ENEMIES[enemy.type] : null;
+            if (!def) return;
+
+            _selectedBuildingId = null;
+            _selectedEnemyId = enemy.id;
+
+            var hpPct = enemy.maxHp > 0 ? Math.floor((enemy.hp / enemy.maxHp) * 100) : 0;
+            var html = '';
+            html += '<div class="info-header">';
+            html += '<span class="info-icon">' + (def.icon || '👾') + '</span>';
+            html += '<span class="info-name">' + (def.name || enemy.type) + '</span>';
+            if (enemy.isBoss) html += ' <span style="color:#ffd700;font-weight:bold;">[BOSS]</span>';
+            html += '</div>';
+
+            // HP bar
+            html += '<div class="info-hp">';
+            html += '<div class="hp-bar"><div class="hp-fill" id="info-hp-fill" style="width:' + hpPct + '%;background:#cc3333;"></div></div>';
+            html += '<span id="info-hp-text">' + Math.floor(enemy.hp) + '/' + enemy.maxHp + ' HP</span>';
+            html += '</div>';
+
+            // Stats
+            html += '<div class="info-stat">⚔️ Damage: ' + enemy.damage + '</div>';
+            html += '<div class="info-stat">🛡️ Armor: ' + enemy.armor + '</div>';
+            html += '<div class="info-stat">💨 Speed: ' + Math.round(enemy.speed) + '</div>';
+            html += '<div class="info-stat">💰 Kill Reward: $' + (def.killReward || 0) + '</div>';
+
+            // Special ability
+            var specialNames = {
+                'targets_power': '⚡ Targets power plants',
+                'targets_housing': '🏠 Targets housing',
+                'targets_mining': '⛏️ Targets mining',
+                'targets_weapons': '⚔️ Targets weapons',
+                'targets_storage': '🔋 Targets storage',
+                'targets_shields': '🛡️ Targets shields',
+                'targets_grid': '🔌 Targets grid (cables/pylons)',
+                'targets_walls': '🧱 Targets walls',
+                'emp_disable': '⚡ EMP — disables buildings',
+                'ignores_shields': '👻 Phases through shields',
+                'reduces_range': '📡 Reduces weapon range',
+                'river_spawn': '🐍 Spawns in rivers'
+            };
+            if (enemy.special && specialNames[enemy.special]) {
+                html += '<div class="info-stat" style="color:#ffaa00;">' + specialNames[enemy.special] + '</div>';
+            }
+
+            // Status effects
+            if (enemy.stunTimer && enemy.stunTimer > 0) {
+                html += '<div class="info-stat" style="color:#33ccff;">⚡ Stunned (' + Math.ceil(enemy.stunTimer / 10) + 's)</div>';
+            }
+            if (enemy.slowFactor < 1.0) {
+                html += '<div class="info-stat" style="color:#66aaff;">❄️ Slowed (' + Math.round(enemy.slowFactor * 100) + '% speed)</div>';
+            }
+
+            if (_elements.infoPanel) {
+                _elements.infoPanel.innerHTML = html;
+                _elements.infoPanel.style.display = 'block';
+            }
+        },
+
         clearInfoPanel: function () {
             _selectedBuildingId = null;
+            _selectedEnemyId = null;
             if (_elements.infoPanel) {
                 _elements.infoPanel.innerHTML = '';
                 _elements.infoPanel.style.display = 'none';
