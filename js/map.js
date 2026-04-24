@@ -317,7 +317,7 @@ var Map = (function() {
                 var dy = spot.gy + oy;
                 if (dx < 0 || dx >= _gridWidth || dy < 0 || dy >= _gridHeight) { continue; }
                 if (grid[dx][dy] === TERRAIN_WATER || grid[dx][dy] === TERRAIN_DEEP_WATER) { continue; }
-                var amount = rng.randomInt(500, 1500);
+                var amount = rng.randomInt(400, 1200);
                 grid[dx][dy] = TERRAIN_IRON_DEPOSIT;
                 deposits.push({ gridX: dx, gridY: dy, type: 'iron', remaining: amount, maxAmount: amount });
             }
@@ -338,7 +338,7 @@ var Map = (function() {
                 if (grid[dx][dy] === TERRAIN_WATER || grid[dx][dy] === TERRAIN_DEEP_WATER) { continue; }
                 // Skip cells already claimed by another deposit type
                 if (grid[dx][dy] >= 10) { continue; }
-                var amount = rng.randomInt(400, 1200);
+                var amount = rng.randomInt(320, 960);
                 grid[dx][dy] = TERRAIN_COAL_DEPOSIT;
                 deposits.push({ gridX: dx, gridY: dy, type: 'coal', remaining: amount, maxAmount: amount });
             }
@@ -378,7 +378,7 @@ var Map = (function() {
                 if (dx < 0 || dx >= _gridWidth || dy < 0 || dy >= _gridHeight) { continue; }
                 if (grid[dx][dy] === TERRAIN_WATER || grid[dx][dy] === TERRAIN_DEEP_WATER) { continue; }
                 if (grid[dx][dy] >= 10) { continue; }
-                var amount = rng.randomInt(400, 1000);
+                var amount = rng.randomInt(320, 800);
                 grid[dx][dy] = TERRAIN_OIL_DEPOSIT;
                 deposits.push({ gridX: dx, gridY: dy, type: 'oil', remaining: amount, maxAmount: amount });
             }
