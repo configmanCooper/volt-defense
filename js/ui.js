@@ -509,8 +509,8 @@ var UI = (function () {
             _updateInfoPanelLive();
 
             // Refresh build options affordability if category is open
-            if (_selectedCategory) {
-                UI.selectCategory(_selectedCategory);
+            if (_selectedCategory && _elements.buildOptions) {
+                UI._refreshBuildAffordability();
             }
 
             // Update mode indicator
@@ -551,6 +551,26 @@ var UI = (function () {
         },
 
         // ---- Build menu ----
+
+        _refreshBuildAffordability: function () {
+            if (!_elements.buildOptions) return;
+            var btns = _elements.buildOptions.querySelectorAll('.build-btn');
+            for (var i = 0; i < btns.length; i++) {
+                var key = btns[i].getAttribute('data-building-type');
+                if (!key) continue;
+                var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[key] : null;
+                if (!def) continue;
+                var canAfford = (typeof Economy !== 'undefined' && Economy.canAfford)
+                    ? Economy.canAfford(def.cost) : true;
+                var hasWorkers = (typeof Workers !== 'undefined' && Workers.canAllocate)
+                    ? Workers.canAllocate(def.workersRequired || 0) : true;
+                if (!canAfford || !hasWorkers) {
+                    btns[i].classList.add('disabled');
+                } else {
+                    btns[i].classList.remove('disabled');
+                }
+            }
+        },
 
         selectCategory: function (category) {
             // Skip rebuild if same category
