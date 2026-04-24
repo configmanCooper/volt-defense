@@ -939,7 +939,8 @@ var Enemies = (function () {
                     var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId);
                     if (newPath) {
                         enemy.path = newPath;
-                        enemy.pathIndex = 0;
+                        // Skip the first waypoint (current cell center) to avoid backtracking
+                        enemy.pathIndex = newPath.length > 1 ? 1 : 0;
                         enemy.targetBuildingId = targetPos.buildingId;
                     } else {
                         // Can't reach target — fall through to core pathing below
@@ -959,7 +960,8 @@ var Enemies = (function () {
                 var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null);
                 if (corePath) {
                     enemy.path = corePath;
-                    enemy.pathIndex = 0;
+                    // Skip the first waypoint (current cell center) to avoid backtracking
+                    enemy.pathIndex = corePath.length > 1 ? 1 : 0;
                 } else {
                     // A* failed — use direct path as last resort
                     enemy.path = _directPath(enemy.x, enemy.y, corePos.x, corePos.y);
