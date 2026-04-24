@@ -219,14 +219,12 @@ var Combat = (function() {
             var damageThisTick = dps / tps;
             var energyDrawThisTick = def.baseEnergyDraw * rampMultiplier / tps;
 
-            // Energy check — reduce damage proportionally if insufficient
+            // Energy check — stop firing if insufficient
             if (b.energy < energyDrawThisTick) {
-                var ratio = b.energy / energyDrawThisTick;
-                damageThisTick *= ratio;
-                b.energy = 0;
-            } else {
-                b.energy -= energyDrawThisTick;
+                b.laserRampTime = 0;
+                continue;
             }
+            b.energy -= energyDrawThisTick;
 
             // Apply damage with armor bypass
             var armorBypass = (typeof Config !== 'undefined' && Config.LASER_ARMOR_BYPASS != null)
@@ -1104,14 +1102,12 @@ var Combat = (function() {
                 continue;
             }
 
-            // Energy check
+            // Energy check — stop firing if insufficient
             if (b.energy < energyDrawThisTick) {
-                var ratio = b.energy / energyDrawThisTick;
-                damageThisTick *= ratio;
-                b.energy = 0;
-            } else {
-                b.energy -= energyDrawThisTick;
+                b.fusionRampTime = 0;
+                continue;
             }
+            b.energy -= energyDrawThisTick;
 
             // Consume uranium
             if (typeof Economy !== 'undefined' && Economy.spendResource) {
