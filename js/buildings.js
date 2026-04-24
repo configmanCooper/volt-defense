@@ -503,6 +503,12 @@ var Buildings = (function() {
             if (!fromBuilding) return { success: false, reason: 'Source building not found.' };
             if (!toBuilding) return { success: false, reason: 'Target building not found.' };
 
+            // Check noCables flag
+            var fromDef0 = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[fromBuilding.type] : null;
+            var toDef0 = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[toBuilding.type] : null;
+            if (fromDef0 && fromDef0.noCables) return { success: false, reason: fromDef0.name + ' cannot have cables.' };
+            if (toDef0 && toDef0.noCables) return { success: false, reason: toDef0.name + ' cannot have cables.' };
+
             // Check distance
             var maxLength = (typeof Config !== 'undefined' && Config.CABLE_MAX_LENGTH) ? Config.CABLE_MAX_LENGTH : 200;
             var dist = _getDistance(fromBuilding, toBuilding);

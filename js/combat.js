@@ -123,6 +123,55 @@ var Combat = (function() {
         return false;
     }
 
+    // ---- Electric Wall Contact Damage ----
+
+    function _processElectricWalls() {
+        var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
+        if (!buildings || !enemies || enemies.length === 0) return;
+        var tps = Config.TICKS_PER_SECOND || 10;
+        var cellSz = Config.GRID_CELL_SIZE || 40;
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'electric_wall' || b.hp <= 0) continue;
+            var def = Config.BUILDINGS[b.type];
+            if (!def || !def.contactDamage) continue;
+            // Need energy to shock
+            if (b.energy < 0.1) continue;
+
+            var bx = b.worldX + cellSz / 2;
+            var by = b.worldY + cellSz / 2;
+            var damagePerTick = def.contactDamage / tps;
+            var energyCostPerTick = def.energyConsumption / tps;
+
+            for (var j = 0; j < enemies.length; j++) {
+                var e = enemies[j];
+                if (e.hp <= 0) continue;
+                // Only damage enemies that are attacking this wall
+                if (e.targetBuildingId !== b.id) continue;
+                var dx = e.x - bx;
+                var dy = e.y - by;
+                if (dx * dx + dy * dy > cellSz * cellSz) continue;
+
+                e.hp -= damagePerTick;
+                b.energy -= energyCostPerTick;
+                if (b.energy < 0) b.energy = 0;
+                if (e.hp <= 0) {
+                    e.hp = 0;
+                    var eDef = Config.ENEMIES[e.type];
+                    if (eDef) {
+                        var reward = eDef.killReward || 0;
+                        if (typeof Economy !== 'undefined' && Economy.addMoney) {
+                            Economy.addMoney(reward, 'kill');
+                        }
+                    }
+                }
+                if (b.energy < 0.1) break;
+            }
+        }
+    }
+
     // ---- 1. Process Shields ----
 
     function _processShields() {
@@ -1379,6 +1428,7 @@ var Combat = (function() {
 
             _processShields();
             _processShieldCollisions();
+            _processElectricWalls();
             _processCoreRepair();
             _processLasers();
             _processMissiles();

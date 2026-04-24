@@ -96,10 +96,16 @@ var UI = (function () {
             if (def.missileSpeed) h += _bicStat('Missile Speed', def.missileSpeed + 'px/s');
         }
         if (def.category === 'defense') {
-            h += '<div class="bic-section">Shield</div>';
-            if (def.shieldHP) h += _bicStat('Shield HP', def.shieldHP);
-            if (def.shieldDiameter) h += _bicStat('Diameter', def.shieldDiameter + 'px');
-            if (def.shieldEnergyCostPerDamage) h += _bicStat('Energy/Damage', def.shieldEnergyCostPerDamage);
+            if (def.shieldHP || def.shieldDiameter || def.shieldEnergyCostPerDamage) {
+                h += '<div class="bic-section">Shield</div>';
+                if (def.shieldHP) h += _bicStat('Shield HP', def.shieldHP);
+                if (def.shieldDiameter) h += _bicStat('Diameter', def.shieldDiameter + 'px');
+                if (def.shieldEnergyCostPerDamage) h += _bicStat('Energy/Damage', def.shieldEnergyCostPerDamage);
+            }
+            if (def.contactDamage) {
+                h += '<div class="bic-section">Electric</div>';
+                h += _bicStat('Contact Damage', '<span style="color:#ffcc00">' + def.contactDamage + '/s</span>');
+            }
         }
         if (def.category === 'mining') {
             h += '<div class="bic-section">Mining</div>';
@@ -700,9 +706,15 @@ var UI = (function () {
                     if (def.ironPerShot) html += '<div class="tt-row"><span class="tt-label">Iron/Shot</span><span class="tt-value">' + def.ironPerShot + '</span></div>';
                 }
                 if (def.category === 'defense') {
-                    html += '<div class="tt-section">Shield</div>';
-                    if (def.shieldHP) html += '<div class="tt-row"><span class="tt-label">Shield HP</span><span class="tt-value">' + def.shieldHP + '</span></div>';
-                    if (def.shieldDiameter) html += '<div class="tt-row"><span class="tt-label">Diameter</span><span class="tt-value">' + def.shieldDiameter + 'px</span></div>';
+                    if (def.shieldHP || def.shieldDiameter) {
+                        html += '<div class="tt-section">Shield</div>';
+                        if (def.shieldHP) html += '<div class="tt-row"><span class="tt-label">Shield HP</span><span class="tt-value">' + def.shieldHP + '</span></div>';
+                        if (def.shieldDiameter) html += '<div class="tt-row"><span class="tt-label">Diameter</span><span class="tt-value">' + def.shieldDiameter + 'px</span></div>';
+                    }
+                    if (def.contactDamage) {
+                        html += '<div class="tt-section">Electric</div>';
+                        html += '<div class="tt-row"><span class="tt-label">Contact Dmg</span><span class="tt-value" style="color:#ffcc00">' + def.contactDamage + '/s</span></div>';
+                    }
                 }
                 if (def.category === 'mining') {
                     html += '<div class="tt-section">Mining</div>';
@@ -820,6 +832,9 @@ var UI = (function () {
             // Weapon stats
             if (def.damage) {
                 html += '<div class="info-stat">⚔️ Damage: ' + def.damage + '</div>';
+            }
+            if (def.contactDamage) {
+                html += '<div class="info-stat" style="color:#ffcc00;">⚡ Contact Damage: ' + def.contactDamage + '/s</div>';
             }
             if (def.fireRate) {
                 html += '<div class="info-stat">🔥 Fire Rate: ' + def.fireRate + '/s</div>';
@@ -1067,6 +1082,9 @@ var UI = (function () {
             };
             if (enemy.special && specialNames[enemy.special]) {
                 html += '<div class="info-stat" style="color:#ffaa00;">' + specialNames[enemy.special] + '</div>';
+            }
+            if (enemy.wallsToDestroyMax > 0) {
+                html += '<div class="info-stat" style="color:#ff8855;">🔨 Walls: ' + (enemy.wallsDestroyed || 0) + '/' + enemy.wallsToDestroyMax + ' destroyed</div>';
             }
 
             // Status effects

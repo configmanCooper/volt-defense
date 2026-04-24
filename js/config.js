@@ -1017,9 +1017,28 @@ var Config = {
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0,
+            noCables: true,
             upgradeTo: null,
             description: 'Blocks enemy movement. Enemies must path around or destroy it.',
             icon: '🧱'
+        },
+        electric_wall: {
+            name: 'Electric Wall',
+            category: 'defense',
+            cost: { money: 300, iron: 5 },
+            size: [1, 1],
+            hp: 200,
+            workersRequired: 0,
+            energyGeneration: 0,
+            energyConsumption: 2,
+            energyStorageCapacity: 10,
+            maxChargeRate: 5,
+            maxDischargeRate: 0,
+            pollution: 0,
+            contactDamage: 2,
+            upgradeTo: null,
+            description: 'Electrified wall that deals 2 damage/s to enemies attacking it. Requires energy.',
+            icon: '⚡🧱'
         },
         core_repair: {
             name: 'Core Repair',
@@ -1089,6 +1108,18 @@ var Config = {
             icon: '🛡️',
             special: null,
             firstWave: 6
+        },
+        wall_breaker: {
+            name: 'Wall Breaker',
+            hp: 150,
+            speed: 65,
+            damage: 60,
+            armor: 4,
+            killReward: 50,
+            icon: '🔨',
+            special: 'targets_walls',
+            wallsToDestroy: 3,
+            firstWave: 7
         },
         bomber: {
             name: 'Bomber',
@@ -1285,8 +1316,8 @@ var Config = {
         { number: 5, enemies: [{ type: 'grunt', count: 6 }, { type: 'bomber', count: 2 }, { type: 'runner', count: 5 }], spawnDelay: 500, spawnPoints: 1 },
         // Wave 6: River Serpents + Shielded Grunts
         { number: 6, enemies: [{ type: 'shielded_grunt', count: 3 }, { type: 'river_serpent', count: 2 }, { type: 'grunt', count: 5 }], spawnDelay: 500, spawnPoints: 1 },
-        // Wave 7
-        { number: 7, enemies: [{ type: 'grunt', count: 8 }, { type: 'runner', count: 5 }, { type: 'shielded_grunt', count: 3 }, { type: 'bomber', count: 2 }], spawnDelay: 450, spawnPoints: 1 },
+        // Wave 7: Wall Breakers arrive
+        { number: 7, enemies: [{ type: 'wall_breaker', count: 2 }, { type: 'grunt', count: 8 }, { type: 'runner', count: 5 }, { type: 'shielded_grunt', count: 3 }, { type: 'bomber', count: 2 }], spawnDelay: 450, spawnPoints: 1 },
         // Wave 8: Home Wreckers arrive (target housing)
         { number: 8, enemies: [{ type: 'home_wrecker', count: 2 }, { type: 'grunt', count: 6 }, { type: 'river_serpent', count: 2 }, { type: 'runner', count: 4 }], spawnDelay: 450, spawnPoints: 2 },
         // Wave 9
@@ -1294,7 +1325,7 @@ var Config = {
         // Wave 10: Drill Worms + Tank (target mines)
         { number: 10, enemies: [{ type: 'tank', count: 1 }, { type: 'drill_worm', count: 2 }, { type: 'grunt', count: 6 }, { type: 'river_serpent', count: 2 }], spawnDelay: 400, spawnPoints: 2 },
         // Wave 11
-        { number: 11, enemies: [{ type: 'tank', count: 1 }, { type: 'bomber', count: 3 }, { type: 'home_wrecker', count: 2 }, { type: 'shielded_grunt', count: 4 }, { type: 'drill_worm', count: 2 }], spawnDelay: 380, spawnPoints: 2 },
+        { number: 11, enemies: [{ type: 'tank', count: 1 }, { type: 'wall_breaker', count: 3 }, { type: 'bomber', count: 3 }, { type: 'home_wrecker', count: 2 }, { type: 'shielded_grunt', count: 4 }, { type: 'drill_worm', count: 2 }], spawnDelay: 380, spawnPoints: 2 },
         // Wave 12: Disruptors arrive (target weapons)
         { number: 12, enemies: [{ type: 'disruptor', count: 2 }, { type: 'tank', count: 2 }, { type: 'grunt', count: 8 }, { type: 'runner', count: 6 }], spawnDelay: 380, spawnPoints: 2 },
         // Wave 13: EMP Drones join
@@ -1302,7 +1333,7 @@ var Config = {
         // Wave 14: Leeches arrive (target storage/batteries)
         { number: 14, enemies: [{ type: 'leech', count: 2 }, { type: 'tank', count: 2 }, { type: 'disruptor', count: 2 }, { type: 'emp_drone', count: 2 }, { type: 'runner', count: 6 }], spawnDelay: 350, spawnPoints: 2 },
         // Wave 15
-        { number: 15, enemies: [{ type: 'tank', count: 3 }, { type: 'leech', count: 3 }, { type: 'bomber', count: 4 }, { type: 'home_wrecker', count: 2 }, { type: 'river_serpent', count: 3 }], spawnDelay: 340, spawnPoints: 2 },
+        { number: 15, enemies: [{ type: 'tank', count: 3 }, { type: 'wall_breaker', count: 3 }, { type: 'leech', count: 3 }, { type: 'bomber', count: 4 }, { type: 'home_wrecker', count: 2 }, { type: 'river_serpent', count: 3 }], spawnDelay: 340, spawnPoints: 2 },
         // Wave 16: Swarms unleashed
         { number: 16, enemies: [{ type: 'swarm', count: 20 }, { type: 'disruptor', count: 2 }, { type: 'drill_worm', count: 2 }, { type: 'emp_drone', count: 3 }], spawnDelay: 300, spawnPoints: 2 },
         // Wave 17

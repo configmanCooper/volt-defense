@@ -632,9 +632,15 @@ var Enemies = (function () {
     function _findTargetBuilding(enemy) {
         if (typeof Buildings === 'undefined' || !Buildings.getAll) return null;
         var buildings = Buildings.getAll();
+        var cellSz = Config.GRID_CELL_SIZE;
+
+        // Wall breakers: find walls that, if destroyed, would shorten path to core
+        if (enemy.special === 'targets_walls') {
+            return _findStrategicWall(enemy, buildings, cellSz);
+        }
+
         var nearest = null;
         var nearestDist = Infinity;
-        var cellSz = Config.GRID_CELL_SIZE;
 
         for (var i = 0; i < buildings.length; i++) {
             var b = buildings[i];
@@ -668,6 +674,46 @@ var Enemies = (function () {
     }
 
     /**
+     * Find strategic wall to target — prioritize walls that block shorter paths to core.
+     * Scores walls by: distance to enemy's path to core, proximity to core.
+     */
+    function _findStrategicWall(enemy, buildings, cellSz) {
+        var walls = [];
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.hp <= 0) continue;
+            if (b.type !== 'wall' && b.type !== 'electric_wall') continue;
+            walls.push(b);
+        }
+        if (walls.length === 0) return null;
+
+        var corePos = _getCorePosition();
+        var best = null;
+        var bestScore = Infinity;
+
+        for (var i = 0; i < walls.length; i++) {
+            var w = walls[i];
+            var wx = w.worldX + cellSz / 2;
+            var wy = w.worldY + cellSz / 2;
+
+            // Score: distance from wall to line between enemy and core
+            // Walls closer to the enemy-core axis and closer to core are better targets
+            var dToEnemy = Math.sqrt((wx - enemy.x) * (wx - enemy.x) + (wy - enemy.y) * (wy - enemy.y));
+            var dToCore = Math.sqrt((wx - corePos.x) * (wx - corePos.x) + (wy - corePos.y) * (wy - corePos.y));
+
+            // Prefer walls closer to the core (removing them opens paths near core)
+            // Also prefer walls not too far from the enemy
+            var score = dToCore * 2 + dToEnemy;
+
+            if (score < bestScore) {
+                bestScore = score;
+                best = { x: wx, y: wy, buildingId: w.id };
+            }
+        }
+        return best;
+    }
+
+    /**
      * Enemy attacks a targeted building, then clears target to repath.
      * Non-boss, non-ranged enemies die after attacking (except vs walls).
      */
@@ -692,7 +738,7 @@ var Enemies = (function () {
         // Self-damage: non-boss, non-ranged enemies die after attacking
         // Exception: walls don't kill the attacker
         if (attackedBuilding && !enemy.isBoss && enemy.mechanic !== 'ranged_attack') {
-            var isWall = (attackedBuilding.type === 'wall');
+            var isWall = (attackedBuilding.type === 'wall' || attackedBuilding.type === 'electric_wall');
             if (!isWall) {
                 // Kill enemy and give reward
                 var def = Config.ENEMIES[enemy.type];
@@ -716,6 +762,16 @@ var Enemies = (function () {
             // For walls: enemy keeps attacking (re-target the wall)
             if (attackedBuilding.hp > 0) {
                 enemy.targetBuildingId = attackedBuilding.id;
+            } else {
+                // Wall destroyed — track for wall_breakers
+                if (enemy.special === 'targets_walls' && enemy.wallsToDestroyMax > 0) {
+                    enemy.wallsDestroyed = (enemy.wallsDestroyed || 0) + 1;
+                    if (enemy.wallsDestroyed >= enemy.wallsToDestroyMax) {
+                        // Done breaking walls — head to core
+                        enemy.targetCategory = null;
+                        enemy.special = null;
+                    }
+                }
             }
         }
     }
@@ -837,7 +893,7 @@ var Enemies = (function () {
             'targets_storage': 'storage',
             'targets_shields': 'defense',
             'targets_grid': 'grid',
-            'targets_walls': 'defense'
+            'targets_walls': 'walls'
         };
 
         var enemy = {
@@ -861,11 +917,20 @@ var Enemies = (function () {
             targetBuildingId: null,
             repathTimer: _nextId % 20,
             isBoss: false,
-            mechanic: def.mechanic || null
+            mechanic: def.mechanic || null,
+            wallsDestroyed: 0,
+            wallsToDestroyMax: 0
         };
 
         if (def.special && specialToCategory[def.special]) {
             enemy.targetCategory = specialToCategory[def.special];
+        }
+        // Wall breakers destroy 2-4 walls then head to core
+        if (def.special === 'targets_walls') {
+            var baseWalls = def.wallsToDestroy || 3;
+            enemy.wallsToDestroyMax = baseWalls + Math.floor(Math.random() * 3) - 1; // 2-4
+            if (enemy.wallsToDestroyMax < 2) enemy.wallsToDestroyMax = 2;
+            if (enemy.wallsToDestroyMax > 4) enemy.wallsToDestroyMax = 4;
         }
         if (def.special === 'river_spawn') {
             enemy.canSwim = true;
@@ -1613,7 +1678,9 @@ var Enemies = (function () {
                     targetBuildingId: e.targetBuildingId || null,
                     repathTimer: e.repathTimer || 0,
                     isBoss: e.isBoss || false,
-                    mechanic: e.mechanic || null
+                    mechanic: e.mechanic || null,
+                    wallsDestroyed: e.wallsDestroyed || 0,
+                    wallsToDestroyMax: e.wallsToDestroyMax || 0
                 });
             }
 
