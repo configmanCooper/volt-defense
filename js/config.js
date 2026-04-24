@@ -1213,7 +1213,7 @@ var Config = {
             icon: '🕵️',
             special: 'targets_grid',
             firstWave: 25,
-            description: 'A stealthy operative that targets your power cables and grid infrastructure. Saboteurs are fast and fragile, slipping through your defenses to sever critical energy connections. With only 5 damage and 60 HP, they\'re easy to kill — but if they reach a cable or pylon, they can disconnect entire sections of your grid, leaving weapons and shields powerless. Keep your grid interior defended. Targets cables and pylons.'
+            description: 'A stealthy operative that targets your power grid infrastructure and energy reserves. Saboteurs are fast and fragile, slipping through your defenses to sever critical energy connections and drain batteries. With only 5 damage and 60 HP, they\'re easy to kill — but if they reach a cable, pylon, or battery, they can disconnect entire sections of your grid or destroy your stored energy. Keep your grid interior defended. Targets cables, pylons, and batteries.'
         },
         siege_engine: {
             name: 'Siege Engine',

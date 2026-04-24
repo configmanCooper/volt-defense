@@ -1139,7 +1139,7 @@ var UI = (function () {
                 'targets_weapons': '⚔️ Targets weapons',
                 'targets_storage': '🔋 Targets storage',
                 'targets_shields': '🛡️ Targets shields',
-                'targets_grid': '🔌 Targets grid (cables/pylons)',
+                'targets_grid': '🔌 Targets grid/storage',
                 'targets_walls': '🧱 Targets walls',
                 'emp_disable': '⚡ EMP — disables buildings',
                 'ignores_shields': '👻 Phases through shields',

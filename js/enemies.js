@@ -654,6 +654,11 @@ var Enemies = (function () {
                 if (def.requiresTerrain === 'water') {
                     matches = true;
                 }
+            } else if (enemy.targetCategory === 'grid') {
+                // Saboteurs target grid AND storage buildings
+                if (def.category === 'grid' || def.category === 'storage') {
+                    matches = true;
+                }
             } else if (enemy.targetCategory && def.category === enemy.targetCategory) {
                 matches = true;
             }
