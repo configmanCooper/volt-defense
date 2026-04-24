@@ -24,6 +24,7 @@ var Config = {
     WIND_CHANGE_INTERVAL: 24,   // seconds between wind speed changes
     WIND_MAX_SPEED: 30,         // mph max
     WIND_BASELINE_SPEED: 15,    // mph where turbines produce rated output
+    WIND_MAX_SPEED: 30,         // maximum wind speed in mph
 
     // Cables
     CABLE_MAX_LENGTH: 200,
@@ -142,7 +143,7 @@ var Config = {
             pollution: 0,
             variability: 0.2,
             upgradeTo: null,
-            description: 'Generates 20 energy. Output fluctuates with wind.',
+            description: 'Generates 0-40 energy based on wind speed (20 at 15 mph).',
             icon: '🌀'
         },
         coal_plant: {
@@ -217,7 +218,7 @@ var Config = {
             pollution: 0,
             requiresTerrain: 'water',
             upgradeTo: null,
-            description: 'Generates up to 60 energy, scaled by current speed.',
+            description: 'Generates up to 48 energy, scaled by water current speed.',
             icon: '🌊'
         },
 

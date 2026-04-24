@@ -46,8 +46,12 @@ var UI = (function () {
                 if (typeKey === 'wind') {
                     var ws = (typeof Energy !== 'undefined' && Energy.getWindSpeed) ? Energy.getWindSpeed() : 15;
                     var baseline = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED) ? Config.WIND_BASELINE_SPEED : 15;
+                    var maxWind = (typeof Config !== 'undefined' && Config.WIND_MAX_SPEED) ? Config.WIND_MAX_SPEED : 30;
                     var actGen = Math.round(def.energyGeneration * (ws / baseline) * 10) / 10;
-                    genText = '+' + actGen + '/s <span style="color:#aaa">(wind: ' + ws + ' mph)</span>';
+                    var maxGen = Math.round(def.energyGeneration * (maxWind / baseline) * 10) / 10;
+                    genText = '0-' + maxGen + '/s <span style="color:#aaa">(now: +' + actGen + ' at ' + ws + ' mph)</span>';
+                } else if (typeKey === 'hydro_plant') {
+                    genText = '0-' + def.energyGeneration + '/s <span style="color:#aaa">(varies by water flow)</span>';
                 }
                 h += _bicStat('Generation', '<span style="color:#44cc44">' + genText + '</span>');
             }
@@ -598,8 +602,12 @@ var UI = (function () {
                         if (key === 'wind') {
                             var ttWs = (typeof Energy !== 'undefined' && Energy.getWindSpeed) ? Energy.getWindSpeed() : 15;
                             var ttBase = (typeof Config !== 'undefined' && Config.WIND_BASELINE_SPEED) ? Config.WIND_BASELINE_SPEED : 15;
+                            var ttMaxWind = (typeof Config !== 'undefined' && Config.WIND_MAX_SPEED) ? Config.WIND_MAX_SPEED : 30;
                             var ttActGen = Math.round(def.energyGeneration * (ttWs / ttBase) * 10) / 10;
-                            ttGenText = '+' + ttActGen + '/s <span style="color:#aaa">(wind: ' + ttWs + ' mph)</span>';
+                            var ttMaxGen = Math.round(def.energyGeneration * (ttMaxWind / ttBase) * 10) / 10;
+                            ttGenText = '0-' + ttMaxGen + '/s (now: +' + ttActGen + ' at ' + ttWs + ' mph)';
+                        } else if (key === 'hydro_plant') {
+                            ttGenText = '0-' + def.energyGeneration + '/s (varies by water flow)';
                         }
                         html += '<div class="tt-row"><span class="tt-label">Generation</span><span class="tt-value" style="color:#44cc44">' + ttGenText + '</span></div>';
                     }
