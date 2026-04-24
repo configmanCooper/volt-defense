@@ -522,6 +522,21 @@ var Buildings = (function() {
                 }
             }
 
+            // Restricted categories can only connect to storage, grid, or core
+            var restrictedCats = { weapons: true, mining: true, defense: true };
+            var allowedCats = { storage: true, grid: true };
+            var fromCat = fromDef ? fromDef.category : '';
+            var toCat = toDef ? toDef.category : '';
+            if (restrictedCats[fromCat] && restrictedCats[toCat]) {
+                return { success: false, reason: 'Cannot connect these building types directly.' };
+            }
+            if (restrictedCats[fromCat] && !allowedCats[toCat] && toBuilding.type !== 'core') {
+                return { success: false, reason: 'This building can only connect to storage, pylons, or core.' };
+            }
+            if (restrictedCats[toCat] && !allowedCats[fromCat] && fromBuilding.type !== 'core') {
+                return { success: false, reason: 'This building can only connect to storage, pylons, or core.' };
+            }
+
             // Check cost
             var cableCost;
             if (cableType === 'high_capacity') {
