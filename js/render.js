@@ -66,6 +66,26 @@ var Render = (function () {
             body: '#ff6622',
             trail: '#ff4400'
         },
+        TESLA: {
+            chain: '#44aaff',
+            glow: '#88ccff'
+        },
+        RAILGUN: {
+            beam: '#aaeeff',
+            glow: '#ffffff'
+        },
+        EMP: {
+            ring: '#88ddff',
+            fill: 'rgba(100, 200, 255, 0.1)'
+        },
+        FLAME: {
+            glow: 'rgba(255, 140, 0, 0.25)',
+            inner: 'rgba(255, 80, 0, 0.15)'
+        },
+        DRONE: {
+            body: '#4488ff',
+            dot: '#aaccff'
+        },
         UI: {
             hpGreen: '#44cc44',
             hpRed: '#cc4444',
@@ -899,11 +919,22 @@ var Render = (function () {
                 }
             }
 
-            // Missile body
-            ctx.fillStyle = COLORS.MISSILE.body;
-            ctx.beginPath();
-            ctx.arc(Math.floor(p.x), Math.floor(p.y), 3, 0, Math.PI * 2);
-            ctx.fill();
+            // Projectile body
+            if (p.isMortar) {
+                ctx.fillStyle = '#333333';
+                ctx.beginPath();
+                ctx.arc(Math.floor(p.x), Math.floor(p.y), 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#666666';
+                ctx.beginPath();
+                ctx.arc(Math.floor(p.x), Math.floor(p.y), 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = COLORS.MISSILE.body;
+                ctx.beginPath();
+                ctx.arc(Math.floor(p.x), Math.floor(p.y), 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
     }
 
@@ -947,6 +978,193 @@ var Render = (function () {
             ctx.moveTo(beam.fromX, beam.fromY);
             ctx.lineTo(beam.toX, beam.toY);
             ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: Tesla chain lightning
+    // ------------------------------------------------------------------------
+    function _drawTeslaChains(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getTeslaChains !== 'function') return;
+        var chains = Combat.getTeslaChains();
+        if (!chains || !chains.length) return;
+
+        var i, j, chain, points, p1, p2;
+        for (i = 0; i < chains.length; i++) {
+            chain = chains[i];
+            points = chain.points;
+            if (!points || points.length < 2) continue;
+
+            ctx.save();
+            ctx.strokeStyle = COLORS.TESLA.chain;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = COLORS.TESLA.glow;
+
+            for (j = 0; j < points.length - 1; j++) {
+                p1 = points[j];
+                p2 = points[j + 1];
+                if (!_isInViewport(p1.x, p1.y, 50) && !_isInViewport(p2.x, p2.y, 50)) continue;
+
+                // Draw zigzag segments between chain points
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                var segments = 5;
+                var sdx = (p2.x - p1.x) / segments;
+                var sdy = (p2.y - p1.y) / segments;
+                var perpX = -sdy;
+                var perpY = sdx;
+                var pLen = Math.sqrt(perpX * perpX + perpY * perpY);
+                if (pLen > 0) { perpX /= pLen; perpY /= pLen; }
+                for (var s = 1; s < segments; s++) {
+                    var offset = (Math.random() - 0.5) * 16;
+                    ctx.lineTo(p1.x + sdx * s + perpX * offset, p1.y + sdy * s + perpY * offset);
+                }
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: Railgun shots
+    // ------------------------------------------------------------------------
+    function _drawRailShots(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getRailShots !== 'function') return;
+        var shots = Combat.getRailShots();
+        if (!shots || !shots.length) return;
+
+        var i, shot, alpha;
+        for (i = 0; i < shots.length; i++) {
+            shot = shots[i];
+            if (!_isInViewport(shot.fromX, shot.fromY, 50) && !_isInViewport(shot.toX, shot.toY, 50)) continue;
+
+            alpha = shot.timer / 5;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = COLORS.RAILGUN.beam;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = COLORS.RAILGUN.glow;
+            ctx.beginPath();
+            ctx.moveTo(shot.fromX, shot.fromY);
+            ctx.lineTo(shot.toX, shot.toY);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: EMP blast rings
+    // ------------------------------------------------------------------------
+    function _drawEmpBlasts(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getEmpBlasts !== 'function') return;
+        var blasts = Combat.getEmpBlasts();
+        if (!blasts || !blasts.length) return;
+
+        var i, blast, alpha;
+        for (i = 0; i < blasts.length; i++) {
+            blast = blasts[i];
+            if (!_isInViewport(blast.x, blast.y, blast.radius + 50)) continue;
+
+            alpha = blast.timer / 15;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+
+            // Fill
+            ctx.fillStyle = COLORS.EMP.fill;
+            ctx.beginPath();
+            ctx.arc(blast.x, blast.y, blast.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ring
+            ctx.strokeStyle = COLORS.EMP.ring;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = COLORS.EMP.ring;
+            ctx.beginPath();
+            ctx.arc(blast.x, blast.y, blast.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: Flamethrower glow effects
+    // ------------------------------------------------------------------------
+    function _drawFlameEffects(ctx) {
+        if (typeof Buildings === 'undefined' || !Buildings || typeof Buildings.getAll !== 'function') return;
+        var buildings = Buildings.getAll();
+        if (!buildings || !buildings.length) return;
+
+        var i, b, def, center, cellSz;
+        cellSz = (typeof Config !== 'undefined' && Config.GRID_CELL_SIZE) ? Config.GRID_CELL_SIZE : 40;
+
+        for (i = 0; i < buildings.length; i++) {
+            b = buildings[i];
+            if (b.type !== 'flamethrower' || !b.flameActive) continue;
+
+            def = null;
+            if (typeof Config !== 'undefined' && Config.BUILDINGS) {
+                def = Config.BUILDINGS[b.type];
+            }
+            if (!def) continue;
+
+            if (typeof Buildings !== 'undefined' && Buildings.getBuildingCenter) {
+                center = Buildings.getBuildingCenter(b);
+            } else {
+                center = { x: b.gridX * cellSz + cellSz / 2, y: b.gridY * cellSz + cellSz / 2 };
+            }
+
+            if (!_isInViewport(center.x, center.y, def.range + 20)) continue;
+
+            ctx.save();
+            // Outer glow
+            var gradient = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, def.range);
+            gradient.addColorStop(0, COLORS.FLAME.inner);
+            gradient.addColorStop(1, 'rgba(255, 140, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, def.range, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: Drones
+    // ------------------------------------------------------------------------
+    function _drawDrones(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getDrones !== 'function') return;
+        var drones = Combat.getDrones();
+        if (!drones || !drones.length) return;
+
+        var i, drone;
+        for (i = 0; i < drones.length; i++) {
+            drone = drones[i];
+            if (!_isInViewport(drone.x, drone.y, 20)) continue;
+
+            ctx.save();
+            // Body
+            ctx.fillStyle = COLORS.DRONE.body;
+            ctx.beginPath();
+            ctx.arc(Math.floor(drone.x), Math.floor(drone.y), 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Center dot
+            ctx.fillStyle = COLORS.DRONE.dot;
+            ctx.beginPath();
+            ctx.arc(Math.floor(drone.x), Math.floor(drone.y), 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // HP indicator if damaged
+            if (drone.hp < drone.maxHp) {
+                var hpRatio = drone.hp / drone.maxHp;
+                ctx.fillStyle = hpRatio > 0.5 ? '#44cc44' : '#cc4444';
+                ctx.fillRect(Math.floor(drone.x) - 5, Math.floor(drone.y) - 9, Math.floor(10 * hpRatio), 2);
+            }
             ctx.restore();
         }
     }
@@ -1321,6 +1539,11 @@ var Render = (function () {
             _drawEnemies(_ctx);
             _drawProjectiles(_ctx);
             _drawLaserBeams(_ctx);
+            _drawTeslaChains(_ctx);
+            _drawRailShots(_ctx);
+            _drawEmpBlasts(_ctx);
+            _drawFlameEffects(_ctx);
+            _drawDrones(_ctx);
             _drawDamageNumbers(_ctx);
             _drawPlacementPreview(_ctx);
 

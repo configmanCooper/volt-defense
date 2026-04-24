@@ -9,6 +9,11 @@ var Combat = (function() {
     var _nextProjectileId = 1;
     var _laserBeams = [];    // Active laser beams for rendering
     var _empDisabled = {};   // buildingId -> remaining disable ticks
+    var _teslaChains = [];   // Current frame tesla chain data for rendering
+    var _railShots = [];     // Active rail shot visual effects
+    var _empBlasts = [];     // Active EMP blast visual effects
+    var _drones = [];        // Active drones from drone bays
+    var _nextDroneId = 1;
 
     // ---- helpers ----
 
@@ -350,6 +355,36 @@ var Combat = (function() {
         for (var i = 0; i < _projectiles.length; i++) {
             var p = _projectiles[i];
 
+            // Mortar projectile handling
+            if (p.isMortar) {
+                var moveDistMortar = p.speed / tps;
+                p.x += Math.cos(p.angle) * moveDistMortar;
+                p.y += Math.sin(p.angle) * moveDistMortar;
+                p.distanceTraveled += moveDistMortar;
+
+                // Check arrival
+                var arrivalDist = _distance(p.x, p.y, p.targetX, p.targetY);
+                if (arrivalDist <= 15 || p.distanceTraveled >= p.maxDistance) {
+                    // Splash damage
+                    var allEnemies = _getAllEnemies();
+                    for (var si = 0; si < allEnemies.length; si++) {
+                        var se = allEnemies[si];
+                        if (se && se.hp > 0) {
+                            var sd = _distance(p.x, p.y, se.x, se.y);
+                            if (sd <= p.splashRadius) {
+                                if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                                    Enemies.damageEnemy(se.id, p.damage, 0);
+                                }
+                            }
+                        }
+                    }
+                    continue; // Projectile consumed by explosion
+                }
+
+                surviving.push(p);
+                continue;
+            }
+
             // Get target enemy
             var target = null;
             if (typeof Enemies !== 'undefined' && Enemies.getById) {
@@ -400,6 +435,502 @@ var Combat = (function() {
         }
 
         _projectiles = surviving;
+    }
+
+    // ---- 5b. New Weapon Processing ----
+
+    function _processTeslaCoils() {
+        var buildings = _getAllBuildings();
+        var tps = _tps();
+        _teslaChains = [];
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'tesla_coil') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0 || b.energy <= 0) { continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+            var energyDraw = (def.energyDraw || 50) / tps;
+            if (b.energy < energyDraw) { continue; }
+
+            // Find closest enemy
+            var enemy = null;
+            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
+                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
+            }
+            if (!enemy) { continue; }
+
+            b.energy -= energyDraw;
+            var baseDamage = (def.baseDamage || 15) / tps;
+            var chainCount = def.chainCount || 3;
+            var chainRange = def.chainRange || 150;
+            var chainDecay = def.chainDecay || 0.7;
+
+            var chainPoints = [{ x: center.x, y: center.y }];
+            var hitEnemies = {};
+            var currentDamage = baseDamage;
+            var currentTarget = enemy;
+
+            // Hit first target and chain
+            for (var c = 0; c <= chainCount; c++) {
+                if (!currentTarget || currentTarget.hp <= 0) { break; }
+                if (hitEnemies[currentTarget.id]) { break; }
+                hitEnemies[currentTarget.id] = true;
+                chainPoints.push({ x: currentTarget.x, y: currentTarget.y });
+
+                if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                    Enemies.damageEnemy(currentTarget.id, currentDamage, 0);
+                }
+
+                currentDamage *= chainDecay;
+
+                // Find next chain target
+                var enemies = _getAllEnemies();
+                var bestDist = chainRange;
+                var nextTarget = null;
+                for (var e = 0; e < enemies.length; e++) {
+                    if (hitEnemies[enemies[e].id]) { continue; }
+                    if (enemies[e].hp <= 0) { continue; }
+                    var d = _distance(currentTarget.x, currentTarget.y, enemies[e].x, enemies[e].y);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        nextTarget = enemies[e];
+                    }
+                }
+                currentTarget = nextTarget;
+            }
+
+            if (chainPoints.length > 1) {
+                _teslaChains.push({ points: chainPoints });
+            }
+        }
+    }
+
+    function _processFlamethrowers() {
+        var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
+        var tps = _tps();
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'flamethrower') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0 || b.energy <= 0) { continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+            var energyDraw = (def.energyDraw || 20) / tps;
+            if (b.energy < energyDraw) { continue; }
+
+            // Check coal
+            var coalDraw = (def.coalPerTick || 0.02);
+            if (coalDraw > 0) {
+                if (typeof Economy !== 'undefined' && Economy.getResource) {
+                    if (Economy.getResource('coal') < coalDraw) { continue; }
+                } else { continue; }
+            }
+
+            var anyInRange = false;
+            var dps = (def.baseDPS || 8) / tps;
+            var burnDPS = def.burnDPS || 3;
+            var burnDuration = def.burnDuration || 30;
+
+            for (var j = 0; j < enemies.length; j++) {
+                var e = enemies[j];
+                if (!e || e.hp <= 0) { continue; }
+                var dist = _distance(center.x, center.y, e.x, e.y);
+                if (dist <= effectiveRange) {
+                    anyInRange = true;
+                    if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                        Enemies.damageEnemy(e.id, dps, 0);
+                    }
+                    // Apply burn DOT
+                    e.burnTimer = burnDuration;
+                    e.burnDPS = burnDPS;
+                }
+            }
+
+            if (anyInRange) {
+                b.energy -= energyDraw;
+                if (coalDraw > 0 && typeof Economy !== 'undefined' && Economy.spendResource) {
+                    Economy.spendResource('coal', coalDraw);
+                }
+                b.flameActive = true;
+            } else {
+                b.flameActive = false;
+            }
+        }
+
+        // Process burn DOT on all enemies
+        for (var k = 0; k < enemies.length; k++) {
+            var en = enemies[k];
+            if (en && en.burnTimer && en.burnTimer > 0) {
+                en.burnTimer--;
+                var burnDmg = (en.burnDPS || 3) / tps;
+                if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                    Enemies.damageEnemy(en.id, burnDmg, 0);
+                }
+            }
+        }
+    }
+
+    function _processRailguns() {
+        var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
+
+        // Decay existing rail shots
+        var activeShots = [];
+        for (var r = 0; r < _railShots.length; r++) {
+            _railShots[r].timer--;
+            if (_railShots[r].timer > 0) {
+                activeShots.push(_railShots[r]);
+            }
+        }
+        _railShots = activeShots;
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'railgun') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0) { continue; }
+
+            if (b.reloadTimer == null) { b.reloadTimer = 0; }
+            if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+
+            // Find closest enemy to aim at
+            var target = null;
+            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
+                target = Enemies.getClosest(center.x, center.y, effectiveRange);
+            }
+            if (!target) { continue; }
+
+            // Check iron
+            var ironCost = def.ironPerShot || 3;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                if (Economy.getResource('iron') < ironCost) { continue; }
+            } else { continue; }
+
+            // Check energy
+            var energyCost = def.energyPerShot || 500;
+            if (b.energy < energyCost) { continue; }
+
+            // Fire! Spend resources
+            if (typeof Economy !== 'undefined' && Economy.spendResource) {
+                Economy.spendResource('iron', ironCost);
+            }
+            b.energy -= energyCost;
+            b.reloadTimer = def.reloadTicks || 40;
+
+            // Calculate shot line
+            var dx = target.x - center.x;
+            var dy = target.y - center.y;
+            var len = Math.sqrt(dx * dx + dy * dy);
+            if (len === 0) { continue; }
+            var nx = dx / len;
+            var ny = dy / len;
+            var endX = center.x + nx * effectiveRange;
+            var endY = center.y + ny * effectiveRange;
+
+            // Damage ALL enemies along the line
+            var damage = def.damage || 80;
+            var lineWidth = 20; // hit detection width
+            for (var j = 0; j < enemies.length; j++) {
+                var e = enemies[j];
+                if (!e || e.hp <= 0) { continue; }
+                // Point-to-line distance
+                var ex = e.x - center.x;
+                var ey = e.y - center.y;
+                var proj = ex * nx + ey * ny;
+                if (proj < 0 || proj > effectiveRange) { continue; }
+                var perpX = ex - proj * nx;
+                var perpY = ey - proj * ny;
+                var perpDist = Math.sqrt(perpX * perpX + perpY * perpY);
+                if (perpDist <= lineWidth) {
+                    if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                        Enemies.damageEnemy(e.id, damage, 0);
+                    }
+                }
+            }
+
+            _railShots.push({
+                fromX: center.x, fromY: center.y,
+                toX: endX, toY: endY,
+                timer: 5
+            });
+        }
+    }
+
+    function _processEmpTowers() {
+        var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
+
+        // Decay existing EMP blasts
+        var activeBlasts = [];
+        for (var r = 0; r < _empBlasts.length; r++) {
+            _empBlasts[r].timer--;
+            if (_empBlasts[r].timer > 0) {
+                _empBlasts[r].radius += 8;
+                activeBlasts.push(_empBlasts[r]);
+            }
+        }
+        _empBlasts = activeBlasts;
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'emp_tower') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0) { continue; }
+
+            if (b.empCooldown == null) { b.empCooldown = 0; }
+            if (b.empCooldown > 0) { b.empCooldown--; continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+            var energyCost = def.energyPerActivation || 1500;
+            if (b.energy < energyCost) { continue; }
+
+            // Check if any enemies in range
+            var anyInRange = false;
+            for (var j = 0; j < enemies.length; j++) {
+                if (enemies[j] && enemies[j].hp > 0) {
+                    var dist = _distance(center.x, center.y, enemies[j].x, enemies[j].y);
+                    if (dist <= effectiveRange) { anyInRange = true; break; }
+                }
+            }
+            if (!anyInRange) { continue; }
+
+            // Activate!
+            b.energy -= energyCost;
+            b.empCooldown = def.cooldownTicks || 100;
+            var stunDuration = def.stunDuration || 30;
+
+            for (var k = 0; k < enemies.length; k++) {
+                var e = enemies[k];
+                if (!e || e.hp <= 0) { continue; }
+                var d = _distance(center.x, center.y, e.x, e.y);
+                if (d <= effectiveRange) {
+                    e.stunTimer = stunDuration;
+                }
+            }
+
+            _empBlasts.push({
+                x: center.x, y: center.y,
+                radius: 10,
+                maxRadius: effectiveRange,
+                timer: 15
+            });
+        }
+    }
+
+    function _processMortars() {
+        var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'mortar') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0) { continue; }
+
+            if (b.reloadTimer == null) { b.reloadTimer = 0; }
+            if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var minRange = def.minRange || 100;
+            var center = _getBuildingCenter(b);
+            var splashRadius = def.splashRadius || 80;
+
+            // Find best cluster position
+            var bestCount = 0;
+            var bestX = 0, bestY = 0;
+            for (var j = 0; j < enemies.length; j++) {
+                var e = enemies[j];
+                if (!e || e.hp <= 0) { continue; }
+                var dist = _distance(center.x, center.y, e.x, e.y);
+                if (dist < minRange || dist > effectiveRange) { continue; }
+
+                var count = 0;
+                for (var k = 0; k < enemies.length; k++) {
+                    if (enemies[k] && enemies[k].hp > 0) {
+                        if (_distance(e.x, e.y, enemies[k].x, enemies[k].y) <= splashRadius) {
+                            count++;
+                        }
+                    }
+                }
+                if (count > bestCount) {
+                    bestCount = count;
+                    bestX = e.x;
+                    bestY = e.y;
+                }
+            }
+            if (bestCount === 0) { continue; }
+
+            // Check iron
+            var ironCost = def.ironPerShot || 2;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                if (Economy.getResource('iron') < ironCost) { continue; }
+            } else { continue; }
+
+            // Check energy
+            var energyCost = def.energyPerShot || 200;
+            if (b.energy < energyCost) { continue; }
+
+            // Fire
+            if (typeof Economy !== 'undefined' && Economy.spendResource) {
+                Economy.spendResource('iron', ironCost);
+            }
+            b.energy -= energyCost;
+            b.reloadTimer = def.reloadTicks || 30;
+
+            var dx = bestX - center.x;
+            var dy = bestY - center.y;
+            var angle = Math.atan2(dy, dx);
+
+            _projectiles.push({
+                id: _nextProjectileId++,
+                x: center.x, y: center.y,
+                targetX: bestX, targetY: bestY,
+                damage: def.damage || 60,
+                speed: def.mortarSpeed || 200,
+                type: 'mortar',
+                angle: angle,
+                distanceTraveled: 0,
+                maxDistance: _distance(center.x, center.y, bestX, bestY),
+                splashRadius: splashRadius,
+                isMortar: true
+            });
+        }
+    }
+
+    function _processDroneBays() {
+        var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
+        var tps = _tps();
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'drone_bay') { continue; }
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0) { continue; }
+
+            var maxDrones = def.maxDrones || 3;
+            var spawnTicks = def.droneSpawnTicks || 240;
+
+            // Count active drones for this bay
+            var activeDrones = 0;
+            for (var d = 0; d < _drones.length; d++) {
+                if (_drones[d].bayId === b.id) { activeDrones++; }
+            }
+
+            // Spawn timer
+            if (b.droneTimer == null) { b.droneTimer = 0; }
+            if (activeDrones < maxDrones) {
+                b.droneTimer++;
+                if (b.droneTimer >= spawnTicks) {
+                    // Check resources
+                    var ironCost = def.droneIronCost || 10;
+                    var energyCost = def.droneEnergyCost || 100;
+                    var hasIron = true;
+                    if (typeof Economy !== 'undefined' && Economy.getResource) {
+                        hasIron = Economy.getResource('iron') >= ironCost;
+                    } else { hasIron = false; }
+
+                    if (hasIron && b.energy >= energyCost) {
+                        if (typeof Economy !== 'undefined' && Economy.spendResource) {
+                            Economy.spendResource('iron', ironCost);
+                        }
+                        b.energy -= energyCost;
+                        var center = _getBuildingCenter(b);
+                        _drones.push({
+                            id: _nextDroneId++,
+                            bayId: b.id,
+                            x: center.x,
+                            y: center.y,
+                            hp: def.droneHP || 50,
+                            maxHp: def.droneHP || 50,
+                            targetId: null,
+                            lifetime: def.droneLifetime || 600,
+                            speed: def.droneSpeed || 120,
+                            dps: def.droneDPS || 12,
+                            homeX: center.x,
+                            homeY: center.y,
+                            range: def.droneRange || 500
+                        });
+                        b.droneTimer = 0;
+                    }
+                }
+            } else {
+                b.droneTimer = 0;
+            }
+        }
+
+        // Update all drones
+        var survivingDrones = [];
+        for (var di = 0; di < _drones.length; di++) {
+            var drone = _drones[di];
+            drone.lifetime--;
+            if (drone.lifetime <= 0 || drone.hp <= 0) { continue; }
+
+            // Find closest enemy within range of home bay
+            var bestDist = drone.range;
+            var bestEnemy = null;
+            for (var ei = 0; ei < enemies.length; ei++) {
+                var en = enemies[ei];
+                if (!en || en.hp <= 0) { continue; }
+                var homeDist = _distance(drone.homeX, drone.homeY, en.x, en.y);
+                if (homeDist > drone.range) { continue; }
+                var droneDist = _distance(drone.x, drone.y, en.x, en.y);
+                if (droneDist < bestDist) {
+                    bestDist = droneDist;
+                    bestEnemy = en;
+                }
+            }
+
+            if (bestEnemy) {
+                drone.targetId = bestEnemy.id;
+                // Move toward enemy
+                var ddx = bestEnemy.x - drone.x;
+                var ddy = bestEnemy.y - drone.y;
+                var dLen = Math.sqrt(ddx * ddx + ddy * ddy);
+                if (dLen > 30) {
+                    var moveSpeed = drone.speed / tps;
+                    drone.x += (ddx / dLen) * moveSpeed;
+                    drone.y += (ddy / dLen) * moveSpeed;
+                } else {
+                    // Attack
+                    var dmg = drone.dps / tps;
+                    if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                        Enemies.damageEnemy(bestEnemy.id, dmg, 0);
+                    }
+                }
+            } else {
+                drone.targetId = null;
+                // Return toward home if too far
+                var homeD = _distance(drone.x, drone.y, drone.homeX, drone.homeY);
+                if (homeD > 50) {
+                    var hx = drone.homeX - drone.x;
+                    var hy = drone.homeY - drone.y;
+                    var hLen = Math.sqrt(hx * hx + hy * hy);
+                    var moveSpd = drone.speed / tps;
+                    drone.x += (hx / hLen) * moveSpd;
+                    drone.y += (hy / hLen) * moveSpd;
+                }
+            }
+
+            survivingDrones.push(drone);
+        }
+        _drones = survivingDrones;
     }
 
     // ---- 6. Handle Special Enemies ----
@@ -568,6 +1099,12 @@ var Combat = (function() {
             _processLasers();
             _processMissiles();
             _updateProjectiles();
+            _processTeslaCoils();
+            _processFlamethrowers();
+            _processRailguns();
+            _processEmpTowers();
+            _processMortars();
+            _processDroneBays();
             _handleSpecialEnemies();
         },
 
@@ -575,6 +1112,11 @@ var Combat = (function() {
         getLaserBeams: function() { return _laserBeams; },
 
         getEmpDisabled: function() { return _empDisabled; },
+
+        getTeslaChains: function() { return _teslaChains; },
+        getRailShots: function() { return _railShots; },
+        getEmpBlasts: function() { return _empBlasts; },
+        getDrones: function() { return _drones; },
 
         getSerializableState: function() {
             var projData = [];
@@ -601,10 +1143,51 @@ var Combat = (function() {
                 empData[keys[i]] = _empDisabled[keys[i]];
             }
 
+            // Serialize rail shots
+            var railData = [];
+            for (var ri = 0; ri < _railShots.length; ri++) {
+                railData.push({
+                    fromX: _railShots[ri].fromX, fromY: _railShots[ri].fromY,
+                    toX: _railShots[ri].toX, toY: _railShots[ri].toY,
+                    timer: _railShots[ri].timer
+                });
+            }
+
+            // Serialize EMP blasts
+            var blastData = [];
+            for (var bi2 = 0; bi2 < _empBlasts.length; bi2++) {
+                blastData.push({
+                    x: _empBlasts[bi2].x, y: _empBlasts[bi2].y,
+                    radius: _empBlasts[bi2].radius,
+                    maxRadius: _empBlasts[bi2].maxRadius,
+                    timer: _empBlasts[bi2].timer
+                });
+            }
+
+            // Serialize drones
+            var droneData = [];
+            for (var di = 0; di < _drones.length; di++) {
+                var dr = _drones[di];
+                droneData.push({
+                    id: dr.id, bayId: dr.bayId,
+                    x: dr.x, y: dr.y,
+                    hp: dr.hp, maxHp: dr.maxHp,
+                    targetId: dr.targetId,
+                    lifetime: dr.lifetime,
+                    speed: dr.speed, dps: dr.dps,
+                    homeX: dr.homeX, homeY: dr.homeY,
+                    range: dr.range
+                });
+            }
+
             return {
                 projectiles: projData,
                 nextProjectileId: _nextProjectileId,
-                empDisabled: empData
+                empDisabled: empData,
+                railShots: railData,
+                empBlasts: blastData,
+                drones: droneData,
+                nextDroneId: _nextDroneId
             };
         },
 
@@ -640,6 +1223,29 @@ var Combat = (function() {
                     _empDisabled[keys[i]] = data.empDisabled[keys[i]];
                 }
             }
+
+            _railShots = [];
+            if (data.railShots) {
+                for (var ri = 0; ri < data.railShots.length; ri++) {
+                    _railShots.push(data.railShots[ri]);
+                }
+            }
+
+            _empBlasts = [];
+            if (data.empBlasts) {
+                for (var bi2 = 0; bi2 < data.empBlasts.length; bi2++) {
+                    _empBlasts.push(data.empBlasts[bi2]);
+                }
+            }
+
+            _drones = [];
+            if (data.drones) {
+                for (var di = 0; di < data.drones.length; di++) {
+                    _drones.push(data.drones[di]);
+                }
+            }
+
+            _nextDroneId = data.nextDroneId || 1;
         }
     };
 })();
