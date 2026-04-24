@@ -834,6 +834,35 @@ var UI = (function () {
             // Description
             html += '<div class="info-desc">' + (def.description || '') + '</div>';
 
+            // Cable flow rules for storage buildings
+            if (def.category === 'storage' && typeof Buildings !== 'undefined' && Buildings.getCablesForBuilding) {
+                var cables = Buildings.getCablesForBuilding(buildingId);
+                if (cables && cables.length > 0) {
+                    html += '<div class="info-cable-rules">';
+                    html += '<div class="info-stat" style="font-weight:bold;margin-bottom:4px;">Cable Flow Rules</div>';
+                    for (var ci = 0; ci < cables.length; ci++) {
+                        var cable = cables[ci];
+                        var neighborId = (cable.from === buildingId) ? cable.to : cable.from;
+                        var neighbor = Buildings.getById(neighborId);
+                        var neighborName = 'Building #' + neighborId;
+                        if (neighbor) {
+                            var nDef = Config.BUILDINGS[neighbor.type];
+                            neighborName = nDef ? nDef.name : neighbor.type;
+                        }
+                        var currentRule = Buildings.getCableRule(buildingId, neighborId);
+                        html += '<div class="cable-rule-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">';
+                        html += '<span style="font-size:12px;">→ ' + (neighbor && Config.BUILDINGS[neighbor.type] ? Config.BUILDINGS[neighbor.type].icon || '' : '') + ' ' + neighborName + '</span>';
+                        html += '<select class="cable-rule-select" data-building-id="' + buildingId + '" data-neighbor-id="' + neighborId + '" style="font-size:11px;padding:2px 4px;background:#1a1a2e;color:#e0e0ff;border:1px solid #444;border-radius:3px;">';
+                        html += '<option value="both"' + (currentRule === 'both' ? ' selected' : '') + '>Both</option>';
+                        html += '<option value="charge"' + (currentRule === 'charge' ? ' selected' : '') + '>Charge Only</option>';
+                        html += '<option value="discharge"' + (currentRule === 'discharge' ? ' selected' : '') + '>Discharge Only</option>';
+                        html += '</select>';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+            }
+
             // Buttons
             html += '<div class="info-actions">';
             // Cable button
@@ -856,6 +885,19 @@ var UI = (function () {
             if (_elements.infoPanel) {
                 _elements.infoPanel.innerHTML = html;
                 _elements.infoPanel.style.display = 'block';
+
+                // Wire up cable rule dropdowns
+                var ruleSelects = _elements.infoPanel.querySelectorAll('.cable-rule-select');
+                for (var rs = 0; rs < ruleSelects.length; rs++) {
+                    ruleSelects[rs].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'));
+                        var nId = parseInt(this.getAttribute('data-neighbor-id'));
+                        var rule = this.value;
+                        if (typeof Buildings !== 'undefined' && Buildings.setCableRule) {
+                            Buildings.setCableRule(bId, nId, rule);
+                        }
+                    });
+                }
             }
         },
 
