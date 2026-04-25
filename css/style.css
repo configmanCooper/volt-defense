@@ -141,6 +141,11 @@ body {
 }
 
 /* ── Build Bar ── */
+/* Build bar toggle (mobile only) */
+.build-bar-toggle {
+    display: none; /* hidden on desktop */
+}
+
 #build-bar {
     position: absolute;
     bottom: 0; left: 0; right: 0;
@@ -792,6 +797,26 @@ kbd {
     .hud-music-slider { width: 60px; }
 
     /* Build bar */
+    .build-bar-toggle {
+        display: block;
+        width: 100%;
+        padding: 6px 0;
+        background: rgba(10, 14, 23, 0.95);
+        border: none;
+        border-top: 1px solid #3a3a5a;
+        border-bottom: 1px solid #2a2a4a;
+        color: #ffd700;
+        font-size: 13px;
+        font-weight: bold;
+        cursor: pointer;
+        text-align: center;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .build-bar-toggle:active { background: rgba(30, 34, 53, 0.95); }
+    #build-bar.collapsed .build-bar-toggle { border-bottom: none; }
+    #build-bar.collapsed #build-categories,
+    #build-bar.collapsed #build-submenu { display: none !important; }
     #build-categories { gap: 2px; padding: 4px 4px; flex-wrap: nowrap; overflow-x: auto; }
     .cat-btn { width: 48px; height: 44px; min-width: 44px; flex-shrink: 0; }
     .cat-label { font-size: 7px; }
