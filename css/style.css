@@ -209,7 +209,7 @@ body {
 /* Mobile cancel button (replaces ESC key on touch devices) */
 .mobile-cancel-btn {
     position: absolute;
-    top: 56px;
+    top: 100px;
     right: 12px;
     width: 44px;
     height: 44px;

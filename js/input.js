@@ -195,6 +195,11 @@ var Input = (function () {
 
         var building = Buildings.getAt(_mouseGrid.x, _mouseGrid.y);
         if (building) {
+            // Tap same building again to deselect (toggle)
+            if (_selectedBuildingId === building.id) {
+                _deselectBuilding();
+                return;
+            }
             _selectedBuildingId = building.id;
             _state = 'idle';
             if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
@@ -259,6 +264,25 @@ var Input = (function () {
 
             var canvas = document.getElementById('game-canvas');
             if (!canvas) return;
+
+            // Mobile cancel button — wire up with touch & click, preventing canvas interference
+            var cancelBtn = document.getElementById('btn-mobile-cancel');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('touchstart', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }, { passive: false });
+                cancelBtn.addEventListener('touchend', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    Input.handleEscape();
+                }, { passive: false });
+                cancelBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    Input.handleEscape();
+                });
+            }
 
             // Touch-to-mouse conflict guard (declared here for hoisting clarity)
             var _lastTouchEnd = 0;

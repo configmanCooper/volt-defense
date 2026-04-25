@@ -1851,9 +1851,11 @@ var Render = (function () {
     function _drawMinimap(ctx) {
         var mapW = Config.MAP_WIDTH;
         var mapH = Config.MAP_HEIGHT;
-        var size = MINIMAP_SIZE;
+        var isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+        var size = isTouch ? Math.min(MINIMAP_SIZE, Math.floor(Config.VIEWPORT_WIDTH * 0.3)) : MINIMAP_SIZE;
+        var bottomOff = isTouch ? 80 : MINIMAP_BOTTOM_OFFSET;
         var mx = Config.VIEWPORT_WIDTH - size - MINIMAP_PADDING;
-        var my = Config.VIEWPORT_HEIGHT - size - MINIMAP_PADDING - MINIMAP_BOTTOM_OFFSET;
+        var my = Config.VIEWPORT_HEIGHT - size - MINIMAP_PADDING - bottomOff;
 
         _minimapFrameCounter++;
         if (_minimapFrameCounter < 12 && _minimapCanvas) {
