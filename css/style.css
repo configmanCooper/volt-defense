@@ -9,7 +9,7 @@ body {
     background: #0a0e17;
     color: #e0e0e0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    overflow: hidden;
+    overflow: auto;
     user-select: none;
     -webkit-user-select: none;
 }
@@ -20,8 +20,10 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     background: linear-gradient(135deg, #0a0e17 0%, #1a1a2e 50%, #0a0e17 100%);
+    overflow-y: auto;
+    padding: 20px 10px;
 }
 
 .game-title {
@@ -737,12 +739,14 @@ kbd {
     .game-title { font-size: 36px; letter-spacing: 2px; }
     .game-subtitle { font-size: 14px; letter-spacing: 3px; margin-bottom: 20px; }
     #difficulty-select h2 { font-size: 16px; }
-
-    /* Difficulty buttons wrap */
-    .difficulty-grid { flex-wrap: wrap; gap: 8px; padding: 0 12px; }
-    .difficulty-btn { width: 140px; min-width: 120px; padding: 10px 8px; }
-
+    /* Difficulty buttons stack on mobile */
+    .difficulty-grid { flex-direction: column; align-items: center; gap: 8px; padding: 0 12px; }
+    .difficulty-btn { width: 80%; max-width: 280px; padding: 10px 8px; }
+    .diff-desc { font-size: 10px; }
+    #difficulty-select { margin-bottom: 16px; }
     /* Menu buttons */
+    #menu-buttons { margin-top: 8px; }
+    #menu-music-controls { margin: 8px 0; }
     .menu-btn { padding: 12px 24px; font-size: 14px; min-height: 44px; }
 
     /* HUD bar wraps on small screens */
@@ -758,6 +762,8 @@ kbd {
     .hud-timer { font-size: 11px; }
     .hud-resources span { font-size: 11px; }
     .hud-btn { padding: 4px 10px; min-width: 36px; min-height: 36px; font-size: 16px; }
+    .hud-right { width: 100%; justify-content: flex-end; margin-left: 0; }
+    .hud-music-slider { width: 60px; }
 
     /* Build bar */
     #build-categories { gap: 2px; padding: 4px 4px; flex-wrap: nowrap; overflow-x: auto; }
@@ -780,7 +786,8 @@ kbd {
 
     /* Build info card repositioned */
     #build-info-card {
-        right: 8px;
+        left: 8px;
+        right: auto;
         bottom: 130px;
         width: calc(100vw - 16px);
         max-width: 300px;
@@ -798,8 +805,8 @@ kbd {
     .info-btn { padding: 10px 0; font-size: 13px; min-height: 40px; }
 
     /* Modal responsive */
-    #modal-box { min-width: 280px; max-width: calc(100vw - 24px); }
-    #modal-body { padding: 12px; font-size: 13px; }
+    #modal-box { min-width: 280px; max-width: calc(100vw - 24px); max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
+    #modal-body { padding: 12px; font-size: 13px; overflow-y: auto; max-height: calc(100vh - 140px); -webkit-overflow-scrolling: touch; }
     #modal-close { font-size: 28px; padding: 4px 8px; min-width: 40px; min-height: 40px; }
 
     /* Toasts */
