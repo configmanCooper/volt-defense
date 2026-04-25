@@ -207,6 +207,19 @@ var Input = (function () {
             }
         } else {
             _deselectBuilding();
+            // Check for enemy or deposit under cursor
+            var enemy = _getEnemyAtWorld(_mouseWorld.x, _mouseWorld.y);
+            if (enemy) {
+                if (typeof UI !== 'undefined' && UI.showEnemyInfo) {
+                    UI.showEnemyInfo(enemy);
+                }
+            } else {
+                var dep = (typeof Map !== 'undefined' && Map.getDepositAt)
+                    ? Map.getDepositAt(_mouseGrid.x, _mouseGrid.y) : null;
+                if (dep) {
+                    _showDepositInfo(dep);
+                }
+            }
         }
     }
 
@@ -654,23 +667,8 @@ var Input = (function () {
                             } else if (_state === 'cable') {
                                 _attemptCableConnection();
                             } else {
-                                var clickedBuilding = _getBuildingAtMouse();
-                                if (clickedBuilding) {
-                                    _attemptSelection();
-                                } else {
-                                    var clickedEnemy = _getEnemyAtWorld(_mouseWorld.x, _mouseWorld.y);
-                                    if (clickedEnemy) {
-                                        if (typeof UI !== 'undefined' && UI.showEnemyInfo) {
-                                            UI.showEnemyInfo(clickedEnemy);
-                                        }
-                                    } else {
-                                        var dep = (typeof Map !== 'undefined' && Map.getDepositAt)
-                                            ? Map.getDepositAt(_mouseGrid.x, _mouseGrid.y) : null;
-                                        if (dep) {
-                                            _showDepositInfo(dep);
-                                        }
-                                    }
-                                }
+                                // Tap building to select/deselect, tap empty to deselect
+                                _attemptSelection();
                             }
                         }
                     }

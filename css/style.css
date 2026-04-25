@@ -800,18 +800,20 @@ kbd {
     .build-bar-toggle {
         display: block;
         width: 100%;
-        padding: 6px 0;
-        background: rgba(10, 14, 23, 0.95);
+        padding: 8px 0;
+        background: #1a1a2e;
         border: none;
-        border-top: 1px solid #3a3a5a;
+        border-top: 2px solid #ffd700;
         border-bottom: 1px solid #2a2a4a;
         color: #ffd700;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: bold;
         cursor: pointer;
         text-align: center;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+        z-index: 11;
+        position: relative;
     }
     .build-bar-toggle:active { background: rgba(30, 34, 53, 0.95); }
     #build-bar.collapsed .build-bar-toggle { border-bottom: none; }
