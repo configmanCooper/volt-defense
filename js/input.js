@@ -881,7 +881,8 @@ var Input = (function () {
                 if (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[typeKey]) {
                     name = Config.BUILDINGS[typeKey].name;
                 }
-                UI.showToast('Placing: ' + name + ' (ESC to cancel)', 'info', 2000);
+                var cancelHint = ('ontouchstart' in window) ? '(tap ✕ to cancel)' : '(ESC to cancel)';
+                UI.showToast('Placing: ' + name + ' ' + cancelHint, 'info', 2000);
             }
         },
 
@@ -908,7 +909,8 @@ var Input = (function () {
             _cableType = cableTypeOverride || 'standard';
             var label = _cableType === 'high_capacity' ? 'HC cable' : 'cable';
             if (typeof UI !== 'undefined' && UI.showToast) {
-                UI.showToast('Click a building to connect ' + label + ' (ESC to cancel)', 'info', 3000);
+                var cancelHint = ('ontouchstart' in window) ? '(tap ✕ to cancel)' : '(ESC to cancel)';
+                UI.showToast('Click a building to connect ' + label + ' ' + cancelHint, 'info', 3000);
             }
         },
 
@@ -922,6 +924,27 @@ var Input = (function () {
 
         cancelCable: function () {
             _cancelCable();
+        },
+
+        // Returns current input state ('idle', 'placing', 'cable', etc.)
+        getState: function () {
+            return _state;
+        },
+
+        // Returns currently selected building id or null
+        getSelectedBuildingId: function () {
+            return _selectedBuildingId;
+        },
+
+        // Replicates ESC key cascade for mobile cancel button
+        handleEscape: function () {
+            if (_state === 'placing') {
+                Input.cancelPlacement();
+            } else if (_state === 'cable') {
+                _cancelCable();
+            } else if (_selectedBuildingId) {
+                _deselectBuilding();
+            }
         }
     };
 })();

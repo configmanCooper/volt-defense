@@ -594,23 +594,37 @@ var UI = (function () {
             // Update mode indicator
             if (_elements.modeIndicator) {
                 var inputState = (typeof Input !== 'undefined' && Input.getState) ? Input.getState() : 'idle';
+                var isTouchDevice = ('ontouchstart' in window);
+                var cancelText = isTouchDevice ? '[tap ✕ to cancel]' : '[ESC to cancel]';
                 if (inputState === 'placing') {
                     var placingType = (typeof Input !== 'undefined' && Input.getPlacingType) ? Input.getPlacingType() : '';
                     var placingName = placingType;
                     if (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[placingType]) {
                         placingName = Config.BUILDINGS[placingType].name;
                     }
-                    _elements.modeIndicator.textContent = '🔨 Placing: ' + placingName + '  [ESC to cancel]';
+                    _elements.modeIndicator.textContent = '🔨 Placing: ' + placingName + '  ' + cancelText;
                     _elements.modeIndicator.className = 'mode-placing';
                     _elements.modeIndicator.style.display = 'block';
                 } else if (inputState === 'cable') {
                     var ct = (typeof Input !== 'undefined' && Input.getCableType) ? Input.getCableType() : 'standard';
                     var cLabel = ct === 'high_capacity' ? 'HC Cable' : 'Cable';
-                    _elements.modeIndicator.textContent = '🔌 ' + cLabel + ' Mode — Click a building to connect  [ESC to cancel]';
+                    _elements.modeIndicator.textContent = '🔌 ' + cLabel + ' Mode — Click a building to connect  ' + cancelText;
                     _elements.modeIndicator.className = 'mode-cable';
                     _elements.modeIndicator.style.display = 'block';
                 } else {
                     _elements.modeIndicator.style.display = 'none';
+                }
+            }
+
+            // Mobile cancel button visibility
+            var cancelBtn = document.getElementById('btn-mobile-cancel');
+            if (cancelBtn) {
+                var inState = (typeof Input !== 'undefined' && Input.getState) ? Input.getState() : 'idle';
+                var hasSel = (typeof Input !== 'undefined' && Input.getSelectedBuildingId) ? Input.getSelectedBuildingId() : null;
+                if (inState === 'placing' || inState === 'cable' || hasSel) {
+                    cancelBtn.style.display = 'flex';
+                } else {
+                    cancelBtn.style.display = 'none';
                 }
             }
 

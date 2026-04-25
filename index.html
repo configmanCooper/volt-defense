@@ -116,6 +116,9 @@
         <!-- Game Canvas -->
         <canvas id="game-canvas"></canvas>
 
+        <!-- Mobile cancel button (replaces ESC key) -->
+        <button id="btn-mobile-cancel" class="mobile-cancel-btn" title="Cancel" style="display:none;" onclick="if(typeof Input!=='undefined'&&Input.handleEscape)Input.handleEscape();">✕</button>
+
         <!-- Building Info Panel (right side, hidden by default) -->
         <div id="info-panel" style="display: none;"></div>
 
