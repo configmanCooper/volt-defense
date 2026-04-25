@@ -594,7 +594,7 @@ var UI = (function () {
             // Update mode indicator
             if (_elements.modeIndicator) {
                 var inputState = (typeof Input !== 'undefined' && Input.getState) ? Input.getState() : 'idle';
-                var isTouchDevice = ('ontouchstart' in window);
+                var isTouchDevice = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
                 var cancelText = isTouchDevice ? '[tap ✕ to cancel]' : '[ESC to cancel]';
                 if (inputState === 'placing') {
                     var placingType = (typeof Input !== 'undefined' && Input.getPlacingType) ? Input.getPlacingType() : '';
@@ -616,13 +616,20 @@ var UI = (function () {
                 }
             }
 
-            // Mobile cancel button visibility
+            // Mobile cancel button visibility — always show on touch devices, hide on desktop unless active
             var cancelBtn = document.getElementById('btn-mobile-cancel');
             if (cancelBtn) {
                 var inState = (typeof Input !== 'undefined' && Input.getState) ? Input.getState() : 'idle';
                 var hasSel = (typeof Input !== 'undefined' && Input.getSelectedBuildingId) ? Input.getSelectedBuildingId() : null;
-                if (inState === 'placing' || inState === 'cable' || hasSel) {
+                var isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+                var hasAction = (inState === 'placing' || inState === 'cable' || hasSel);
+                if (hasAction) {
                     cancelBtn.style.display = 'flex';
+                    cancelBtn.style.opacity = '1';
+                } else if (isTouch) {
+                    // Always visible on touch but dimmed when no active action
+                    cancelBtn.style.display = 'flex';
+                    cancelBtn.style.opacity = '0.35';
                 } else {
                     cancelBtn.style.display = 'none';
                 }

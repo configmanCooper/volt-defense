@@ -881,7 +881,7 @@ var Input = (function () {
                 if (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS[typeKey]) {
                     name = Config.BUILDINGS[typeKey].name;
                 }
-                var cancelHint = ('ontouchstart' in window) ? '(tap ✕ to cancel)' : '(ESC to cancel)';
+                var cancelHint = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? '(tap ✕ to cancel)' : '(ESC to cancel)';
                 UI.showToast('Placing: ' + name + ' ' + cancelHint, 'info', 2000);
             }
         },
@@ -909,7 +909,7 @@ var Input = (function () {
             _cableType = cableTypeOverride || 'standard';
             var label = _cableType === 'high_capacity' ? 'HC cable' : 'cable';
             if (typeof UI !== 'undefined' && UI.showToast) {
-                var cancelHint = ('ontouchstart' in window) ? '(tap ✕ to cancel)' : '(ESC to cancel)';
+                var cancelHint = ('ontouchstart' in window || navigator.maxTouchPoints > 0) ? '(tap ✕ to cancel)' : '(ESC to cancel)';
                 UI.showToast('Click a building to connect ' + label + ' ' + cancelHint, 'info', 3000);
             }
         },
