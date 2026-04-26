@@ -47,7 +47,8 @@ var Input = (function () {
     }
 
     // Returns sorted array of eligible cable target buildings for placement preview
-    function _getEligibleCableTargets(cx, cy, typeKey) {
+    // excludeId: optional building id to exclude (the building being placed)
+    function _getEligibleCableTargets(cx, cy, typeKey, excludeId) {
         if (typeof Buildings === 'undefined' || !Buildings.getAll) return [];
         if (typeof Config === 'undefined' || !Config.BUILDINGS) return [];
         var maxLen = Config.CABLE_MAX_LENGTH || 200;
@@ -61,6 +62,7 @@ var Input = (function () {
         var eligible = [];
         for (var i = 0; i < allBuildings.length; i++) {
             var other = allBuildings[i];
+            if (excludeId && other.id === excludeId) continue;
             if (isRestricted) {
                 var otherDef = Config.BUILDINGS[other.type];
                 var otherCat = otherDef ? otherDef.category : '';
@@ -109,7 +111,7 @@ var Input = (function () {
 
         var placedDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[placedBuilding.type] : null;
         var bc = (typeof Buildings.getBuildingCenter === 'function') ? Buildings.getBuildingCenter(placedBuilding) : { x: placedBuilding.worldX, y: placedBuilding.worldY };
-        var eligible = _getEligibleCableTargets(bc.x, bc.y, placedBuilding.type);
+        var eligible = _getEligibleCableTargets(bc.x, bc.y, placedBuilding.type, placedBuilding.id);
         if (eligible.length === 0) return;
 
         // Use override index if valid, otherwise nearest (index 0)
@@ -294,6 +296,25 @@ var Input = (function () {
                     e.stopPropagation();
                     e.preventDefault();
                     Input.handleEscape();
+                });
+            }
+
+            // Mobile cable cycle button
+            var cycleBtn = document.getElementById('btn-mobile-cycle');
+            if (cycleBtn) {
+                cycleBtn.addEventListener('touchstart', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }, { passive: false });
+                cycleBtn.addEventListener('touchend', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    Input.cycleCableTarget();
+                }, { passive: false });
+                cycleBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    Input.cycleCableTarget();
                 });
             }
 
@@ -966,6 +987,21 @@ var Input = (function () {
                 _cancelCable();
             } else if (_selectedBuildingId) {
                 _deselectBuilding();
+            }
+        },
+
+        // Cycle cable target for placement preview (mobile Alt key replacement)
+        cycleCableTarget: function () {
+            if (_state !== 'placing' || !_placingType) return;
+            var cellSize = _getCellSize();
+            var cx = _mouseGrid.x * cellSize + cellSize / 2;
+            var cy = _mouseGrid.y * cellSize + cellSize / 2;
+            var eligible = _getEligibleCableTargets(cx, cy, _placingType);
+            if (eligible.length === 0) return;
+            _cableTargetIdx = ((_cableTargetIdx + 1) % eligible.length);
+            if (typeof UI !== 'undefined' && UI.showToast) {
+                var tName = (Config.BUILDINGS[eligible[_cableTargetIdx].building.type] || {}).name || '?';
+                UI.showToast('Cable target: ' + tName + ' (' + (_cableTargetIdx + 1) + '/' + eligible.length + ')', 'info', 1500);
             }
         }
     };

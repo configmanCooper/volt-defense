@@ -211,7 +211,7 @@ body {
 .build-tooltip { display: none; } /* remove old hover tooltip */
 .build-btn:hover .build-tooltip { display: none; }
 
-/* Mobile cancel button (replaces ESC key on touch devices) */
+/* Mobile placement buttons (cancel + cycle cable target) */
 .mobile-cancel-btn {
     position: absolute;
     top: 100px;
@@ -235,6 +235,29 @@ body {
 }
 .mobile-cancel-btn:active {
     background: rgba(255, 68, 68, 0.3);
+}
+.mobile-cycle-btn {
+    position: absolute;
+    top: 152px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid #4488ff;
+    background: rgba(20, 20, 40, 0.92);
+    color: #4488ff;
+    font-size: 20px;
+    z-index: 50;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.mobile-cycle-btn:active {
+    background: rgba(68, 136, 255, 0.3);
 }
 
 #build-info-card {

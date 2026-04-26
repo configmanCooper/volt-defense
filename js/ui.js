@@ -242,8 +242,15 @@ var UI = (function () {
                     break;
                 }
 
-                if (typeof Input !== 'undefined' && Input.setPlacingMode) {
-                    Input.setPlacingMode(typeKey);
+                if (typeof Input !== 'undefined') {
+                    var currentState = Input.getState ? Input.getState() : '';
+                    var currentType = Input.getPlacingType ? Input.getPlacingType() : '';
+                    if (currentState === 'placing' && currentType === typeKey) {
+                        // Toggle off — cancel placement
+                        if (Input.cancelPlacement) Input.cancelPlacement();
+                        break;
+                    }
+                    if (Input.setPlacingMode) Input.setPlacingMode(typeKey);
                 }
                 _showBuildInfoCard(typeKey);
                 // Highlight selected build button
@@ -616,22 +623,24 @@ var UI = (function () {
                 }
             }
 
-            // Mobile cancel button visibility — always show on touch devices, hide on desktop unless active
+            // Mobile cancel + cycle buttons — only show during placement or cable mode
             var cancelBtn = document.getElementById('btn-mobile-cancel');
+            var cycleBtn = document.getElementById('btn-mobile-cycle');
+            var inState = (typeof Input !== 'undefined' && Input.getState) ? Input.getState() : 'idle';
+            var isPlacing = (inState === 'placing');
+            var isCabling = (inState === 'cable');
             if (cancelBtn) {
-                var inState = (typeof Input !== 'undefined' && Input.getState) ? Input.getState() : 'idle';
-                var hasSel = (typeof Input !== 'undefined' && Input.getSelectedBuildingId) ? Input.getSelectedBuildingId() : null;
-                var isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-                var hasAction = (inState === 'placing' || inState === 'cable' || hasSel);
-                if (hasAction) {
+                if (isPlacing || isCabling) {
                     cancelBtn.style.display = 'flex';
-                    cancelBtn.style.opacity = '1';
-                } else if (isTouch) {
-                    // Always visible on touch but dimmed when no active action
-                    cancelBtn.style.display = 'flex';
-                    cancelBtn.style.opacity = '0.35';
                 } else {
                     cancelBtn.style.display = 'none';
+                }
+            }
+            if (cycleBtn) {
+                if (isPlacing) {
+                    cycleBtn.style.display = 'flex';
+                } else {
+                    cycleBtn.style.display = 'none';
                 }
             }
 

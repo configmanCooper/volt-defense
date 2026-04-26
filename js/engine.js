@@ -386,7 +386,9 @@ var Engine = (function() {
                 paused: false,
                 gameOver: state.gameOver || false,
                 rng: new SeededRNG(state.seed || 1),
-                seed: state.seed || 1
+                seed: state.seed || 1,
+                wavesEnabled: state.wavesEnabled !== false,
+                godMode: state.godMode || false
             };
             // Fast-forward the RNG to the saved tick count if available
             if (state.tickCount) { _tickCount = state.tickCount; }
@@ -403,7 +405,9 @@ var Engine = (function() {
                 gameTime: _state.gameTime,
                 gameOver: _state.gameOver,
                 seed: _state.seed,
-                tickCount: _tickCount
+                tickCount: _tickCount,
+                wavesEnabled: _state.wavesEnabled,
+                godMode: _state.godMode
             };
         }
     };

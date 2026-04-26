@@ -2336,11 +2336,14 @@ var Render = (function () {
         // Minimap hit test (for Input module)
         // --------------------------------------------------------------------
         getMinimapBounds: function () {
+            var isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+            var size = isTouch ? Math.min(MINIMAP_SIZE, Math.floor(Config.VIEWPORT_WIDTH * 0.3)) : MINIMAP_SIZE;
+            var bottomOff = isTouch ? 80 : MINIMAP_BOTTOM_OFFSET;
             return {
-                x: Config.VIEWPORT_WIDTH - MINIMAP_SIZE - MINIMAP_PADDING,
-                y: Config.VIEWPORT_HEIGHT - MINIMAP_SIZE - MINIMAP_PADDING - MINIMAP_BOTTOM_OFFSET,
-                width: MINIMAP_SIZE,
-                height: MINIMAP_SIZE
+                x: Config.VIEWPORT_WIDTH - size - MINIMAP_PADDING,
+                y: Config.VIEWPORT_HEIGHT - size - MINIMAP_PADDING - bottomOff,
+                width: size,
+                height: size
             };
         },
 
