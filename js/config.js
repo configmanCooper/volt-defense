@@ -1391,7 +1391,7 @@ var Config = {
             armor: 0,
             killReward: 6,
             icon: '🐝',
-            special: null,
+            special: 'flying',
             firstWave: 16,
             description: 'Tiny, disposable units that attack in massive numbers. Each individual Swarm entity has only 15 HP and 2 damage, but they spawn in huge groups that overwhelm single-target weapons like lasers. Area-effect weapons like mortars and tesla coils excel against Swarms. Their low kill reward means they\'re not profitable to fight — they exist purely to drain your ammunition and energy. Targets the core directly.'
         },
