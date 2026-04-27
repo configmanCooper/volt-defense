@@ -251,9 +251,8 @@ var Engine = (function() {
                 }
             }
             _state.coreHP -= amount;
-            if (_state.coreHP <= 0) {
+            if (_state.coreHP < 0) {
                 _state.coreHP = 0;
-                _state.gameOver = true;
             }
         },
 
@@ -266,6 +265,8 @@ var Engine = (function() {
         getGameTime: function() { return _state ? _state.gameTime : 0; },
 
         isGameOver: function() { return _state ? _state.gameOver : false; },
+
+        setGameOver: function() { if (_state) _state.gameOver = true; },
 
         setGodMode: function(on) { if (_state) _state.godMode = !!on; },
         isGodMode: function() { return _state ? !!_state.godMode : false; },

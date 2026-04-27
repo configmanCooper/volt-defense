@@ -130,6 +130,7 @@ var Main = (function () {
             }
 
             if (typeof Engine.getCoreHP === 'function' && Engine.getCoreHP() <= 0) {
+                if (typeof Engine.setGameOver === 'function') Engine.setGameOver();
                 _gameOver();
             }
         }, _getTickRate());
