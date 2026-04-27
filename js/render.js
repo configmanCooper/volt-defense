@@ -1195,6 +1195,708 @@ var Render = (function () {
     }
 
     // ------------------------------------------------------------------------
+    // Enemy shape drawing functions
+    // Each takes (ctx, x, y, r, anim, angle, color) where angle is movement direction
+    // ------------------------------------------------------------------------
+
+    function _getMoveAngle(e) {
+        if (e.path && e.pathIndex < e.path.length) {
+            var t = e.path[e.pathIndex];
+            return Math.atan2(t.y - e.y, t.x - e.x);
+        }
+        return 0;
+    }
+
+    // ⚡ Spark — 4-pointed rotating star
+    function _drawSpark(ctx, x, y, r, anim, angle) {
+        var rot = anim * 0.05;
+        ctx.fillStyle = '#ffee00';
+        ctx.beginPath();
+        for (var i = 0; i < 4; i++) {
+            var a = rot + i * Math.PI / 2;
+            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+            var b = a + Math.PI / 4;
+            ctx.lineTo(x + Math.cos(b) * r * 0.4, y + Math.sin(b) * r * 0.4);
+        }
+        ctx.closePath();
+        ctx.fill();
+        // White center
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 💨 Runner — elongated diamond pointing in direction
+    function _drawRunner(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = '#ff8800';
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 1.4, y + sin * r * 1.4);           // front tip
+        ctx.lineTo(x + (-sin) * r * 0.5, y + cos * r * 0.5);        // left
+        ctx.lineTo(x - cos * r * 0.8, y - sin * r * 0.8);           // rear
+        ctx.lineTo(x + sin * r * 0.5, y - cos * r * 0.5);           // right
+        ctx.closePath();
+        ctx.fill();
+        // Speed lines
+        ctx.strokeStyle = 'rgba(255,136,0,0.4)';
+        ctx.lineWidth = 1;
+        for (var sl = 1; sl <= 2; sl++) {
+            var off = sl * 4 + (anim % 6);
+            ctx.beginPath();
+            ctx.moveTo(x - cos * (r + off) + (-sin) * sl * 3, y - sin * (r + off) + cos * sl * 3);
+            ctx.lineTo(x - cos * (r + off + 5) + (-sin) * sl * 3, y - sin * (r + off + 5) + cos * sl * 3);
+            ctx.stroke();
+        }
+    }
+
+    // 👹 Grunt — pentagon with eyes
+    function _drawGrunt(ctx, x, y, r, anim, angle) {
+        ctx.fillStyle = '#cc3333';
+        ctx.beginPath();
+        for (var i = 0; i < 5; i++) {
+            var a = -Math.PI / 2 + i * Math.PI * 2 / 5;
+            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#881111';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Eyes
+        ctx.fillStyle = '#ffcccc';
+        ctx.beginPath();
+        ctx.arc(x - r * 0.25, y - r * 0.15, 1.5, 0, Math.PI * 2);
+        ctx.arc(x + r * 0.25, y - r * 0.15, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 🐝 Swarm — tiny oval with oscillating wings
+    function _drawSwarm(ctx, x, y, r, anim, angle) {
+        // Body
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.ellipse(x, y, r, r * 0.7, angle, 0, Math.PI * 2);
+        ctx.fill();
+        // Stripes
+        ctx.strokeStyle = '#664400';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - 1, y - r * 0.5);
+        ctx.lineTo(x - 1, y + r * 0.5);
+        ctx.moveTo(x + 1, y - r * 0.5);
+        ctx.lineTo(x + 1, y + r * 0.5);
+        ctx.stroke();
+        // Wings
+        var wingFlap = Math.sin(anim * 0.3) * 0.3;
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.beginPath();
+        ctx.ellipse(x - 2, y - r * 0.3, r * 0.5, r * 0.3, wingFlap, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(x + 2, y - r * 0.3, r * 0.5, r * 0.3, -wingFlap, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 🛡️ Shielded Grunt — pentagon with forward shield arc
+    function _drawShieldedGrunt(ctx, x, y, r, anim, angle) {
+        // Body (pentagon)
+        ctx.fillStyle = '#6666cc';
+        ctx.beginPath();
+        for (var i = 0; i < 5; i++) {
+            var a = -Math.PI / 2 + i * Math.PI * 2 / 5;
+            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#333388';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Shield arc on front
+        ctx.strokeStyle = '#aaaaff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r + 3, angle - 0.8, angle + 0.8);
+        ctx.stroke();
+        // Shield shimmer
+        if (anim % 30 < 15) {
+            ctx.strokeStyle = 'rgba(200,200,255,0.5)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 4, angle - 0.4, angle + 0.4);
+            ctx.stroke();
+        }
+    }
+
+    // 🐢 Tank — hexagon with thick outline
+    function _drawTank(ctx, x, y, r, anim, angle) {
+        ctx.fillStyle = '#883333';
+        ctx.beginPath();
+        for (var i = 0; i < 6; i++) {
+            var a = i * Math.PI / 3;
+            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#551111';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        // Inner lighter hexagon
+        ctx.fillStyle = '#994444';
+        ctx.beginPath();
+        for (var j = 0; j < 6; j++) {
+            var a2 = j * Math.PI / 3;
+            ctx.lineTo(x + Math.cos(a2) * r * 0.5, y + Math.sin(a2) * r * 0.5);
+        }
+        ctx.closePath();
+        ctx.fill();
+        // Center cross
+        ctx.strokeStyle = '#551111';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.3, y);
+        ctx.lineTo(x + r * 0.3, y);
+        ctx.moveTo(x, y - r * 0.3);
+        ctx.lineTo(x, y + r * 0.3);
+        ctx.stroke();
+    }
+
+    // 🦏 Heavy Tank — octagon with chevron
+    function _drawHeavyTank(ctx, x, y, r, anim, angle) {
+        ctx.fillStyle = '#661111';
+        ctx.beginPath();
+        for (var i = 0; i < 8; i++) {
+            var a = i * Math.PI / 4;
+            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#330000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // Chevron pointing forward
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.strokeStyle = '#993333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - sin * r * 0.4 - cos * r * 0.2, y + cos * r * 0.4 - sin * r * 0.2);
+        ctx.lineTo(x + cos * r * 0.4, y + sin * r * 0.4);
+        ctx.lineTo(x + sin * r * 0.4 - cos * r * 0.2, y - cos * r * 0.4 - sin * r * 0.2);
+        ctx.stroke();
+    }
+
+    // 🏰 Siege Engine — large rounded square with turret
+    function _drawSiegeEngine(ctx, x, y, r, anim, angle) {
+        // Base (rounded rect approximation)
+        var s = r * 0.85;
+        ctx.fillStyle = '#441111';
+        ctx.beginPath();
+        ctx.moveTo(x - s, y - s + 3);
+        ctx.lineTo(x - s, y + s - 3);
+        ctx.quadraticCurveTo(x - s, y + s, x - s + 3, y + s);
+        ctx.lineTo(x + s - 3, y + s);
+        ctx.quadraticCurveTo(x + s, y + s, x + s, y + s - 3);
+        ctx.lineTo(x + s, y - s + 3);
+        ctx.quadraticCurveTo(x + s, y - s, x + s - 3, y - s);
+        ctx.lineTo(x - s + 3, y - s);
+        ctx.quadraticCurveTo(x - s, y - s, x - s, y - s + 3);
+        ctx.fill();
+        ctx.strokeStyle = '#220000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Turret
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = '#662222';
+        ctx.beginPath();
+        ctx.arc(x + cos * r * 0.2, y + sin * r * 0.2, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        // Barrel
+        ctx.strokeStyle = '#331111';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 0.2, y + sin * r * 0.2);
+        ctx.lineTo(x + cos * r * 0.9, y + sin * r * 0.9);
+        ctx.stroke();
+        // Track lines
+        ctx.strokeStyle = '#220000';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - sin * s, y + cos * s);
+        ctx.lineTo(x + sin * s, y - cos * s);
+        ctx.stroke();
+    }
+
+    // 💣 Bomber — circle with fuse
+    function _drawBomber(ctx, x, y, r, anim, angle) {
+        var pulse = 1 + Math.sin(anim * 0.1) * 0.15;
+        var pr = Math.floor(r * pulse);
+        // Body
+        ctx.fillStyle = '#cc6600';
+        ctx.beginPath();
+        ctx.arc(x, y, pr, 0, Math.PI * 2);
+        ctx.fill();
+        // Darker bottom
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.arc(x, y, pr, 0.1, Math.PI - 0.1);
+        ctx.fill();
+        // Fuse
+        ctx.strokeStyle = '#884400';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - pr);
+        ctx.lineTo(x + 2, y - pr - 5);
+        ctx.stroke();
+        // Spark at fuse tip
+        if (anim % 8 < 4) {
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(x + 2, y - pr - 5, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // 🐍 River Serpent — undulating segments
+    function _drawRiverSerpent(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = '#228888';
+        // 4 body segments
+        for (var seg = 0; seg < 4; seg++) {
+            var segR = r * (1 - seg * 0.15);
+            var wave = Math.sin(anim * 0.12 + seg * 1.2) * 4;
+            var sx = x - cos * seg * r * 0.7 + (-sin) * wave;
+            var sy = y - sin * seg * r * 0.7 + cos * wave;
+            ctx.beginPath();
+            ctx.arc(sx, sy, segR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Eyes on head
+        ctx.fillStyle = '#aaffaa';
+        ctx.beginPath();
+        ctx.arc(x + cos * r * 0.3 - sin * 2, y + sin * r * 0.3 + cos * 2, 1.5, 0, Math.PI * 2);
+        ctx.arc(x + cos * r * 0.3 + sin * 2, y + sin * r * 0.3 - cos * 2, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 🏚️ Home Wrecker — battering ram triangle
+    function _drawHomeWrecker(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = '#996633';
+        // Ram head (triangle)
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 1.2, y + sin * r * 1.2);
+        ctx.lineTo(x - cos * r * 0.5 - sin * r * 0.7, y - sin * r * 0.5 + cos * r * 0.7);
+        ctx.lineTo(x - cos * r * 0.5 + sin * r * 0.7, y - sin * r * 0.5 - cos * r * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#664422';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Handle
+        ctx.fillStyle = '#774411';
+        ctx.fillRect(x - cos * r * 0.8 - 2, y - sin * r * 0.8 - 2, 4, 4);
+    }
+
+    // 🪱 Drill Worm — segmented worm with mandibles
+    function _drawDrillWorm(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = '#997744';
+        // 3 body segments with side-to-side wobble
+        for (var seg = 0; seg < 3; seg++) {
+            var segR = r * (1 - seg * 0.2);
+            var wobble = Math.sin(anim * 0.1 + seg * 1.5) * 2;
+            var sx = x - cos * seg * r * 0.8 + (-sin) * wobble;
+            var sy = y - sin * seg * r * 0.8 + cos * wobble;
+            ctx.beginPath();
+            ctx.arc(sx, sy, segR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Mandibles (V at front)
+        ctx.strokeStyle = '#664422';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 0.5 - sin * r * 0.5, y + sin * r * 0.5 + cos * r * 0.5);
+        ctx.lineTo(x + cos * r * 1.2, y + sin * r * 1.2);
+        ctx.moveTo(x + cos * r * 0.5 + sin * r * 0.5, y + sin * r * 0.5 - cos * r * 0.5);
+        ctx.lineTo(x + cos * r * 1.2, y + sin * r * 1.2);
+        ctx.stroke();
+    }
+
+    // 💥 Disruptor — 6-pointed spiky star
+    function _drawDisruptor(ctx, x, y, r, anim, angle) {
+        ctx.fillStyle = '#aa44aa';
+        ctx.beginPath();
+        for (var i = 0; i < 6; i++) {
+            var a = i * Math.PI / 3;
+            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+            var b = a + Math.PI / 6;
+            ctx.lineTo(x + Math.cos(b) * r * 0.45, y + Math.sin(b) * r * 0.45);
+        }
+        ctx.closePath();
+        ctx.fill();
+        // Pulse rings
+        if (anim % 30 < 10) {
+            var ringR = r * (1.2 + (anim % 30) * 0.08);
+            ctx.strokeStyle = 'rgba(170,68,170,0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x, y, ringR, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    // 🔋 Leech — teardrop with mouth
+    function _drawLeech(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        // Teardrop body
+        ctx.fillStyle = '#44aa44';
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 1.2, y + sin * r * 1.2);   // front point
+        ctx.quadraticCurveTo(x - sin * r * 0.9, y + cos * r * 0.9, x - cos * r * 0.7, y - sin * r * 0.7);
+        ctx.arc(x - cos * r * 0.2, y - sin * r * 0.2, r * 0.6, Math.PI + angle, angle, true);
+        ctx.quadraticCurveTo(x + sin * r * 0.9, y - cos * r * 0.9, x + cos * r * 1.2, y + sin * r * 1.2);
+        ctx.fill();
+        // Mouth ring
+        ctx.strokeStyle = '#226622';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x + cos * r * 0.8, y + sin * r * 0.8, r * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+        // Green pulse glow
+        if (anim % 20 < 10) {
+            ctx.fillStyle = 'rgba(68,170,68,0.2)';
+            ctx.beginPath();
+            ctx.arc(x, y, r * 1.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // 🚫 Nullifier — circle with X
+    function _drawNullifier(ctx, x, y, r, anim, angle) {
+        ctx.fillStyle = '#aa2222';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        // X lines
+        var glowAlpha = 0.6 + Math.sin(anim * 0.08) * 0.3;
+        ctx.strokeStyle = 'rgba(255,100,100,' + glowAlpha + ')';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.6, y - r * 0.6);
+        ctx.lineTo(x + r * 0.6, y + r * 0.6);
+        ctx.moveTo(x + r * 0.6, y - r * 0.6);
+        ctx.lineTo(x - r * 0.6, y + r * 0.6);
+        ctx.stroke();
+        // Outer ring
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, r + 1, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // 🕵️ Saboteur — cloaked figure
+    function _drawSaboteur(ctx, x, y, r, anim, angle) {
+        ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.7;
+        // Hood (triangle)
+        ctx.fillStyle = '#996633';
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x - r * 0.8, y + r * 0.6);
+        ctx.lineTo(x + r * 0.8, y + r * 0.6);
+        ctx.closePath();
+        ctx.fill();
+        // Body below
+        ctx.fillStyle = '#775522';
+        ctx.fillRect(x - r * 0.4, y + r * 0.2, r * 0.8, r * 0.6);
+        // Eyes
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath();
+        ctx.arc(x - r * 0.2, y - r * 0.1, 1.5, 0, Math.PI * 2);
+        ctx.arc(x + r * 0.2, y - r * 0.1, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 🤖 EMP Drone — diamond with antenna
+    function _drawEMPDrone(ctx, x, y, r, anim, angle) {
+        // Diamond body
+        ctx.fillStyle = '#33ccff';
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r, y);
+        ctx.lineTo(x, y + r);
+        ctx.lineTo(x - r, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#1188aa';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Antenna
+        ctx.strokeStyle = '#88eeff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x, y - r - 5);
+        ctx.stroke();
+        // Blink at tip
+        if (anim % 20 < 10) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x, y - r - 5, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Electric arcs
+        if (anim % 30 < 5) {
+            ctx.strokeStyle = 'rgba(100,220,255,0.6)';
+            ctx.lineWidth = 1;
+            for (var ea = 0; ea < 3; ea++) {
+                var ea_angle = (ea / 3) * Math.PI * 2 + anim * 0.1;
+                ctx.beginPath();
+                ctx.moveTo(x + Math.cos(ea_angle) * r, y + Math.sin(ea_angle) * r);
+                ctx.lineTo(x + Math.cos(ea_angle) * (r + 6), y + Math.sin(ea_angle) * (r + 6));
+                ctx.stroke();
+            }
+        }
+    }
+
+    // 👻 Phase Walker — ghost with wavy bottom
+    function _drawPhaseWalker(ctx, x, y, r, anim, angle) {
+        // Head (oval top)
+        ctx.fillStyle = '#aa44ff';
+        ctx.beginPath();
+        ctx.arc(x, y - r * 0.2, r * 0.8, Math.PI, 0);
+        // Wavy bottom
+        var segments = 5;
+        var bottomY = y + r * 0.6;
+        for (var ws = 0; ws <= segments; ws++) {
+            var wx = x - r * 0.8 + (ws / segments) * r * 1.6;
+            var wy = bottomY + Math.sin(anim * 0.15 + ws * 1.2) * 3;
+            if (ws === 0) {
+                ctx.lineTo(wx, wy);
+            } else {
+                ctx.lineTo(wx, wy);
+            }
+        }
+        ctx.closePath();
+        ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x - r * 0.25, y - r * 0.3, 2, 0, Math.PI * 2);
+        ctx.arc(x + r * 0.25, y - r * 0.3, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 📡 Jammer — circle with radar dish and rings
+    function _drawJammer(ctx, x, y, r, anim, angle) {
+        // Body
+        ctx.fillStyle = '#669966';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        // Dish on top
+        ctx.strokeStyle = '#88bb88';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y - r * 0.3, r * 0.5, Math.PI + 0.5, -0.5);
+        ctx.stroke();
+        // Antenna post
+        ctx.strokeStyle = '#88bb88';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y - r * 0.3);
+        ctx.lineTo(x, y - r - 3);
+        ctx.stroke();
+        // Pulse rings
+        var ringPhase = anim % 40;
+        if (ringPhase < 20) {
+            var ringR = r * (1.2 + ringPhase * 0.06);
+            ctx.strokeStyle = 'rgba(102,153,102,' + (0.5 - ringPhase * 0.025) + ')';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x, y, ringR, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    // 🛸 Scout Drone — small triangular craft
+    function _drawScoutDrone(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = '#99ddff';
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 1.3, y + sin * r * 1.3);          // nose
+        ctx.lineTo(x - cos * r * 0.6 - sin * r * 0.8, y - sin * r * 0.6 + cos * r * 0.8);  // left wing
+        ctx.lineTo(x - cos * r * 0.3, y - sin * r * 0.3);           // rear center
+        ctx.lineTo(x - cos * r * 0.6 + sin * r * 0.8, y - sin * r * 0.6 - cos * r * 0.8);  // right wing
+        ctx.closePath();
+        ctx.fill();
+        // Engine glow
+        ctx.fillStyle = anim % 6 < 3 ? '#ffaa44' : '#ff6622';
+        ctx.beginPath();
+        ctx.arc(x - cos * r * 0.4 - sin * r * 0.3, y - sin * r * 0.4 + cos * r * 0.3, 1.5, 0, Math.PI * 2);
+        ctx.arc(x - cos * r * 0.4 + sin * r * 0.3, y - sin * r * 0.4 - cos * r * 0.3, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 🦅 Heavy Flyer — wide chevron/wing shape
+    function _drawHeavyFlyer(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = '#556688';
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 1.0, y + sin * r * 1.0);             // nose
+        ctx.lineTo(x - cos * r * 0.4 - sin * r * 1.2, y - sin * r * 0.4 + cos * r * 1.2);  // left wingtip
+        ctx.lineTo(x - cos * r * 0.6 - sin * r * 0.3, y - sin * r * 0.6 + cos * r * 0.3);  // left inner
+        ctx.lineTo(x - cos * r * 0.7, y - sin * r * 0.7);              // tail
+        ctx.lineTo(x - cos * r * 0.6 + sin * r * 0.3, y - sin * r * 0.6 - cos * r * 0.3);  // right inner
+        ctx.lineTo(x - cos * r * 0.4 + sin * r * 1.2, y - sin * r * 0.4 - cos * r * 1.2);  // right wingtip
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#334455';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Center body ridge
+        ctx.strokeStyle = '#667799';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 0.6, y + sin * r * 0.6);
+        ctx.lineTo(x - cos * r * 0.5, y - sin * r * 0.5);
+        ctx.stroke();
+    }
+
+    // 🐛 Tunneler — oval with drill front
+    function _drawTunneler(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        // Oval body
+        ctx.fillStyle = '#8b5a2b';
+        ctx.beginPath();
+        ctx.ellipse(x - cos * r * 0.15, y - sin * r * 0.15, r, r * 0.7, angle, 0, Math.PI * 2);
+        ctx.fill();
+        // Drill tip
+        ctx.fillStyle = '#aa7744';
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 1.1, y + sin * r * 1.1);
+        ctx.lineTo(x + cos * r * 0.5 - sin * r * 0.4, y + sin * r * 0.5 + cos * r * 0.4);
+        ctx.lineTo(x + cos * r * 0.5 + sin * r * 0.4, y + sin * r * 0.5 - cos * r * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        // Mandible arcs
+        var mandibleOpen = Math.sin(anim * 0.15) * 0.2;
+        ctx.strokeStyle = '#664422';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x + cos * r * 0.6, y + sin * r * 0.6, r * 0.4, angle - 0.8 - mandibleOpen, angle - 0.2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x + cos * r * 0.6, y + sin * r * 0.6, r * 0.4, angle + 0.2, angle + 0.8 + mandibleOpen);
+        ctx.stroke();
+    }
+
+    // ⚡👑 Overload Boss — hexagon with crown
+    function _drawOverloadBoss(ctx, x, y, r, anim, angle) {
+        // Hexagonal body
+        ctx.fillStyle = '#443388';
+        ctx.beginPath();
+        for (var i = 0; i < 6; i++) {
+            var a = i * Math.PI / 3;
+            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#221166';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Crown (3 zigzag points on top)
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.6, y - r * 0.5);
+        ctx.lineTo(x - r * 0.35, y - r * 0.9);
+        ctx.lineTo(x - r * 0.1, y - r * 0.5);
+        ctx.lineTo(x + r * 0.15, y - r * 1.0);
+        ctx.lineTo(x + r * 0.35, y - r * 0.5);
+        ctx.lineTo(x + r * 0.55, y - r * 0.85);
+        ctx.lineTo(x + r * 0.7, y - r * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        // Electric arcs between crown points
+        if (anim % 10 < 5) {
+            ctx.strokeStyle = '#aaccff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x - r * 0.35, y - r * 0.9);
+            ctx.lineTo(x + r * 0.15, y - r * 1.0);
+            ctx.lineTo(x + r * 0.55, y - r * 0.85);
+            ctx.stroke();
+        }
+        // Inner energy swirl
+        var rot = anim * 0.03;
+        ctx.strokeStyle = 'rgba(170,200,255,0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.5, rot, rot + Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.5, rot + Math.PI, rot + Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Wall breaker — square-ish with ram
+    function _drawWallBreaker(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        // Blocky body
+        ctx.fillStyle = '#886644';
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillRect(-r * 0.7, -r * 0.6, r * 1.4, r * 1.2);
+        ctx.strokeStyle = '#553322';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-r * 0.7, -r * 0.6, r * 1.4, r * 1.2);
+        // Ram (reinforced front)
+        ctx.fillStyle = '#aa8855';
+        ctx.fillRect(r * 0.5, -r * 0.4, r * 0.5, r * 0.8);
+        ctx.restore();
+    }
+
+    // Lookup table for enemy draw functions
+    var ENEMY_DRAW_FNS = {
+        spark: _drawSpark,
+        runner: _drawRunner,
+        grunt: _drawGrunt,
+        swarm: _drawSwarm,
+        shielded_grunt: _drawShieldedGrunt,
+        tank: _drawTank,
+        heavy_tank: _drawHeavyTank,
+        siege_engine: _drawSiegeEngine,
+        bomber: _drawBomber,
+        river_serpent: _drawRiverSerpent,
+        home_wrecker: _drawHomeWrecker,
+        drill_worm: _drawDrillWorm,
+        disruptor: _drawDisruptor,
+        leech: _drawLeech,
+        nullifier: _drawNullifier,
+        saboteur: _drawSaboteur,
+        emp_drone: _drawEMPDrone,
+        phase_walker: _drawPhaseWalker,
+        jammer: _drawJammer,
+        scout_drone: _drawScoutDrone,
+        heavy_flyer: _drawHeavyFlyer,
+        tunneler: _drawTunneler,
+        overload_boss: _drawOverloadBoss,
+        wall_breaker: _drawWallBreaker
+    };
+
+    // ------------------------------------------------------------------------
     // Layer: Enemies
     // ------------------------------------------------------------------------
     function _drawEnemies(ctx) {
@@ -1217,18 +1919,6 @@ var Render = (function () {
             // Phase walker: semi-transparent
             if (e.special === 'ignores_shields' || e.type === 'phase_walker') {
                 ctx.globalAlpha = 0.5 + Math.sin(_animFrame * 0.15) * 0.2;
-            }
-
-            // EMP drone: electric spark effect
-            if (e.type === 'emp_drone' && _animFrame % 10 < 5) {
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = '#33ccff';
-            }
-
-            // Bomber: pulsing
-            if (e.type === 'bomber') {
-                var pulse = 1 + Math.sin(_animFrame * 0.1) * 0.15;
-                r = Math.floor(r * pulse);
             }
 
             // Boss: larger size + golden glow
@@ -1267,34 +1957,37 @@ var Render = (function () {
                 }
             }
 
-            // Body
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(Math.floor(e.x), Math.floor(e.y) + flyOffset, r, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Direction indicator (small triangle)
-            if (e.path && e.pathIndex < e.path.length) {
-                var target = e.path[e.pathIndex];
-                var dx = target.x - e.x;
-                var dy = target.y - e.y;
-                var dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > 0.01) {
-                    var nx = dx / dist;
-                    var ny = dy / dist;
-                    var tipX = e.x + nx * (r + 4);
-                    var tipY = e.y + ny * (r + 4);
-                    var baseX1 = e.x + nx * r - ny * 3;
-                    var baseY1 = e.y + ny * r + nx * 3;
-                    var baseX2 = e.x + nx * r + ny * 3;
-                    var baseY2 = e.y + ny * r - nx * 3;
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath();
-                    ctx.moveTo(tipX, tipY);
-                    ctx.lineTo(baseX1, baseY1);
-                    ctx.lineTo(baseX2, baseY2);
-                    ctx.closePath();
-                    ctx.fill();
+            // Body — use shape-specific draw function or fallback to circle
+            var ex = Math.floor(e.x);
+            var ey = Math.floor(e.y) + flyOffset;
+            var moveAngle = _getMoveAngle(e);
+            var drawFn = ENEMY_DRAW_FNS[e.type];
+            if (drawFn) {
+                drawFn(ctx, ex, ey, r, _animFrame, moveAngle);
+            } else {
+                // Fallback: colored circle + direction triangle (procedural enemies)
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(ex, ey, r, 0, Math.PI * 2);
+                ctx.fill();
+                if (e.path && e.pathIndex < e.path.length) {
+                    var target = e.path[e.pathIndex];
+                    var dx = target.x - e.x;
+                    var dy = target.y - e.y;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0.01) {
+                        var nx = dx / dist;
+                        var ny = dy / dist;
+                        var tipX = ex + nx * (r + 4);
+                        var tipY = ey + ny * (r + 4);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.moveTo(tipX, tipY);
+                        ctx.lineTo(ex + nx * r - ny * 3, ey + ny * r + nx * 3);
+                        ctx.lineTo(ex + nx * r + ny * 3, ey + ny * r - nx * 3);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
                 }
             }
 
@@ -1303,7 +1996,7 @@ var Render = (function () {
             // HP bar (only when damaged)
             hpRatio = e.hp / e.maxHp;
             if (hpRatio < 1) {
-                _drawHPBar(ctx, Math.floor(e.x), Math.floor(e.y) - r, r * 2, hpRatio);
+                _drawHPBar(ctx, ex, ey - r, r * 2, hpRatio);
             }
         }
     }
