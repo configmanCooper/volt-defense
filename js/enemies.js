@@ -1170,7 +1170,23 @@ var Enemies = (function () {
 
                 // Targeted pathing: try to find specific target building
                 if (enemy.targetCategory || enemy.targetBuildingId) {
-                    var targetPos = _findTargetBuilding(enemy);
+                    // Stick with current target if it's still alive
+                    var currentTarget = null;
+                    if (enemy.targetBuildingId && typeof Buildings !== 'undefined' && Buildings.getAll) {
+                        var allBlds = Buildings.getAll();
+                        for (var bi = 0; bi < allBlds.length; bi++) {
+                            if (allBlds[bi].id === enemy.targetBuildingId && allBlds[bi].hp > 0) {
+                                var cellSzT = Config.GRID_CELL_SIZE;
+                                currentTarget = {
+                                    x: allBlds[bi].worldX || (allBlds[bi].gridX * cellSzT + cellSzT / 2),
+                                    y: allBlds[bi].worldY || (allBlds[bi].gridY * cellSzT + cellSzT / 2),
+                                    buildingId: allBlds[bi].id
+                                };
+                                break;
+                            }
+                        }
+                    }
+                    var targetPos = currentTarget || _findTargetBuilding(enemy);
                     if (targetPos) {
                         var useWaterOnly = false;
                         if (enemy.special === 'river_spawn' && enemy.targetCategory === 'water_buildings') {
