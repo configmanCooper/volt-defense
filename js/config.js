@@ -1220,7 +1220,6 @@ var Config = {
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0,
-            noCables: true,
             upgradeTo: null,
             description: 'Blocks enemy movement. Enemies must path around or destroy it.',
             icon: '🧱'
@@ -1256,7 +1255,6 @@ var Config = {
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0,
-            noCables: true,
             upgradeTo: null,
             description: 'Reinforced steel wall with 500 HP. Much tougher than standard walls.',
             icon: '🔩🧱'
