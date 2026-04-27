@@ -91,9 +91,9 @@ var Energy = (function() {
         if (cat === 'storage') {
             // Consumer batteries get lowest priority
             if (def.maxDischargeRate === 0 && def.sellPrice) return PRIORITY_CONSUMER;
-            // Regular batteries charge at weapon priority so they fill alongside weapons
-            return PRIORITY_WEAPONS;
+            return PRIORITY_BATTERIES;
         }
+        if (cat === 'consumer') return PRIORITY_CONSUMER;
         return PRIORITY_BATTERIES;
     }
 
@@ -569,9 +569,9 @@ var Energy = (function() {
                     var groupEnd = r; // exclusive
 
                     // Battery-generators that aren't full: only discharge to
-                    // same-or-higher priority consumers (shields, weapons, other batteries).
-                    // When full, they discharge to everything.
-                    if (isBatteryGen && !batteryGenFull && groupTypePri > PRIORITY_WEAPONS) {
+                    // same-or-higher priority consumers (up to PRIORITY_BATTERIES).
+                    // When full, they discharge to everything including consumer batteries.
+                    if (isBatteryGen && !batteryGenFull && groupTypePri > PRIORITY_BATTERIES) {
                         continue;
                     }
 
