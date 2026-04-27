@@ -1000,6 +1000,24 @@ var Render = (function () {
                 }
             }
 
+            // Resource shortage indicator
+            if (b.active && b.resourceShortage && !empDisabled[b.id]) {
+                if (_animFrame % 40 < 25) {
+                    var badgeX = b.worldX + pw - 8;
+                    var badgeY = b.worldY + 8;
+                    ctx.fillStyle = 'rgba(255,50,50,0.85)';
+                    ctx.beginPath();
+                    ctx.arc(badgeX, badgeY, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 8px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    var shortNames = { iron: 'Fe', coal: 'C', oil: 'Oil', uranium: 'U', steel: 'St' };
+                    ctx.fillText(shortNames[b.resourceShortage] || '?', badgeX, badgeY);
+                }
+            }
+
             // Icon (emoji)
             if (def.icon) {
                 var fontSize = Math.min(pw, ph) * 0.55;

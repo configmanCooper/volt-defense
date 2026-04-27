@@ -82,13 +82,15 @@ var Economy = (function () {
             // Check input resources
             var input = def.smeltInput || {};
             var canSmelt = true;
+            var missingResource = null;
             for (var rk in input) {
-                if ((_resources[rk] || 0) < input[rk]) { canSmelt = false; break; }
+                if ((_resources[rk] || 0) < input[rk]) { canSmelt = false; missingResource = rk; break; }
             }
-            if (!canSmelt) { continue; }
+            if (!canSmelt) { b.resourceShortage = missingResource; continue; }
 
             // Consume inputs
             b.smeltTimer = 0;
+            b.resourceShortage = null;
             for (var ck in input) {
                 _resources[ck] -= input[ck];
             }

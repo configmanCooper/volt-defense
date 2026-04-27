@@ -449,7 +449,7 @@ var Combat = (function() {
                     hasIron = false;
                 }
             }
-            if (!hasIron) { continue; }
+            if (!hasIron) { b.resourceShortage = 'iron'; continue; }
 
             // Check energy (full per-shot cost, not per-tick)
             var energyCost = def.energyPerShot || 0;
@@ -460,6 +460,7 @@ var Combat = (function() {
                 Economy.spendResource('iron', ironCost);
             }
             b.energy -= energyCost;
+            b.resourceShortage = null;
 
             // Calculate initial angle toward target
             var dx = enemy.x - center.x;
@@ -800,8 +801,8 @@ var Combat = (function() {
             var oilDraw = (def.oilPerTick || 0.02);
             if (oilDraw > 0) {
                 if (typeof Economy !== 'undefined' && Economy.getResource) {
-                    if (Economy.getResource('oil') < oilDraw) { continue; }
-                } else { continue; }
+                    if (Economy.getResource('oil') < oilDraw) { b.resourceShortage = 'oil'; continue; }
+                } else { b.resourceShortage = 'oil'; continue; }
             }
 
             var anyInRange = false;
@@ -830,6 +831,7 @@ var Combat = (function() {
                     Economy.spendResource('oil', oilDraw);
                 }
                 b.flameActive = true;
+                b.resourceShortage = null;
             } else {
                 b.flameActive = false;
             }
@@ -885,8 +887,8 @@ var Combat = (function() {
             // Check iron
             var ironCost = def.ironPerShot || 3;
             if (typeof Economy !== 'undefined' && Economy.getResource) {
-                if (Economy.getResource('iron') < ironCost) { continue; }
-            } else { continue; }
+                if (Economy.getResource('iron') < ironCost) { b.resourceShortage = 'iron'; continue; }
+            } else { b.resourceShortage = 'iron'; continue; }
 
             // Check energy
             var energyCost = def.energyPerShot || 500;
@@ -898,6 +900,7 @@ var Combat = (function() {
             }
             b.energy -= energyCost;
             b.reloadTimer = def.reloadTicks || 40;
+            b.resourceShortage = null;
 
             // Calculate shot line
             var dx = target.x - center.x;
@@ -1059,8 +1062,8 @@ var Combat = (function() {
             // Check iron
             var ironCost = def.ironPerShot || 2;
             if (typeof Economy !== 'undefined' && Economy.getResource) {
-                if (Economy.getResource('iron') < ironCost) { continue; }
-            } else { continue; }
+                if (Economy.getResource('iron') < ironCost) { b.resourceShortage = 'iron'; continue; }
+            } else { b.resourceShortage = 'iron'; continue; }
 
             // Check energy
             var energyCost = def.energyPerShot || 200;
@@ -1072,6 +1075,7 @@ var Combat = (function() {
             }
             b.energy -= energyCost;
             b.reloadTimer = def.reloadTicks || 30;
+            b.resourceShortage = null;
 
             var dx = bestX - center.x;
             var dy = bestY - center.y;
@@ -1251,6 +1255,7 @@ var Combat = (function() {
                         if (Economy.getResource('steel') >= steelCost) {
                             Economy.spendResource('steel', steelCost);
                             b.mineTimer = 0;
+                            b.resourceShortage = null;
 
                             // Place mine in a circle around the building
                             var mineRadius = def.mineRadius || 200;
@@ -1276,6 +1281,8 @@ var Combat = (function() {
                                 damage: def.mineDamage || 150,
                                 splashRadius: def.mineSplashRadius || 60
                             });
+                        } else {
+                            b.resourceShortage = 'steel';
                         }
                     }
                 }
@@ -1365,8 +1372,9 @@ var Combat = (function() {
             if (b.burstCounter >= burstSize) {
                 var steelCost = def.steelPerBurst || 1;
                 if (typeof Economy !== 'undefined' && Economy.getResource && Economy.spendResource) {
-                    if (Economy.getResource('steel') < steelCost) continue;
+                    if (Economy.getResource('steel') < steelCost) { b.resourceShortage = 'steel'; continue; }
                     Economy.spendResource('steel', steelCost);
+                    b.resourceShortage = null;
                 }
                 b.burstCounter = 0;
             }
@@ -1433,7 +1441,7 @@ var Combat = (function() {
             if (typeof Economy !== 'undefined' && Economy.getResource) {
                 hasUranium = Economy.getResource('uranium') >= uraniumCost;
             } else { hasUranium = false; }
-            if (!hasUranium) { continue; }
+            if (!hasUranium) { b.resourceShortage = 'uranium'; continue; }
 
             // Fire
             b.energy -= energyCost;
@@ -1441,6 +1449,7 @@ var Combat = (function() {
                 Economy.spendResource('uranium', uraniumCost);
             }
             b.reloadTimer = def.reloadTicks || 15;
+            b.resourceShortage = null;
 
             // Create plasma projectile
             var dx = enemy.x - center.x;
@@ -1542,6 +1551,7 @@ var Combat = (function() {
             if (!hasUranium) {
                 b.fusionRampTime = 0;
                 b.target = null;
+                b.resourceShortage = 'uranium';
                 continue;
             }
 
@@ -1557,6 +1567,7 @@ var Combat = (function() {
             if (typeof Economy !== 'undefined' && Economy.spendResource) {
                 Economy.spendResource('uranium', uraniumPerTick);
             }
+            b.resourceShortage = null;
 
             // Apply damage with high armor bypass
             var armorBypass = (typeof Config !== 'undefined' && Config.FUSION_ARMOR_BYPASS != null)
