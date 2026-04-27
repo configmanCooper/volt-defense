@@ -30,6 +30,7 @@ var Input = (function () {
 
     // Cable target cycling (Alt key during placement)
     var _cableTargetIdx = -1; // -1 = auto (nearest), 0+ = index into eligible list
+    var _lastAltTime = 0;
 
     // Deposit hover tooltip
     var _hoverGrid = { x: -1, y: -1 };
@@ -800,8 +801,11 @@ var Input = (function () {
                 if (_isPaused()) return;
 
                 // Alt — cycle cable target during placement
-                if (e.key === 'Alt' && _state === 'placing' && _placingType) {
+                if (e.key === 'Alt' && !e.repeat && _state === 'placing' && _placingType) {
                     e.preventDefault();
+                    var now = Date.now();
+                    if (now - _lastAltTime < 150) return; // throttle rapid presses
+                    _lastAltTime = now;
                     var cs = _getCellSize();
                     var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[_placingType] : null;
                     var sizeW = (def && def.size) ? def.size[0] : 1;
