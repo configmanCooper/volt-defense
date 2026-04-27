@@ -38,6 +38,7 @@ var Enemies = (function () {
     var _totalKills = 0;
     var _totalScore = 0;
     var _totalEscaped = 0;
+    var _rangedEffects = []; // visual effects for ranged attacks {type, fromX, fromY, toX, toY, timer, maxTimer, ...}
     var _spawnPoints = [];
     var _reachableSpawnsCache = null;  // cached list of spawn points that can reach core
     var _buildingCountAtCache = -1;    // building count when cache was computed
@@ -983,6 +984,23 @@ var Enemies = (function () {
             enemy.isBoss = true;
         }
 
+        // Ranged attack enemies
+        if (def.mechanic === 'ranged_attack') {
+            enemy.attackRange = def.attackRange || 300;
+            enemy.attackCooldown = (def.attackCooldown || 4) * Config.TICKS_PER_SECOND;
+            enemy.attackTimer = 0;
+            enemy.rangedType = def.rangedType || 'zapper';
+            enemy.rangedTargetId = null;
+            enemy.isAttacking = false;
+            enemy.energyAbsorbed = 0;
+            enemy.charged = false;
+            if (def.energyDrain) enemy.energyDrain = def.energyDrain;
+            if (def.energyThreshold) enemy.energyThreshold = def.energyThreshold;
+            if (def.chargedSpeed) enemy.chargedSpeed = def.chargedSpeed * (difficulty.enemySpeedMult || 1) * 0.85;
+            if (def.chargedDamage) enemy.chargedDamage = Math.round(def.chargedDamage * (difficulty.enemyDamageMult || 1));
+            if (def.empDuration) enemy.empDuration = def.empDuration;
+        }
+
         // Flying enemies always use direct path (straight line to core)
         if (def.special === 'flying') {
             enemy.path = _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
@@ -1136,6 +1154,171 @@ var Enemies = (function () {
         };
     }
 
+    // ---- Ranged Attack -------------------------------------------------------
+
+    /**
+     * Find the nearest building in range for a ranged enemy.
+     * Zapper: any building. Plasma Parasite: storage/weapons. EMP Sniper: storage/defense/power.
+     */
+    function _findRangedTarget(enemy) {
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) return null;
+        var buildings = Buildings.getAll();
+        var cellSz = Config.GRID_CELL_SIZE;
+        var rangeSq = enemy.attackRange * enemy.attackRange;
+        var best = null;
+        var bestDist = Infinity;
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.hp <= 0) continue;
+            var def = Config.BUILDINGS[b.type];
+            if (!def) continue;
+
+            // Filter by ranged type
+            if (enemy.rangedType === 'plasma_parasite') {
+                if (def.category !== 'storage' && def.category !== 'weapons') continue;
+            } else if (enemy.rangedType === 'emp_sniper') {
+                if (def.category !== 'storage' && def.category !== 'defense' && def.category !== 'power') continue;
+            }
+            // Zapper: any building
+
+            var bx = b.worldX || (b.gridX * cellSz + cellSz / 2);
+            var by = b.worldY || (b.gridY * cellSz + cellSz / 2);
+            var dx = bx - enemy.x;
+            var dy = by - enemy.y;
+            var distSq = dx * dx + dy * dy;
+
+            if (distSq <= rangeSq && distSq < bestDist) {
+                bestDist = distSq;
+                best = b;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Handle ranged attack for one tick. Returns true if enemy is attacking (should not move).
+     */
+    function _handleRangedAttack(enemy) {
+        // Tick down cooldown
+        if (enemy.attackTimer > 0) {
+            enemy.attackTimer--;
+        }
+
+        // Find target in range
+        var target = null;
+        if (enemy.rangedTargetId) {
+            // Check if current target still valid
+            var buildings = (typeof Buildings !== 'undefined' && Buildings.getAll) ? Buildings.getAll() : [];
+            for (var i = 0; i < buildings.length; i++) {
+                if (buildings[i].id === enemy.rangedTargetId && buildings[i].hp > 0) {
+                    var cellSz = Config.GRID_CELL_SIZE;
+                    var bx = buildings[i].worldX || (buildings[i].gridX * cellSz + cellSz / 2);
+                    var by = buildings[i].worldY || (buildings[i].gridY * cellSz + cellSz / 2);
+                    var dx = bx - enemy.x;
+                    var dy = by - enemy.y;
+                    if (dx * dx + dy * dy <= enemy.attackRange * enemy.attackRange) {
+                        target = buildings[i];
+                    }
+                    break;
+                }
+            }
+        }
+        if (!target) {
+            target = _findRangedTarget(enemy);
+            enemy.rangedTargetId = target ? target.id : null;
+        }
+
+        if (!target) {
+            enemy.isAttacking = false;
+            return false; // no target in range, keep moving
+        }
+
+        enemy.isAttacking = true;
+        var cellSz2 = Config.GRID_CELL_SIZE;
+        var tx = target.worldX || (target.gridX * cellSz2 + cellSz2 / 2);
+        var ty = target.worldY || (target.gridY * cellSz2 + cellSz2 / 2);
+
+        // Attack if cooldown ready
+        if (enemy.attackTimer <= 0) {
+            enemy.attackTimer = enemy.attackCooldown;
+
+            if (enemy.rangedType === 'zapper') {
+                // Direct damage
+                target.hp -= enemy.damage;
+                if (target.hp < 0) target.hp = 0;
+                // Visual: laser beam
+                _rangedEffects.push({
+                    type: 'zapper_beam',
+                    fromX: enemy.x, fromY: enemy.y,
+                    toX: tx, toY: ty,
+                    timer: 8, maxTimer: 8
+                });
+            } else if (enemy.rangedType === 'plasma_parasite') {
+                // Drain energy
+                var drain = enemy.energyDrain || 10;
+                var available = target.energy || 0;
+                var drained = Math.min(drain, available);
+                target.energy -= drained;
+                enemy.energyAbsorbed = (enemy.energyAbsorbed || 0) + drained;
+                // Visual: energy absorption
+                _rangedEffects.push({
+                    type: 'plasma_drain',
+                    fromX: tx, fromY: ty,
+                    toX: enemy.x, toY: enemy.y,
+                    timer: 8, maxTimer: 8,
+                    amount: drained
+                });
+                // Check if charged
+                if (enemy.energyAbsorbed >= (enemy.energyThreshold || 1000)) {
+                    enemy.charged = true;
+                    enemy.speed = enemy.chargedSpeed || 280;
+                    enemy.damage = enemy.chargedDamage || 10;
+                    enemy.isAttacking = false;
+                    enemy.rangedTargetId = null;
+                    // Path to core
+                    enemy.targetBuildingId = null;
+                    enemy.targetCategory = null;
+                    enemy.repathTimer = 0;
+                    _rangedEffects.push({
+                        type: 'plasma_charge',
+                        fromX: enemy.x, fromY: enemy.y,
+                        toX: enemy.x, toY: enemy.y,
+                        timer: 20, maxTimer: 20
+                    });
+                    return false; // start moving to core
+                }
+            } else if (enemy.rangedType === 'emp_sniper') {
+                // Damage + EMP disable
+                target.hp -= enemy.damage;
+                if (target.hp < 0) target.hp = 0;
+                target.active = false;
+                target.empDisabled = true;
+                target.empTimer = enemy.empDuration || 50;
+                // Visual: EMP missile
+                _rangedEffects.push({
+                    type: 'emp_missile',
+                    fromX: enemy.x, fromY: enemy.y,
+                    toX: tx, toY: ty,
+                    timer: 15, maxTimer: 15
+                });
+            }
+        } else {
+            // Plasma parasites show continuous drain visual while in range
+            if (enemy.rangedType === 'plasma_parasite' && enemy.attackTimer < enemy.attackCooldown - 2) {
+                // Show faint drain beam while waiting
+                _rangedEffects.push({
+                    type: 'plasma_drain_idle',
+                    fromX: tx, fromY: ty,
+                    toX: enemy.x, toY: enemy.y,
+                    timer: 1, maxTimer: 1
+                });
+            }
+        }
+
+        return true; // attacking, don't move
+    }
+
     // ---- Movement ----------------------------------------------------------
 
     /**
@@ -1151,6 +1334,13 @@ var Enemies = (function () {
         if (enemy.blocked) {
             enemy.blocked = false;
             return;
+        }
+
+        // Ranged attack behavior: stop and attack from distance
+        if (enemy.mechanic === 'ranged_attack' && !enemy.charged) {
+            if (_handleRangedAttack(enemy)) {
+                return; // enemy is attacking from range, don't move
+            }
         }
 
         // Periodic repath for ALL enemies
@@ -1492,6 +1682,14 @@ var Enemies = (function () {
             for (var i = _enemies.length - 1; i >= 0; i--) {
                 _moveEnemy(_enemies[i]);
             }
+
+            // 3. Tick ranged effects (decay timers)
+            for (var ri = _rangedEffects.length - 1; ri >= 0; ri--) {
+                _rangedEffects[ri].timer--;
+                if (_rangedEffects[ri].timer <= 0) {
+                    _rangedEffects.splice(ri, 1);
+                }
+            }
         },
 
         spawnWave: function (waveNumber) {
@@ -1556,6 +1754,10 @@ var Enemies = (function () {
 
         getAll: function () {
             return _enemies;
+        },
+
+        getRangedEffects: function () {
+            return _rangedEffects;
         },
 
         getById: function (id) {
@@ -1797,6 +1999,7 @@ var Enemies = (function () {
             _totalKills    = data.totalKills    || 0;
             _totalScore    = data.totalScore    || 0;
             _totalEscaped  = data.totalEscaped  || 0;
+            _rangedEffects = [];
             _spawnPoints   = data.spawnPoints   || [];
         },
 

@@ -54,7 +54,10 @@ var Render = (function () {
             jammer: '#669966',
             scout_drone: '#99ddff',
             heavy_flyer: '#556688',
-            tunneler: '#8b5a2b'
+            tunneler: '#8b5a2b',
+            zapper: '#33ff99',
+            plasma_parasite: '#ff33ff',
+            emp_sniper: '#3399ff'
         },
         SHIELD: {
             fill: 'rgba(100, 180, 255, 0.15)',
@@ -107,7 +110,8 @@ var Render = (function () {
     var ENEMY_RADIUS = {
         tank: 12, heavy_tank: 14, siege_engine: 16,
         spark: 6, runner: 7, swarm: 5,
-        scout_drone: 6, heavy_flyer: 13, tunneler: 9
+        scout_drone: 6, heavy_flyer: 13, tunneler: 9,
+        zapper: 7, plasma_parasite: 9, emp_sniper: 10
     };
     var ENEMY_RADIUS_DEFAULT = 8;
 
@@ -1893,6 +1897,249 @@ var Render = (function () {
         ctx.restore();
     }
 
+    // ---- Ranged Enemy Draw Functions ----
+
+    function _drawZapper(ctx, x, y, r, anim, angle) {
+        ctx.save();
+        ctx.translate(x, y);
+        if (angle) ctx.rotate(angle);
+        // Body: small electric green diamond
+        ctx.fillStyle = '#33ff99';
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.lineTo(r * 0.7, 0);
+        ctx.lineTo(0, r);
+        ctx.lineTo(-r * 0.7, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#00cc66';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Electric spark on top
+        var sparkLen = r * 0.5 + Math.sin(anim * 0.3) * r * 0.2;
+        ctx.strokeStyle = '#aaffcc';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-sparkLen, -r * 0.3);
+        ctx.lineTo(0, -r * 0.6);
+        ctx.lineTo(sparkLen, -r * 0.3);
+        ctx.stroke();
+        // Eye
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, -r * 0.1, r * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function _drawPlasmaParasite(ctx, x, y, r, anim, angle) {
+        ctx.save();
+        ctx.translate(x, y);
+        // Pulsating body
+        var pulse = 1 + Math.sin(anim * 0.15) * 0.15;
+        var pr = r * pulse;
+        // Outer membrane
+        ctx.fillStyle = 'rgba(255, 50, 255, 0.3)';
+        ctx.beginPath();
+        ctx.arc(0, 0, pr + 3, 0, Math.PI * 2);
+        ctx.fill();
+        // Body
+        ctx.fillStyle = '#cc22cc';
+        ctx.beginPath();
+        ctx.arc(0, 0, pr, 0, Math.PI * 2);
+        ctx.fill();
+        // Nucleus
+        ctx.fillStyle = '#ff88ff';
+        ctx.beginPath();
+        ctx.arc(Math.sin(anim * 0.1) * 2, Math.cos(anim * 0.12) * 2, pr * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Tendrils
+        ctx.strokeStyle = 'rgba(255, 100, 255, 0.6)';
+        ctx.lineWidth = 1;
+        for (var t = 0; t < 4; t++) {
+            var ta = (t / 4) * Math.PI * 2 + anim * 0.05;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(ta) * pr, Math.sin(ta) * pr);
+            ctx.lineTo(Math.cos(ta) * (pr + 6), Math.sin(ta) * (pr + 6));
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function _drawEMPSniper(ctx, x, y, r, anim, angle) {
+        ctx.save();
+        ctx.translate(x, y);
+        if (angle) ctx.rotate(angle);
+        // Body: angular armored shape
+        ctx.fillStyle = '#225599';
+        ctx.beginPath();
+        ctx.moveTo(-r, r * 0.5);
+        ctx.lineTo(-r * 0.3, -r);
+        ctx.lineTo(r * 0.3, -r);
+        ctx.lineTo(r, r * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#3399ff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Barrel/antenna
+        ctx.strokeStyle = '#66bbff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.lineTo(0, -r * 1.8);
+        ctx.stroke();
+        // EMP tip glow
+        var glow = 0.5 + Math.sin(anim * 0.2) * 0.3;
+        ctx.fillStyle = 'rgba(100, 200, 255, ' + glow + ')';
+        ctx.beginPath();
+        ctx.arc(0, -r * 1.8, 3, 0, Math.PI * 2);
+        ctx.fill();
+        // Scope lens
+        ctx.fillStyle = '#ff3333';
+        ctx.beginPath();
+        ctx.arc(0, -r * 0.3, r * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // ---- Ranged Effect Rendering ----
+
+    function _drawRangedEffects(ctx) {
+        if (typeof Enemies === 'undefined' || !Enemies.getRangedEffects) return;
+        var effects = Enemies.getRangedEffects();
+        if (!effects || !effects.length) return;
+
+        for (var i = 0; i < effects.length; i++) {
+            var fx = effects[i];
+            var progress = 1 - (fx.timer / fx.maxTimer);
+            var alpha = fx.timer / fx.maxTimer;
+
+            if (fx.type === 'zapper_beam') {
+                // Electric laser beam from enemy to building
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.strokeStyle = '#33ff99';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = '#33ff99';
+                ctx.beginPath();
+                ctx.moveTo(Math.floor(fx.fromX), Math.floor(fx.fromY));
+                // Jagged beam: add zigzag points
+                var zdx = fx.toX - fx.fromX;
+                var zdy = fx.toY - fx.fromY;
+                var segments = 5;
+                for (var s = 1; s < segments; s++) {
+                    var t = s / segments;
+                    var mx = fx.fromX + zdx * t + (Math.random() - 0.5) * 8;
+                    var my = fx.fromY + zdy * t + (Math.random() - 0.5) * 8;
+                    ctx.lineTo(Math.floor(mx), Math.floor(my));
+                }
+                ctx.lineTo(Math.floor(fx.toX), Math.floor(fx.toY));
+                ctx.stroke();
+                // Impact flash
+                ctx.fillStyle = '#aaffcc';
+                ctx.beginPath();
+                ctx.arc(Math.floor(fx.toX), Math.floor(fx.toY), 4 * alpha, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+            } else if (fx.type === 'plasma_drain' || fx.type === 'plasma_drain_idle') {
+                // Energy flowing from building to parasite
+                ctx.save();
+                var drainAlpha = fx.type === 'plasma_drain_idle' ? 0.2 : alpha * 0.7;
+                ctx.globalAlpha = drainAlpha;
+                // Draw flowing particles along the beam
+                var pdx = fx.toX - fx.fromX;
+                var pdy = fx.toY - fx.fromY;
+                var pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+                if (pDist > 0) {
+                    // Beam
+                    ctx.strokeStyle = 'rgba(255, 100, 255, 0.5)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.floor(fx.fromX), Math.floor(fx.fromY));
+                    ctx.lineTo(Math.floor(fx.toX), Math.floor(fx.toY));
+                    ctx.stroke();
+                    // Flowing energy particles (3 particles along beam)
+                    for (var p = 0; p < 3; p++) {
+                        var pt = ((progress * 3 + p) / 3) % 1;
+                        var px = fx.fromX + pdx * pt;
+                        var py = fx.fromY + pdy * pt;
+                        var pSize = 3 - pt * 2;
+                        ctx.fillStyle = '#ff88ff';
+                        ctx.shadowBlur = 4;
+                        ctx.shadowColor = '#ff44ff';
+                        ctx.beginPath();
+                        ctx.arc(Math.floor(px), Math.floor(py), pSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+
+            } else if (fx.type === 'plasma_charge') {
+                // Supercharge burst effect
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                var chargeR = 20 * progress;
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#ff00ff';
+                ctx.beginPath();
+                ctx.arc(Math.floor(fx.fromX), Math.floor(fx.fromY), chargeR, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+                ctx.beginPath();
+                ctx.arc(Math.floor(fx.fromX), Math.floor(fx.fromY), chargeR * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+            } else if (fx.type === 'emp_missile') {
+                // Electric missile traveling from enemy to building
+                ctx.save();
+                var emDx = fx.toX - fx.fromX;
+                var emDy = fx.toY - fx.fromY;
+                var emX = fx.fromX + emDx * progress;
+                var emY = fx.fromY + emDy * progress;
+                // Trail
+                ctx.strokeStyle = 'rgba(50, 150, 255, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(Math.floor(fx.fromX), Math.floor(fx.fromY));
+                ctx.lineTo(Math.floor(emX), Math.floor(emY));
+                ctx.stroke();
+                // Missile body
+                ctx.fillStyle = '#3399ff';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#66bbff';
+                ctx.beginPath();
+                ctx.arc(Math.floor(emX), Math.floor(emY), 4, 0, Math.PI * 2);
+                ctx.fill();
+                // Electric crackle around missile
+                ctx.strokeStyle = '#aaddff';
+                ctx.lineWidth = 1;
+                for (var c = 0; c < 3; c++) {
+                    var ca = Math.random() * Math.PI * 2;
+                    var cl = 5 + Math.random() * 5;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.floor(emX), Math.floor(emY));
+                    ctx.lineTo(Math.floor(emX + Math.cos(ca) * cl), Math.floor(emY + Math.sin(ca) * cl));
+                    ctx.stroke();
+                }
+                // Impact on arrival
+                if (progress > 0.85) {
+                    var impactAlpha = (progress - 0.85) / 0.15;
+                    ctx.fillStyle = 'rgba(100, 200, 255, ' + (impactAlpha * 0.5) + ')';
+                    ctx.beginPath();
+                    ctx.arc(Math.floor(fx.toX), Math.floor(fx.toY), 12 * impactAlpha, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+    }
+
     // Lookup table for enemy draw functions
     var ENEMY_DRAW_FNS = {
         spark: _drawSpark,
@@ -1918,7 +2165,10 @@ var Render = (function () {
         heavy_flyer: _drawHeavyFlyer,
         tunneler: _drawTunneler,
         overload_boss: _drawOverloadBoss,
-        wall_breaker: _drawWallBreaker
+        wall_breaker: _drawWallBreaker,
+        zapper: _drawZapper,
+        plasma_parasite: _drawPlasmaParasite,
+        emp_sniper: _drawEMPSniper
     };
 
     // ------------------------------------------------------------------------
@@ -1957,6 +2207,12 @@ var Render = (function () {
             // Stunned indicator
             if (e.stunTimer && e.stunTimer > 0) {
                 ctx.globalAlpha = 0.6;
+            }
+
+            // Charged plasma parasite: bright glow
+            if (e.charged && e.type === 'plasma_parasite') {
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = '#ff00ff';
             }
 
             // Flying enemy: draw shadow underneath, then offset drawing upward
@@ -3023,6 +3279,7 @@ var Render = (function () {
             _drawDebugEnergyOverlay(_ctx);
             _drawShields(_ctx);
             _drawEnemies(_ctx);
+            _drawRangedEffects(_ctx);
             _drawProjectiles(_ctx);
             _drawMortarImpacts(_ctx);
             _drawLaserBeams(_ctx);
