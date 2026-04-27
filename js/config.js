@@ -1683,7 +1683,7 @@ var Config = {
         // Wave 10: Drill Worms + Tank (target mines)
         { number: 10, enemies: [{ type: 'tank', count: 2 }, { type: 'drill_worm', count: 3 }, { type: 'grunt', count: 8 }, { type: 'river_serpent', count: 3 }], spawnDelay: 400, spawnPoints: 2 },
         // Wave 11
-        { number: 11, enemies: [{ type: 'tank', count: 2 }, { type: 'wall_breaker', count: 4 }, { type: 'bomber', count: 4 }, { type: 'home_wrecker', count: 3 }, { type: 'shielded_grunt', count: 5 }, { type: 'drill_worm', count: 3 }], spawnDelay: 380, spawnPoints: 2 },
+        { number: 11, enemies: [{ type: 'tank', count: 1 }, { type: 'wall_breaker', count: 2 }, { type: 'bomber', count: 4 }, { type: 'home_wrecker', count: 3 }, { type: 'shielded_grunt', count: 5 }, { type: 'drill_worm', count: 3 }], spawnDelay: 380, spawnPoints: 2 },
         // Wave 12: Disruptors arrive (target weapons)
         { number: 12, enemies: [{ type: 'disruptor', count: 3 }, { type: 'tank', count: 3 }, { type: 'grunt', count: 10 }, { type: 'runner', count: 8 }], spawnDelay: 380, spawnPoints: 2 },
         // Wave 13: EMP Drones join
@@ -1691,9 +1691,9 @@ var Config = {
         // Wave 14: Leeches + Scout Drones arrive (first flying enemy)
         { number: 14, enemies: [{ type: 'leech', count: 3 }, { type: 'scout_drone', count: 5 }, { type: 'tank', count: 3 }, { type: 'disruptor', count: 3 }, { type: 'emp_drone', count: 3 }, { type: 'runner', count: 8 }], spawnDelay: 350, spawnPoints: 2 },
         // Wave 15: Tunnelers arrive (burrow under walls)
-        { number: 15, enemies: [{ type: 'tunneler', count: 4 }, { type: 'tank', count: 4 }, { type: 'wall_breaker', count: 4 }, { type: 'leech', count: 4 }, { type: 'bomber', count: 5 }, { type: 'home_wrecker', count: 3 }, { type: 'river_serpent', count: 4 }], spawnDelay: 340, spawnPoints: 2 },
+        { number: 15, enemies: [{ type: 'tunneler', count: 4 }, { type: 'tank', count: 3 }, { type: 'leech', count: 4 }, { type: 'bomber', count: 5 }, { type: 'home_wrecker', count: 3 }, { type: 'river_serpent', count: 4 }], spawnDelay: 340, spawnPoints: 2 },
         // Wave 16: Swarms unleashed
-        { number: 16, enemies: [{ type: 'swarm', count: 25 }, { type: 'disruptor', count: 3 }, { type: 'drill_worm', count: 3 }, { type: 'emp_drone', count: 4 }], spawnDelay: 300, spawnPoints: 2 },
+        { number: 16, enemies: [{ type: 'swarm', count: 30 }, { type: 'disruptor', count: 3 }, { type: 'drill_worm', count: 3 }, { type: 'emp_drone', count: 4 }, { type: 'wall_breaker', count: 4 }, { type: 'runner', count: 8 }], spawnDelay: 300, spawnPoints: 2 },
         // Wave 17
         { number: 17, enemies: [{ type: 'tank', count: 4 }, { type: 'swarm', count: 20 }, { type: 'bomber', count: 5 }, { type: 'leech', count: 3 }, { type: 'river_serpent', count: 4 }, { type: 'zapper', count: 4 }], spawnDelay: 300, spawnPoints: 3 },
         // Wave 18: Nullifiers arrive (target shields)
@@ -1701,7 +1701,7 @@ var Config = {
         // Wave 19: Heavy Flyers arrive + pre-boss buildup
         { number: 19, enemies: [{ type: 'heavy_flyer', count: 3 }, { type: 'tank', count: 5 }, { type: 'nullifier', count: 3 }, { type: 'bomber', count: 6 }, { type: 'leech', count: 4 }, { type: 'swarm', count: 20 }, { type: 'emp_drone', count: 4 }, { type: 'zapper', count: 6 }], spawnDelay: 260, spawnPoints: 3 },
         // Wave 20: BOSS WAVE — Overload Boss
-        { number: 20, enemies: [{ type: 'overload_boss', count: 1 }, { type: 'heavy_tank', count: 2 }, { type: 'shielded_grunt', count: 10 }, { type: 'swarm', count: 18 }, { type: 'nullifier', count: 3 }], spawnDelay: 250, spawnPoints: 3 },
+        { number: 20, enemies: [{ type: 'overload_boss', count: 1 }, { type: 'heavy_tank', count: 2 }, { type: 'heavy_flyer', count: 2 }, { type: 'shielded_grunt', count: 10 }, { type: 'swarm', count: 18 }, { type: 'nullifier', count: 3 }], spawnDelay: 250, spawnPoints: 3 },
         // Wave 21-50: Increasingly diverse and difficult
         { number: 21, enemies: [{ type: 'heavy_tank', count: 1 }, { type: 'bomber', count: 5 }, { type: 'emp_drone', count: 4 }, { type: 'disruptor', count: 3 }, { type: 'runner', count: 8 }, { type: 'plasma_parasite', count: 4 }, { type: 'zapper', count: 5 }], spawnDelay: 250, spawnPoints: 3 },
         { number: 22, enemies: [{ type: 'heavy_tank', count: 2 }, { type: 'wall_breaker', count: 10 }, { type: 'nullifier', count: 4 }, { type: 'scout_drone', count: 6 }, { type: 'tunneler', count: 3 }, { type: 'drill_worm', count: 3 }, { type: 'swarm', count: 20 }, { type: 'river_serpent', count: 3 }], spawnDelay: 240, spawnPoints: 3 },
