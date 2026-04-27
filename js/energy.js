@@ -740,7 +740,7 @@ var Energy = (function() {
                 if (!def.energyConsumption || def.energyConsumption <= 0) {
                     // Activate buildings that don't consume energy (weapons, core_repair)
                     // They manage their own energy draw in combat/other systems
-                    if (!building.active && building.hp > 0) {
+                    if (!building.active && building.hp > 0 && !building.empDisabled) {
                         var wReq0 = def.workersRequired || 0;
                         if (wReq0 > 0 && typeof Workers !== 'undefined' && Workers.canAllocate && Workers.allocateWorkers) {
                             if (Workers.canAllocate(wReq0)) {
@@ -763,7 +763,7 @@ var Energy = (function() {
 
                 if (building.energy >= consumePerTick) {
                     building.energy -= consumePerTick;
-                    if (!building.active) {
+                    if (!building.active && !building.empDisabled) {
                         // Reactivating — re-allocate workers
                         var wReq = def.workersRequired || 0;
                         if (wReq > 0 && typeof Workers !== 'undefined' && Workers.canAllocate && Workers.allocateWorkers) {
