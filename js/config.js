@@ -1228,7 +1228,7 @@ var Config = {
         electric_wall: {
             name: 'Electric Wall',
             category: 'defense',
-            cost: { money: 300, iron: 5 },
+            cost: { money: 300, iron: 2 },
             size: [1, 1],
             hp: 200,
             workersRequired: 0,
