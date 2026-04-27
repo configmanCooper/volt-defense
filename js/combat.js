@@ -483,6 +483,60 @@ var Combat = (function() {
         }
     }
 
+    // ---- 4b. Process Blasters ----
+
+    function _processBlasters() {
+        var buildings = _getAllBuildings();
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'blaster_t1' && b.type !== 'blaster_t2' && b.type !== 'blaster_t3') {
+                continue;
+            }
+
+            var def = _getBuildingDef(b.type);
+            if (!def) { continue; }
+            if (!b.active || b.hp <= 0) { continue; }
+
+            if (b.reloadTimer == null) { b.reloadTimer = 0; }
+            if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+
+            // Blasters target closest enemy (more accurate than missiles)
+            var enemy = null;
+            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
+                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
+            }
+            if (!enemy) { continue; }
+
+            var energyCost = def.energyPerShot || 0;
+            if (b.energy < energyCost) { continue; }
+            b.energy -= energyCost;
+
+            var dx = enemy.x - center.x;
+            var dy = enemy.y - center.y;
+            var angle = Math.atan2(dy, dx);
+
+            _projectiles.push({
+                id: _nextProjectileId++,
+                x: center.x,
+                y: center.y,
+                targetId: enemy.id,
+                damage: def.damage,
+                speed: def.projectileSpeed || 400,
+                type: 'blaster',
+                angle: angle,
+                distanceTraveled: 0,
+                maxDistance: effectiveRange * ((typeof Config !== 'undefined' && Config.BLASTER_MAX_RANGE_MULT != null)
+                    ? Config.BLASTER_MAX_RANGE_MULT : 1.3)
+            });
+
+            b.reloadTimer = def.reloadTicks || 5;
+        }
+    }
+
     // ---- 5. Update Projectiles ----
 
     function _updateProjectiles() {
@@ -523,6 +577,42 @@ var Combat = (function() {
                 if (pHitDist <= hitDist) {
                     if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
                         Enemies.damageEnemy(p.targetId, p.damage, p.armorBypass || 1.0);
+                    }
+                    continue;
+                }
+                if (p.distanceTraveled > p.maxDistance) { continue; }
+                surviving.push(p);
+                continue;
+            }
+
+            // Blaster projectile handling — more accurate homing
+            if (p.type === 'blaster') {
+                var bTarget = null;
+                if (typeof Enemies !== 'undefined' && Enemies.getById) {
+                    bTarget = Enemies.getById(p.targetId);
+                }
+                if (!bTarget || bTarget.hp <= 0) { continue; }
+
+                var bDesired = Math.atan2(bTarget.y - p.y, bTarget.x - p.x);
+                var bDiff = bDesired - p.angle;
+                while (bDiff > Math.PI) { bDiff -= 2 * Math.PI; }
+                while (bDiff < -Math.PI) { bDiff += 2 * Math.PI; }
+                var blasterHomingAngle = (typeof Config !== 'undefined' && Config.BLASTER_HOMING_ANGLE != null)
+                    ? Config.BLASTER_HOMING_ANGLE : 30;
+                var bMaxTurn = (blasterHomingAngle * Math.PI / 180) / tps;
+                if (bDiff > bMaxTurn) { bDiff = bMaxTurn; }
+                else if (bDiff < -bMaxTurn) { bDiff = -bMaxTurn; }
+                p.angle += bDiff;
+
+                var bMoveDist = p.speed / tps;
+                p.x += Math.cos(p.angle) * bMoveDist;
+                p.y += Math.sin(p.angle) * bMoveDist;
+                p.distanceTraveled += bMoveDist;
+
+                var bHitDist = _distance(p.x, p.y, bTarget.x, bTarget.y);
+                if (bHitDist <= hitDist) {
+                    if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                        Enemies.damageEnemy(p.targetId, p.damage, 0);
                     }
                     continue;
                 }
@@ -1477,6 +1567,7 @@ var Combat = (function() {
             _processCoreRepair();
             _processLasers();
             _processMissiles();
+            _processBlasters();
             _updateProjectiles();
             _processTeslaCoils();
             _processFlamethrowers();

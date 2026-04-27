@@ -51,6 +51,10 @@ var Config = {
     MISSILE_HOMING_ANGLE: 20,
     MISSILE_MAX_RANGE_MULT: 1.5,
 
+    // Blaster
+    BLASTER_HOMING_ANGLE: 30,
+    BLASTER_MAX_RANGE_MULT: 1.3,
+
     // Fusion Beam
     FUSION_RAMP_INTERVAL: 0.33,  // ramps 3x faster than lasers
     FUSION_ARMOR_BYPASS: 0.8,    // pierces most armor
@@ -187,7 +191,7 @@ var Config = {
         nuclear_plant: {
             name: 'Nuclear Plant',
             category: 'power',
-            cost: { money: 5000, iron: 200 },
+            cost: { money: 5000, iron: 100, steel: 50 },
             size: [2, 2],
             hp: 200,
             workersRequired: 8,
@@ -465,6 +469,27 @@ var Config = {
             icon: '🛢️'
         },
 
+        smelter: {
+            name: 'Smelter',
+            category: 'mining',
+            cost: { money: 800, iron: 30 },
+            size: [1, 1],
+            hp: 100,
+            workersRequired: 3,
+            energyGeneration: 0,
+            energyConsumption: 7,
+            energyStorageCapacity: 20,
+            maxChargeRate: 15,
+            maxDischargeRate: 0,
+            pollution: 0.3,
+            smeltInput: { iron: 4, coal: 2 },
+            smeltOutput: { steel: 2 },
+            smeltInterval: 120,
+            upgradeTo: null,
+            description: 'Converts 4 iron + 2 coal into 2 steel every 12 seconds. Requires energy.',
+            icon: '🔥⚙️'
+        },
+
         // ---- Weapons ------------------------------------------------------
         laser_t1: {
             name: 'Laser Turret T1',
@@ -504,6 +529,7 @@ var Config = {
             range: 400,
             baseEnergyDraw: 60,
             maxRamp: 8,
+            buildable: false,
             upgradeTo: 'laser_t3',
             description: 'Upgraded laser. Higher DPS and longer range.',
             icon: '🔴'
@@ -525,6 +551,7 @@ var Config = {
             range: 500,
             baseEnergyDraw: 100,
             maxRamp: 16,
+            buildable: false,
             upgradeTo: null,
             description: 'Top-tier laser. Devastating sustained damage.',
             icon: '🔴'
@@ -544,7 +571,7 @@ var Config = {
             pollution: 0,
             damage: 40,
             range: 500,
-            energyPerShot: 100,
+            energyPerShot: 50,
             reloadTicks: 20,
             ironPerShot: 1,
             missileSpeed: 300,
@@ -571,6 +598,7 @@ var Config = {
             reloadTicks: 25,
             ironPerShot: 2,
             missileSpeed: 350,
+            buildable: false,
             upgradeTo: 'missile_t3',
             description: 'Upgraded missiles. Higher damage and range.',
             icon: '🚀'
@@ -590,13 +618,83 @@ var Config = {
             pollution: 0,
             damage: 250,
             range: 800,
-            energyPerShot: 100,
+            energyPerShot: 150,
             reloadTicks: 30,
-            ironPerShot: 5,
+            ironPerShot: 3,
             missileSpeed: 400,
+            buildable: false,
             upgradeTo: null,
             description: 'Heavy missiles. Devastating single-target damage.',
             icon: '🚀'
+        },
+
+        blaster_t1: {
+            name: 'Blaster T1',
+            category: 'weapons',
+            cost: { money: 200 },
+            size: [1, 1],
+            hp: 70,
+            workersRequired: 2,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 120,
+            maxChargeRate: 80,
+            maxDischargeRate: 0,
+            pollution: 0,
+            damage: 10,
+            range: 250,
+            energyPerShot: 20,
+            reloadTicks: 5,
+            projectileSpeed: 400,
+            upgradeTo: 'blaster_t2',
+            description: 'Rapid-fire energy blaster. Shoots every 0.5s with good accuracy.',
+            icon: '🔵'
+        },
+        blaster_t2: {
+            name: 'Blaster T2',
+            category: 'weapons',
+            cost: { money: 800 },
+            size: [1, 1],
+            hp: 90,
+            workersRequired: 3,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 300,
+            maxChargeRate: 150,
+            maxDischargeRate: 0,
+            pollution: 0,
+            damage: 20,
+            range: 400,
+            energyPerShot: 50,
+            reloadTicks: 5,
+            projectileSpeed: 500,
+            buildable: false,
+            upgradeTo: 'blaster_t3',
+            description: 'Upgraded blaster. More damage and range.',
+            icon: '🔵'
+        },
+        blaster_t3: {
+            name: 'Blaster T3',
+            category: 'weapons',
+            cost: { money: 2000 },
+            size: [1, 1],
+            hp: 110,
+            workersRequired: 4,
+            energyGeneration: 0,
+            energyConsumption: 0,
+            energyStorageCapacity: 600,
+            maxChargeRate: 250,
+            maxDischargeRate: 0,
+            pollution: 0,
+            damage: 40,
+            range: 600,
+            energyPerShot: 100,
+            reloadTicks: 5,
+            projectileSpeed: 600,
+            buildable: false,
+            upgradeTo: null,
+            description: 'Top-tier blaster. Devastating rapid fire.',
+            icon: '🔵'
         },
 
         tesla_coil: {
@@ -639,11 +737,11 @@ var Config = {
             baseDPS: 8,
             range: 150,
             energyDraw: 20,
-            oilPerTick: 0.02,
+            oilPerTick: 0.1,
             burnDPS: 3,
             burnDuration: 30,
             upgradeTo: null,
-            description: 'Short-range AoE that damages all enemies in range. Burns 1 oil per 50 ticks while firing. Applies burning DOT: 3 DPS for 3 seconds.',
+            description: 'Short-range AoE that damages all enemies in range. Burns 1 oil per 10 ticks while firing. Applies burning DOT: 3 DPS for 3 seconds.',
             icon: '🔥'
         },
 
@@ -662,7 +760,7 @@ var Config = {
             pollution: 0,
             damage: 100,
             range: 800,
-            energyPerShot: 375,
+            energyPerShot: 250,
             reloadTicks: 40,
             ironPerShot: 3,
             upgradeTo: null,
@@ -688,7 +786,7 @@ var Config = {
             cooldownTicks: 100,
             stunDuration: 50,
             upgradeTo: null,
-            description: 'Stuns all enemies in range for 30 ticks. High energy cost per activation.',
+            description: 'Stuns all enemies in range for 5 seconds. High energy cost per activation.',
             icon: '📡'
         },
 
@@ -760,7 +858,7 @@ var Config = {
             maxDischargeRate: 0,
             pollution: 5,
             range: 500,
-            damage: 400,
+            damage: 500,
             energyPerShot: 250,
             uraniumPerShot: 1,
             reloadTicks: 15,
@@ -815,7 +913,7 @@ var Config = {
         shield_t2: {
             name: 'Shield Generator T2',
             category: 'defense',
-            cost: { money: 4000, iron: 150 },
+            cost: { money: 4000, steel: 50 },
             size: [2, 2],
             hp: 250,
             workersRequired: 5,
@@ -1031,10 +1129,10 @@ var Config = {
             maxChargeRate: 10,
             maxDischargeRate: 0,
             pollution: 0,
-            sellInterval: 240,
-            resourcePrices: { coal: 10, iron: 20, oil: 25, uranium: 100 },
+            sellInterval: 120,
+            resourcePrices: { coal: 10, iron: 20, oil: 25, steel: 60, uranium: 100 },
             upgradeTo: null,
-            description: 'A marketplace that sells your resources for profit. Toggle which resources to sell. Sells one of each enabled resource every 24 seconds.',
+            description: 'A marketplace that sells your resources for profit. Toggle which resources to sell. Sells one of each enabled resource every 12 seconds.',
             icon: '🏪'
         },
 
@@ -1078,7 +1176,7 @@ var Config = {
         core_repair: {
             name: 'Core Repair',
             category: 'defense',
-            cost: { money: 10000, iron: 200, uranium: 50 },
+            cost: { money: 10000, steel: 100, uranium: 50 },
             size: [1, 1],
             hp: 150,
             workersRequired: 3,

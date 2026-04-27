@@ -5,11 +5,11 @@
 
 var Economy = (function () {
     var _money = 0;
-    var _resources = { iron: 0, coal: 0, uranium: 0, oil: 0 };
+    var _resources = { iron: 0, coal: 0, uranium: 0, oil: 0, steel: 0 };
     var _stats = {
         totalEarned: 0,
         totalSpent: 0,
-        totalMined: { iron: 0, coal: 0, uranium: 0, oil: 0 }
+        totalMined: { iron: 0, coal: 0, uranium: 0, oil: 0, steel: 0 }
     };
 
     /**
@@ -49,6 +49,56 @@ var Economy = (function () {
             if (resourceType) {
                 _resources[resourceType] += extracted;
                 _stats.totalMined[resourceType] += extracted;
+            }
+        }
+    }
+
+    /**
+     * Process smelters — convert iron + coal into steel.
+     */
+    function _processSmelters() {
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) { return; }
+
+        var allBldgs = Buildings.getAll();
+        var tps = (typeof Config !== 'undefined' && Config.TICKS_PER_SECOND) ? Config.TICKS_PER_SECOND : 10;
+
+        for (var i = 0; i < allBldgs.length; i++) {
+            var b = allBldgs[i];
+            if (b.type !== 'smelter') { continue; }
+            if (!b.active || b.hp <= 0) { continue; }
+
+            var def = Config.BUILDINGS.smelter;
+            if (!def) { continue; }
+
+            var energyNeeded = (def.energyConsumption || 0) / tps;
+            if (b.energy < energyNeeded) { continue; }
+
+            if (b.smeltTimer == null) { b.smeltTimer = 0; }
+            b.smeltTimer++;
+
+            var interval = def.smeltInterval || 120;
+            if (b.smeltTimer < interval) { continue; }
+
+            // Check input resources
+            var input = def.smeltInput || {};
+            var canSmelt = true;
+            for (var rk in input) {
+                if ((_resources[rk] || 0) < input[rk]) { canSmelt = false; break; }
+            }
+            if (!canSmelt) { continue; }
+
+            // Consume inputs
+            b.smeltTimer = 0;
+            for (var ck in input) {
+                _resources[ck] -= input[ck];
+            }
+
+            // Produce outputs
+            var output = def.smeltOutput || {};
+            for (var ok in output) {
+                if (!_resources.hasOwnProperty(ok)) { _resources[ok] = 0; }
+                _resources[ok] += output[ok];
+                if (_stats.totalMined[ok] != null) { _stats.totalMined[ok] += output[ok]; }
             }
         }
     }
@@ -136,10 +186,10 @@ var Economy = (function () {
             b.marketTimer = 0;
 
             // Sell resources that are toggled on
-            if (!b.marketToggles) b.marketToggles = { coal: false, iron: false, oil: false, uranium: false };
+            if (!b.marketToggles) b.marketToggles = { coal: false, iron: false, oil: false, steel: false, uranium: false };
 
             var prices = def.resourcePrices || {};
-            var resources = ['coal', 'iron', 'oil', 'uranium'];
+            var resources = ['coal', 'iron', 'oil', 'steel', 'uranium'];
             for (var r = 0; r < resources.length; r++) {
                 var res = resources[r];
                 if (!b.marketToggles[res]) continue;
@@ -156,13 +206,14 @@ var Economy = (function () {
     return {
         init: function (startMoney, startResources) {
             _money = startMoney || Config.START_MONEY;
-            _resources = { iron: 0, coal: 0, uranium: 0, oil: 0 };
+            _resources = { iron: 0, coal: 0, uranium: 0, oil: 0, steel: 0 };
 
             if (startResources) {
                 if (startResources.iron)    { _resources.iron    = startResources.iron; }
                 if (startResources.coal)    { _resources.coal    = startResources.coal; }
                 if (startResources.uranium) { _resources.uranium = startResources.uranium; }
                 if (startResources.oil)     { _resources.oil     = startResources.oil; }
+                if (startResources.steel)   { _resources.steel   = startResources.steel; }
             } else {
                 _resources.coal = Config.START_COAL || 0;
             }
@@ -170,12 +221,13 @@ var Economy = (function () {
             _stats = {
                 totalEarned: 0,
                 totalSpent: 0,
-                totalMined: { iron: 0, coal: 0, uranium: 0, oil: 0 }
+                totalMined: { iron: 0, coal: 0, uranium: 0, oil: 0, steel: 0 }
             };
         },
 
         tick: function () {
             _processMining();
+            _processSmelters();
             _processConsumerBatteries();
             _processGridConnects();
             _processConsumerMarkets();
@@ -215,7 +267,7 @@ var Economy = (function () {
 
             if (adjusted.money && _money < adjusted.money) { return false; }
 
-            var resTypes = ['iron', 'coal', 'uranium', 'oil'];
+            var resTypes = ['iron', 'coal', 'uranium', 'oil', 'steel'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
                 if (adjusted[t] && (_resources[t] || 0) < adjusted[t]) {
@@ -239,7 +291,7 @@ var Economy = (function () {
 
             // Pre-check
             if (adjusted.money && _money < adjusted.money) { return false; }
-            var resTypes = ['iron', 'coal', 'uranium', 'oil'];
+            var resTypes = ['iron', 'coal', 'uranium', 'oil', 'steel'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
                 if (adjusted[t] && (_resources[t] || 0) < adjusted[t]) {
@@ -272,7 +324,8 @@ var Economy = (function () {
                 iron: _resources.iron,
                 coal: _resources.coal,
                 uranium: _resources.uranium,
-                oil: _resources.oil
+                oil: _resources.oil,
+                steel: _resources.steel
             };
         },
 
@@ -293,7 +346,7 @@ var Economy = (function () {
          */
         hasResources: function (cost) {
             if (!cost) { return true; }
-            var resTypes = ['iron', 'coal', 'uranium', 'oil'];
+            var resTypes = ['iron', 'coal', 'uranium', 'oil', 'steel'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
                 if (cost[t] && (_resources[t] || 0) < cost[t]) {
@@ -318,7 +371,8 @@ var Economy = (function () {
                     iron: _resources.iron,
                     coal: _resources.coal,
                     uranium: _resources.uranium,
-                    oil: _resources.oil
+                    oil: _resources.oil,
+                    steel: _resources.steel
                 },
                 stats: {
                     totalEarned: _stats.totalEarned,
@@ -327,7 +381,8 @@ var Economy = (function () {
                         iron: _stats.totalMined.iron,
                         coal: _stats.totalMined.coal,
                         uranium: _stats.totalMined.uranium,
-                        oil: _stats.totalMined.oil
+                        oil: _stats.totalMined.oil,
+                        steel: _stats.totalMined.steel
                     }
                 }
             };
@@ -342,6 +397,7 @@ var Economy = (function () {
                 _resources.coal    = data.resources.coal    || 0;
                 _resources.uranium = data.resources.uranium || 0;
                 _resources.oil     = data.resources.oil     || 0;
+                _resources.steel   = data.resources.steel   || 0;
             }
 
             if (data.stats) {
@@ -352,6 +408,7 @@ var Economy = (function () {
                     _stats.totalMined.coal    = data.stats.totalMined.coal    || 0;
                     _stats.totalMined.uranium = data.stats.totalMined.uranium || 0;
                     _stats.totalMined.oil     = data.stats.totalMined.oil     || 0;
+                    _stats.totalMined.steel   = data.stats.totalMined.steel   || 0;
                 }
             }
         }

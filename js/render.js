@@ -1299,9 +1299,10 @@ var Render = (function () {
             // Trail
             trail = _trails[p.id];
             if (trail && trail.length > 1) {
+                var trailColor = (p.type === 'blaster') ? '0,204,255' : '255,68,0';
                 for (j = 0; j < trail.length - 1; j++) {
                     alpha = (j + 1) / trail.length * 0.6;
-                    ctx.fillStyle = 'rgba(255,68,0,' + alpha.toFixed(2) + ')';
+                    ctx.fillStyle = 'rgba(' + trailColor + ',' + alpha.toFixed(2) + ')';
                     var trailR = 2 * ((j + 1) / trail.length);
                     ctx.beginPath();
                     ctx.arc(Math.floor(trail[j].x), Math.floor(trail[j].y), trailR, 0, Math.PI * 2);
@@ -1318,6 +1319,16 @@ var Render = (function () {
                 ctx.fillStyle = '#666666';
                 ctx.beginPath();
                 ctx.arc(Math.floor(p.x), Math.floor(p.y), 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'blaster') {
+                // Cyan energy bolt
+                ctx.fillStyle = '#00ccff';
+                ctx.beginPath();
+                ctx.arc(Math.floor(p.x), Math.floor(p.y), 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(Math.floor(p.x), Math.floor(p.y), 1.5, 0, Math.PI * 2);
                 ctx.fill();
             } else {
                 ctx.fillStyle = COLORS.MISSILE.body;

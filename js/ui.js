@@ -42,6 +42,7 @@ var UI = (function () {
         if (cost.coal) h += _bicStat('Coal', cost.coal + ' 🪨');
         if (cost.uranium) h += _bicStat('Uranium', cost.uranium + ' ☢️');
         if (cost.oil) h += _bicStat('Oil', cost.oil + ' 🛢️');
+        if (cost.steel) h += _bicStat('Steel', cost.steel + ' 🔩');
         if (def.workersRequired > 0) h += _bicStat('Workers', '👷 ' + def.workersRequired);
 
         // Energy section
@@ -466,6 +467,7 @@ var UI = (function () {
                 coal: document.getElementById('hud-coal'),
                 uranium: document.getElementById('hud-uranium'),
                 oil: document.getElementById('hud-oil'),
+                steel: document.getElementById('hud-steel'),
                 workers: document.getElementById('hud-workers'),
                 energy: document.getElementById('hud-energy'),
                 pollution: document.getElementById('hud-pollution'),
@@ -553,6 +555,9 @@ var UI = (function () {
             }
             if (_elements.oil && typeof Economy !== 'undefined' && Economy.getResource) {
                 _elements.oil.textContent = Math.floor(Economy.getResource('oil'));
+            }
+            if (_elements.steel && typeof Economy !== 'undefined' && Economy.getResource) {
+                _elements.steel.textContent = Math.floor(Economy.getResource('steel'));
             }
             if (_elements.workers && typeof Workers !== 'undefined' && Workers.getTotalWorkers && Workers.getMaxCapacity) {
                 var totalW = Workers.getTotalWorkers();
@@ -734,6 +739,7 @@ var UI = (function () {
                 if (cost.coal) html += ' +' + cost.coal + '🪨';
                 if (cost.uranium) html += ' +' + cost.uranium + '☢️';
                 if (cost.oil) html += ' +' + cost.oil + '🛢️';
+                if (cost.steel) html += ' +' + cost.steel + '🔩';
                 html += '</span>';
                 if (def.workersRequired > 0) {
                     html += '<span class="build-workers">👷' + def.workersRequired + '</span>';
@@ -749,6 +755,7 @@ var UI = (function () {
                 if (cost.iron) html += '<div class="tt-row"><span class="tt-label">Iron</span><span class="tt-value">' + cost.iron + '</span></div>';
                 if (cost.coal) html += '<div class="tt-row"><span class="tt-label">Coal</span><span class="tt-value">' + cost.coal + '</span></div>';
                 if (cost.uranium) html += '<div class="tt-row"><span class="tt-label">Uranium</span><span class="tt-value">' + cost.uranium + '</span></div>';
+                if (cost.steel) html += '<div class="tt-row"><span class="tt-label">Steel</span><span class="tt-value">' + cost.steel + '</span></div>';
                 if (def.workersRequired > 0) {
                     html += '<div class="tt-row"><span class="tt-label">Workers</span><span class="tt-value">👷 ' + def.workersRequired + '</span></div>';
                 }
@@ -815,6 +822,7 @@ var UI = (function () {
                     html += '<div class="tt-section">Mining</div>';
                     if (def.extractionRate) html += '<div class="tt-row"><span class="tt-label">Extraction</span><span class="tt-value">' + def.extractionRate + '/s</span></div>';
                     if (def.requiresTerrain) html += '<div class="tt-row"><span class="tt-label">Requires</span><span class="tt-value">' + def.requiresTerrain.replace('_', ' ') + '</span></div>';
+                    if (def.smeltInput) html += '<div class="tt-row"><span class="tt-label">Smelting</span><span class="tt-value">4⛏️+2🪨 → 2🔩 / 12s</span></div>';
                 }
                 if (def.category === 'environment') {
                     html += '<div class="tt-section">Environment</div>';
@@ -970,6 +978,14 @@ var UI = (function () {
                 html += '<div class="info-stat">⛏️ Extraction: ' + def.extractionRate + '/s</div>';
             }
 
+            // Smelter status
+            if (building.type === 'smelter') {
+                var smeltInterval = def.smeltInterval || 120;
+                var smeltTimer = building.smeltTimer || 0;
+                var smeltPct = Math.floor((smeltTimer / smeltInterval) * 100);
+                html += '<div class="info-stat">🔥 Smelting: ' + smeltPct + '% (4⛏️+2🪨 → 2🔩)</div>';
+            }
+
             // Description
             html += '<div class="info-desc">' + (def.description || '') + '</div>';
 
@@ -994,14 +1010,15 @@ var UI = (function () {
 
             // Consumer Market toggles
             if (building.type === 'consumer_market') {
-                if (!building.marketToggles) building.marketToggles = { coal: false, iron: false, oil: false, uranium: false };
+                if (!building.marketToggles) building.marketToggles = { coal: false, iron: false, oil: false, steel: false, uranium: false };
                 var cmResources = [
                     { key: 'coal', label: 'Coal', emoji: '🪨', price: 10 },
                     { key: 'iron', label: 'Iron', emoji: '⛏️', price: 20 },
                     { key: 'oil', label: 'Oil', emoji: '🛢️', price: 25 },
+                    { key: 'steel', label: 'Steel', emoji: '🔩', price: 60 },
                     { key: 'uranium', label: 'Uranium', emoji: '☢️', price: 100 }
                 ];
-                html += '<div class="info-stat" style="font-weight:bold;margin-top:6px;">📦 Sell Resources (every 24s)</div>';
+                html += '<div class="info-stat" style="font-weight:bold;margin-top:6px;">📦 Sell Resources (every 12s)</div>';
                 for (var ri = 0; ri < cmResources.length; ri++) {
                     var cmRes = cmResources[ri];
                     var checked = building.marketToggles[cmRes.key] ? ' checked' : '';
@@ -1082,6 +1099,8 @@ var UI = (function () {
                 if (netCoal > 0) costParts.push(netCoal + ' coal');
                 var netUranium = Math.max(0, (nextCost.uranium || 0) - Math.floor((curCost.uranium || 0) * 0.5));
                 if (netUranium > 0) costParts.push(netUranium + ' uranium');
+                var netSteel = Math.max(0, (nextCost.steel || 0) - Math.floor((curCost.steel || 0) * 0.5));
+                if (netSteel > 0) costParts.push(netSteel + ' steel');
                 html += '<button class="info-btn upgrade" data-action="upgrade-building">⬆️ Upgrade to ' + upgradeDef.name + ' — ' + costParts.join(', ') + ' [U]</button>';
             }
             if (building.type !== 'core') {
@@ -1173,7 +1192,7 @@ var UI = (function () {
                         if (typeof Buildings !== 'undefined' && Buildings.getById) {
                             var bldg = Buildings.getById(bId);
                             if (bldg) {
-                                if (!bldg.marketToggles) bldg.marketToggles = { coal: false, iron: false, oil: false, uranium: false };
+                                if (!bldg.marketToggles) bldg.marketToggles = { coal: false, iron: false, oil: false, steel: false, uranium: false };
                                 bldg.marketToggles[resource] = this.checked;
                             }
                         }
@@ -1524,14 +1543,17 @@ var UI = (function () {
                 laser_t3: 'The ultimate laser platform. Starts at 25 DPS and ramps up to an incredible 16x multiplier, reaching 400 DPS — enough to melt even Siege Engines. The energy cost is enormous: 100/s base ramping to 800/s at max. Requires serious power infrastructure to sustain. Perfect accuracy. The go-to weapon for late-game boss threats. Pair with high-capacity cables and large batteries. 500px range gives excellent coverage.',
                 missile_t1: 'A reliable early-to-mid game weapon that fires homing missiles at the farthest enemy in range. Deals 40 damage per hit with a 2-second reload. Good accuracy with 20°/s homing turn rate, but fast enemies can occasionally dodge. Costs 1 iron per shot — ensure a steady iron supply. 500px range lets it engage threats early. Best against groups of medium enemies approaching from distance.',
                 missile_t2: 'An upgraded launcher dealing 100 damage per missile with improved 350 speed and 650px range. The 2.5-second reload and 2 iron per shot make it more expensive to operate. Good homing accuracy. Excellent against mid-game threats like Shielded Grunts and Bombers. The long range means it often gets multiple shots before enemies reach your inner defenses.',
-                missile_t3: 'The heaviest missile platform, dealing a devastating 250 damage per hit at 800px range. With 400 speed projectiles, these missiles track targets effectively. Costs 5 iron per shot and reloads in 3 seconds. Best reserved for high-value targets like Heavy Tanks and Siege Engines. The extreme range means it can soften threats long before they reach your walls. Good homing accuracy.',
+                missile_t3: 'The heaviest missile platform, dealing a devastating 250 damage per hit at 800px range. With 400 speed projectiles, these missiles track targets effectively. Costs 3 iron per shot and reloads in 3 seconds. Best reserved for high-value targets like Heavy Tanks and Siege Engines. The extreme range means it can soften threats long before they reach your walls. Good homing accuracy.',
+                blaster_t1: 'A cheap rapid-fire weapon that shoots energy blasts every 0.5 seconds at the closest enemy. Deals 10 damage per shot with good accuracy (30° homing). No resource cost per shot — only 20 energy. 250px range keeps it close-range but its rapid fire rate and low cost make it excellent for early game defense and finishing off weakened enemies.',
+                blaster_t2: 'Upgraded blaster dealing 20 damage per shot with improved 400px range and 500 speed projectiles. Still fires every 0.5s with good accuracy. Costs 50 energy per shot. A reliable mid-game DPS weapon that works well in groups. No iron cost makes it more sustainable than missiles for sustained combat.',
+                blaster_t3: 'The top-tier blaster dealing 40 damage per shot at 600px range with 600 speed projectiles. Fires every 0.5s for 80 DPS sustained. Costs 100 energy per shot. Excellent accuracy. A powerful rapid-fire weapon that bridges the gap between specialty and uranium weapons without requiring rare resources.',
                 tesla_coil: 'An area-denial weapon that fires chain lightning at the nearest enemy, then jumps to up to 3 additional targets within 150px. Base damage is 11/s with each chain jump dealing 70% of the previous. Perfect accuracy — lightning always hits. Draws 50 energy/s continuously while firing. Short 250px range means it must be placed aggressively. Devastating against Swarms and clustered enemies. Store 150 energy for quick bursts.',
-                flamethrower: 'A short-range area weapon that bathes all enemies within 150px in fire, dealing 8 DPS to everything in range simultaneously. Applies a burning DOT of 3 DPS for 3 seconds. Perfect accuracy — hits everything in range. Consumes oil (1 per 50 ticks) in addition to 20 energy/s. Cheap to build at $600 but requires oil infrastructure. Exceptional against Swarms and dense waves. Place at chokepoints behind walls.',
-                railgun: 'A precision sniper weapon that fires a piercing beam through ALL enemies in a line. Deals 100 damage per shot with a 4-second reload and 800px range. Perfect accuracy — the beam is instant and cannot miss. Costs 375 energy and 3 iron per shot. Excellent against lined-up enemies approaching through corridors. The piercing effect makes it uniquely effective against waves of armored enemies. High skill ceiling weapon.',
+                flamethrower: 'A short-range area weapon that bathes all enemies within 150px in fire, dealing 8 DPS to everything in range simultaneously. Applies a burning DOT of 3 DPS for 3 seconds. Perfect accuracy — hits everything in range. Consumes oil (1 per 10 ticks) in addition to 20 energy/s. Cheap to build at $600 but requires oil infrastructure. Exceptional against Swarms and dense waves. Place at chokepoints behind walls.',
+                railgun: 'A precision sniper weapon that fires a piercing beam through ALL enemies in a line. Deals 100 damage per shot with a 4-second reload and 800px range. Perfect accuracy — the beam is instant and cannot miss. Costs 250 energy and 3 iron per shot. Excellent against lined-up enemies approaching through corridors. The piercing effect makes it uniquely effective against waves of armored enemies. High skill ceiling weapon.',
                 emp_tower: 'A utility weapon that deals zero damage but stuns ALL enemies within 400px for 5 seconds. 10-second cooldown between activations, costs 500 energy per use (stores 1500, can fire 3 times). No accuracy concerns — affects all enemies in range. Invaluable for buying time when defenses are overwhelmed. Pairs perfectly with damage-dealing weapons. Place at critical chokepoints.',
                 mortar: 'An indirect-fire weapon that lobs explosive shells at enemies, dealing 60 splash damage in an 80px radius. 3-second reload, 600px range with a 100px minimum range dead zone. Moderate homing — shells travel at 200 speed and can miss fast enemies. Costs 200 energy and 2 iron per shot. The splash makes it excellent against clustered enemies and Swarms. Cover the dead zone with short-range weapons.',
                 drone_bay: 'Deploys up to 3 autonomous combat drones that seek and engage enemies independently. Each drone has 50 HP, deals 24 DPS, moves at 120 speed, and operates within 500px range for 60 seconds. Spawning a drone costs 500 energy and 20 iron with a 24-second spawn cooldown. Drones have perfect accuracy. Expensive to maintain but provides flexible, mobile defense coverage. Drones die when their lifetime expires.',
-                plasma_cannon: 'An advanced uranium-powered weapon firing superheated plasma bolts that completely bypass enemy armor. Deals 400 damage per shot with a 1.5-second reload — the highest single-shot DPS of any projectile weapon at 267/s. Costs 250 energy and 1 uranium per shot. Good homing accuracy. Generates 5 pollution per tick while firing. The ultimate answer to heavily armored enemies like Siege Engines and Heavy Tanks.',
+                plasma_cannon: 'An advanced uranium-powered weapon firing superheated plasma bolts that completely bypass enemy armor. Deals 500 damage per shot with a 1.5-second reload — the highest single-shot DPS of any projectile weapon at 333/s. Costs 250 energy and 1 uranium per shot. Good homing accuracy. Generates 5 pollution per tick while firing. The ultimate answer to heavily armored enemies like Siege Engines and Heavy Tanks.',
                 fusion_beam: 'The most powerful weapon in the game. A continuous beam with 1200px range that starts at 25 DPS and ramps up 32x to a staggering 800 DPS — enough to destroy anything. Energy draw ramps from 60/s to 480/s. Consumes 0.5 uranium per second. Perfect accuracy. Generates 8 pollution per tick. The 2x2 size requires careful placement. Demands massive power infrastructure but nothing survives sustained fusion beam fire. Pair with nuclear plants and HC cables.'
             };
 
@@ -1539,16 +1561,19 @@ var UI = (function () {
                 laser_t1:      { type: 'Continuous',  range: '300px',  dps: '5/s (ramps 8x → 40)',       energy: '30/s (ramps 4x → 120)',  special: 'Ramp resets on target switch' },
                 laser_t2:      { type: 'Continuous',  range: '400px',  dps: '12/s (ramps 8x → 96)',      energy: '60/s (ramps 4x → 240)',  special: 'Ramp resets on target switch' },
                 laser_t3:      { type: 'Continuous',  range: '500px',  dps: '25/s (ramps 16x → 400)',    energy: '100/s (ramps 8x → 800)', special: 'Ramp resets on target switch' },
-                missile_t1:    { type: 'Projectile',  range: '500px',  dps: '20/s (40 dmg/2s)',          energy: '100/shot',               special: '1 iron/shot, homing' },
+                missile_t1:    { type: 'Projectile',  range: '500px',  dps: '20/s (40 dmg/2s)',          energy: '50/shot',                special: '1 iron/shot, homing' },
                 missile_t2:    { type: 'Projectile',  range: '650px',  dps: '40/s (100 dmg/2.5s)',       energy: '100/shot',               special: '2 iron/shot, homing' },
-                missile_t3:    { type: 'Projectile',  range: '800px',  dps: '83/s (250 dmg/3s)',         energy: '100/shot',               special: '5 iron/shot, homing' },
+                missile_t3:    { type: 'Projectile',  range: '800px',  dps: '83/s (250 dmg/3s)',         energy: '150/shot',               special: '3 iron/shot, homing' },
+                blaster_t1:    { type: 'Projectile',  range: '250px',  dps: '20/s (10 dmg/0.5s)',        energy: '20/shot',                special: 'Rapid fire, good accuracy' },
+                blaster_t2:    { type: 'Projectile',  range: '400px',  dps: '40/s (20 dmg/0.5s)',        energy: '50/shot',                special: 'Rapid fire, good accuracy' },
+                blaster_t3:    { type: 'Projectile',  range: '600px',  dps: '80/s (40 dmg/0.5s)',        energy: '100/shot',               special: 'Rapid fire, good accuracy' },
                 tesla_coil:    { type: 'Chain',       range: '250px',  dps: '11/s (chains to 3)',        energy: '50/s',                   special: '70% dmg per chain jump' },
                 flamethrower:  { type: 'AoE Cone',    range: '150px',  dps: '8/s + 3 burn',              energy: '20/s',                   special: 'Uses oil, hits all in range' },
-                railgun:       { type: 'Piercing',    range: '800px',  dps: '25/s (100 dmg/4s)',         energy: '375/shot',               special: '3 iron/shot, pierces all' },
+                railgun:       { type: 'Piercing',    range: '800px',  dps: '25/s (100 dmg/4s)',         energy: '250/shot',               special: '3 iron/shot, pierces all' },
                 emp_tower:     { type: 'Stun',        range: '400px',  dps: '0 (utility)',               energy: '500/activation',         special: '5s stun, 10s cooldown' },
                 mortar:        { type: 'Splash',      range: '600px (min 100)', dps: '20/s (60 dmg/3s)', energy: '200/shot',               special: '2 iron/shot, 80px splash' },
                 drone_bay:     { type: 'Autonomous',  range: '500px',  dps: '24/s per drone (3 max)',    energy: '500/drone spawn',        special: '20 iron/drone, 60s lifetime' },
-                plasma_cannon: { type: 'Projectile',  range: '500px',  dps: '267/s (400 dmg/1.5s)',      energy: '250/shot',               special: '1 uranium/shot, ignores armor' },
+                plasma_cannon: { type: 'Projectile',  range: '500px',  dps: '333/s (500 dmg/1.5s)',      energy: '250/shot',               special: '1 uranium/shot, ignores armor' },
                 fusion_beam:   { type: 'Continuous',  range: '1200px', dps: '25/s (ramps 32x → 800)',    energy: '60/s (ramps 8x → 480)', special: '0.5 uranium/s, 2x2 size' }
             };
 
@@ -1591,6 +1616,7 @@ var UI = (function () {
                     if (w.def.cost.money) costParts.push('$' + w.def.cost.money);
                     if (w.def.cost.iron) costParts.push('+' + w.def.cost.iron + ' iron');
                     if (w.def.cost.oil) costParts.push('+' + w.def.cost.oil + ' oil');
+                    if (w.def.cost.steel) costParts.push('+' + w.def.cost.steel + ' steel');
                     if (w.def.cost.uranium) costParts.push('+' + w.def.cost.uranium + ' uranium');
                 }
                 var costStr = costParts.join(' ') || '—';
