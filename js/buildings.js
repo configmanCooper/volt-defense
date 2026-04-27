@@ -387,6 +387,11 @@ var Buildings = (function() {
                 }
             }
 
+            // Houses start with 24 seconds of self-power to bootstrap worker recruitment
+            if (def.category === 'housing' && def.energyConsumption > 0) {
+                building.energy = Math.min(def.energyConsumption * 24, building.scaledStorageCapacity || def.energyStorageCapacity || Infinity);
+            }
+
             // Hydro plant reduces river current
             if (typeKey === 'hydro_plant') {
                 if (typeof Map !== 'undefined' && typeof Map.reduceCurrentSpeed === 'function') {
