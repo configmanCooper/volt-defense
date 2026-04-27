@@ -1064,7 +1064,7 @@ var Config = {
             hp: 100,
             workersRequired: 3,
             energyGeneration: 0,
-            energyConsumption: 80,
+            energyConsumption: 50,
             energyStorageCapacity: 200,
             maxChargeRate: 120,
             maxDischargeRate: 0,
