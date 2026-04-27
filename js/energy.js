@@ -411,12 +411,10 @@ var Energy = (function() {
 
                     // Check if current node is a pylon with priorities
                     var currentBuilding = Buildings.getById(currentId);
-                    var isPylon = (currentBuilding && (currentBuilding.type === 'pylon' || currentBuilding.type === 'hc_pylon'));
+                    var isPylon = (currentBuilding && (currentBuilding.type === 'pylon' || currentBuilding.type === 'hc_pylon' || currentBuilding.type === 'water_pylon'));
 
                     for (var n = 0; n < neighbors.length; n++) {
                         var nId = neighbors[n];
-                        if (visited[nId]) continue;
-                        visited[nId] = true;
 
                         var nBuilding = Buildings.getById(nId);
                         if (!nBuilding || nBuilding.hp <= 0) continue;
@@ -432,22 +430,43 @@ var Energy = (function() {
                             continue;
                         }
 
+                        // Calculate pylon priority along this path
+                        var edgePri = currentPylonPri;
+                        if (isPylon && currentBuilding.cablePriorities && currentBuilding.cablePriorities[nId]) {
+                            edgePri = Math.max(edgePri, currentBuilding.cablePriorities[nId]);
+                        }
+
+                        // BFS relaxation: allow revisits when a better priority path is found
+                        var existingPri = pylonPriorityMap[nId];
+                        if (visited[nId] && (existingPri === undefined || edgePri >= existingPri)) {
+                            continue;
+                        }
+
+                        // Track whether this is a revisit (need to remove old reachable entry)
+                        var isRevisit = visited[nId];
+                        visited[nId] = true;
+
                         // Track min throughput along path
                         var cableTP = _cachedCableThroughput(currentId, nId) / tps;
                         minThroughputMap[nId] = Math.min(currentMinTP, cableTP);
                         parentMap[nId] = currentId;
 
-                        // Track worst pylon priority along path
-                        var edgePri = currentPylonPri;
-                        if (isPylon && currentBuilding.cablePriorities && currentBuilding.cablePriorities[nId]) {
-                            edgePri = Math.max(edgePri, currentBuilding.cablePriorities[nId]);
-                        }
+                        // Set the (better) pylon priority for this node
                         pylonPriorityMap[nId] = edgePri;
 
                         // Check if this building needs/accepts energy
                         var nCapacity = _getBuildingCapacity(nBuilding, nDef);
                         var remaining = nCapacity - nBuilding.energy;
                         if (remaining > 0) {
+                            if (isRevisit) {
+                                // Remove old entry from reachable to avoid duplicates
+                                for (var ri = reachable.length - 1; ri >= 0; ri--) {
+                                    if (reachable[ri].id === nId) {
+                                        reachable.splice(ri, 1);
+                                        break;
+                                    }
+                                }
+                            }
                             reachable.push(nBuilding);
                         }
 
