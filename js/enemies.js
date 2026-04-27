@@ -650,6 +650,33 @@ var Enemies = (function () {
             return _findStrategicWall(enemy, buildings, cellSz);
         }
 
+        // Nullifiers: break through 1-2 walls first, then target shield generators only
+        if (enemy.special === 'targets_shields') {
+            // Phase 1: still have walls to break — find a strategic wall
+            if (enemy.wallsDestroyed < enemy.wallsToDestroyMax) {
+                var wall = _findStrategicWall(enemy, buildings, cellSz);
+                if (wall) return wall;
+            }
+            // Phase 2: target shield generators only
+            var nearestShield = null;
+            var nearestShieldDist = Infinity;
+            for (var si = 0; si < buildings.length; si++) {
+                var sb = buildings[si];
+                if (sb.hp <= 0) continue;
+                if (sb.type !== 'shield_generator') continue;
+                var sbx = sb.worldX || (sb.gridX * cellSz + cellSz / 2);
+                var sby = sb.worldY || (sb.gridY * cellSz + cellSz / 2);
+                var sdx = sbx - enemy.x;
+                var sdy = sby - enemy.y;
+                var sdist = sdx * sdx + sdy * sdy;
+                if (sdist < nearestShieldDist) {
+                    nearestShieldDist = sdist;
+                    nearestShield = { x: sbx, y: sby, buildingId: sb.id };
+                }
+            }
+            return nearestShield;
+        }
+
         var nearest = null;
         var nearestDist = Infinity;
 
@@ -779,11 +806,11 @@ var Enemies = (function () {
             if (attackedBuilding.hp > 0) {
                 enemy.targetBuildingId = attackedBuilding.id;
             } else {
-                // Wall destroyed — track for wall_breakers
-                if (enemy.special === 'targets_walls' && enemy.wallsToDestroyMax > 0) {
+                // Wall destroyed — track for wall_breakers and nullifiers
+                if (enemy.wallsToDestroyMax > 0) {
                     enemy.wallsDestroyed = (enemy.wallsDestroyed || 0) + 1;
-                    if (enemy.wallsDestroyed >= enemy.wallsToDestroyMax) {
-                        // Done breaking walls — head to core
+                    if (enemy.special === 'targets_walls' && enemy.wallsDestroyed >= enemy.wallsToDestroyMax) {
+                        // Wall breaker done — head to core
                         enemy.targetCategory = null;
                         enemy.special = null;
                     }
@@ -949,6 +976,10 @@ var Enemies = (function () {
             enemy.wallsToDestroyMax = baseWalls + Math.floor(Math.random() * 3) - 1; // 2-4
             if (enemy.wallsToDestroyMax < 2) enemy.wallsToDestroyMax = 2;
             if (enemy.wallsToDestroyMax > 4) enemy.wallsToDestroyMax = 4;
+        }
+        // Nullifiers break through 1-2 walls on the way to shields
+        if (def.special === 'targets_shields') {
+            enemy.wallsToDestroyMax = 1 + Math.floor(Math.random() * 2); // 1-2
         }
         if (def.special === 'river_spawn') {
             enemy.canSwim = true;
