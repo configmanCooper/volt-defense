@@ -317,6 +317,16 @@ var Energy = (function() {
                 }
             }
 
+            // Sort generators: actual power plants first, then battery-generators
+            // This ensures power plants fill P1 consumers before batteries redistribute
+            generators.sort(function(a, b) {
+                var aDef = _getDef(a.type);
+                var bDef = _getDef(b.type);
+                var aIsGen = (aDef && aDef.energyGeneration > 0) ? 0 : 1;
+                var bIsGen = (bDef && bDef.energyGeneration > 0) ? 0 : 1;
+                return aIsGen - bIsGen;
+            });
+
             // ============================================================
             // Step 2: Distribution via BFS from generators
             // ============================================================
@@ -365,6 +375,9 @@ var Energy = (function() {
             // Track total charge received per building this tick (across all generators)
             var _chargedThisTick = {};
 
+            // Track worst pylon priority each building was charged through this tick
+            var _inheritedPylonPri = {};
+
             // For each generator, BFS to distribute energy
             for (var g = 0; g < generators.length; g++) {
                 var gen = generators[g];
@@ -386,7 +399,9 @@ var Energy = (function() {
                 var pylonPriorityMap = {}; // buildingId -> max (worst) pylon cable priority along path
                 var parentMap = {};        // buildingId -> parent buildingId for path reconstruction
                 minThroughputMap[gen.id] = Infinity;
-                pylonPriorityMap[gen.id] = 1;
+                // Battery-generators inherit the pylon priority they were charged through
+                var basePri = _inheritedPylonPri[gen.id] || 1;
+                pylonPriorityMap[gen.id] = basePri;
 
                 while (queue.length > 0) {
                     var currentId = queue.shift();
@@ -537,6 +552,12 @@ var Energy = (function() {
                         _chargedThisTick[receiver.id] = (_chargedThisTick[receiver.id] || 0) + transferable;
                         _activeFlowNodes[gen.id] = true;
                         _activeFlowNodes[receiver.id] = true;
+
+                        // Track inherited pylon priority for battery pass-through
+                        var recvPri = pylonPriorityMap[receiver.id] || 1;
+                        if (!_inheritedPylonPri[receiver.id] || recvPri > _inheritedPylonPri[receiver.id]) {
+                            _inheritedPylonPri[receiver.id] = recvPri;
+                        }
 
                         // Record flow along the path for cable flow labels
                         var pathNode = receiver.id;
