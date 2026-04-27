@@ -351,6 +351,10 @@ var UI = (function () {
                 UI.showWeaponsGlossary();
                 break;
 
+            case 'show-priorities':
+                UI.showPrioritySettings();
+                break;
+
             case 'save-game':
                 if (typeof Main !== 'undefined' && Main.showSavePanel) {
                     Main.showSavePanel();
@@ -364,6 +368,155 @@ var UI = (function () {
                 UI.hidePause();
                 UI.showMenu();
                 break;
+        }
+    }
+
+    function _renderPriorityModal(ordered) {
+        var html = '<div style="max-width:420px;margin:0 auto;">';
+        html += '<p style="font-size:12px;color:#aaa;margin-bottom:12px;">Higher position = higher priority. Items at the same level charge equally. Use arrows to reorder.</p>';
+        html += '<div id="priority-list" style="display:flex;flex-direction:column;gap:2px;">';
+
+        // Group by priority value
+        var groups = [];
+        var lastPri = null;
+        for (var i = 0; i < ordered.length; i++) {
+            if (ordered[i].pri !== lastPri) {
+                groups.push({ pri: ordered[i].pri, items: [] });
+                lastPri = ordered[i].pri;
+            }
+            groups[groups.length - 1].items.push(ordered[i]);
+        }
+
+        for (var g = 0; g < groups.length; g++) {
+            var group = groups[g];
+            var isLinked = group.items.length > 1;
+            var borderColor = isLinked ? '#ffcc00' : '#3a3a5a';
+
+            html += '<div class="pri-group" data-group="' + g + '" style="border:1px solid ' + borderColor + ';border-radius:6px;padding:6px 8px;background:#1a1a2e;display:flex;align-items:center;gap:8px;">';
+
+            // Rank number
+            html += '<span style="color:#ffd700;font-weight:bold;font-size:16px;min-width:20px;text-align:center;">' + (g + 1) + '</span>';
+
+            // Category labels
+            html += '<div style="flex:1;display:flex;flex-wrap:wrap;gap:4px;">';
+            for (var ci = 0; ci < group.items.length; ci++) {
+                var item = group.items[ci];
+                html += '<span style="background:#2a2a4a;padding:3px 8px;border-radius:4px;font-size:13px;white-space:nowrap;">';
+                html += item.icon + ' ' + item.label;
+                html += '</span>';
+            }
+            html += '</div>';
+
+            // Control buttons
+            html += '<div style="display:flex;flex-direction:column;gap:2px;">';
+            if (g > 0) {
+                html += '<button class="pri-btn" data-pri-action="up" data-pri-group="' + g + '" title="Move up (higher priority)" style="background:#333;border:1px solid #555;color:#fff;cursor:pointer;padding:1px 6px;border-radius:3px;font-size:12px;">▲</button>';
+            } else {
+                html += '<span style="padding:1px 6px;font-size:12px;visibility:hidden;">▲</span>';
+            }
+            if (g < groups.length - 1) {
+                html += '<button class="pri-btn" data-pri-action="down" data-pri-group="' + g + '" title="Move down (lower priority)" style="background:#333;border:1px solid #555;color:#fff;cursor:pointer;padding:1px 6px;border-radius:3px;font-size:12px;">▼</button>';
+            } else {
+                html += '<span style="padding:1px 6px;font-size:12px;visibility:hidden;">▼</span>';
+            }
+            html += '</div>';
+
+            // Link/unlink button
+            if (isLinked) {
+                html += '<button class="pri-btn" data-pri-action="unlink" data-pri-group="' + g + '" title="Split into separate levels" style="background:#553300;border:1px solid #ffcc00;color:#ffcc00;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:11px;">⛓️‍💥</button>';
+            } else if (g < groups.length - 1) {
+                html += '<button class="pri-btn" data-pri-action="link" data-pri-group="' + g + '" title="Link with level below (equal priority)" style="background:#1a3a1a;border:1px solid #44aa44;color:#44aa44;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:11px;">🔗</button>';
+            }
+
+            html += '</div>';
+        }
+
+        html += '</div>';
+
+        // Reset button
+        html += '<div style="margin-top:12px;text-align:center;">';
+        html += '<button class="pri-btn" data-pri-action="reset" style="background:#442222;border:1px solid #aa4444;color:#ff6666;cursor:pointer;padding:4px 16px;border-radius:4px;font-size:12px;">Reset to Defaults</button>';
+        html += '</div>';
+        html += '</div>';
+
+        UI.showModal('⚡ Energy Priorities', html, [
+            { label: 'Done', action: 'close-modal', className: 'menu-btn' }
+        ]);
+
+        // Attach click handlers
+        var modalBody = document.getElementById('modal-body');
+        if (modalBody) {
+            modalBody.addEventListener('click', function (evt) {
+                var btn = evt.target.closest('[data-pri-action]');
+                if (!btn) return;
+                var action = btn.getAttribute('data-pri-action');
+                var groupIdx = parseInt(btn.getAttribute('data-pri-group'));
+
+                // Rebuild groups from current state
+                var categories = Energy.getPriorityCategories();
+                var current = Energy.getCustomPriorities();
+                var items = [];
+                for (var ci2 = 0; ci2 < categories.length; ci2++) {
+                    items.push({ key: categories[ci2].key, label: categories[ci2].label, icon: categories[ci2].icon, pri: current[categories[ci2].key] });
+                }
+                items.sort(function(a, b) { return a.pri - b.pri; });
+
+                // Rebuild groups
+                var grps = [];
+                var lp = null;
+                for (var gi = 0; gi < items.length; gi++) {
+                    if (items[gi].pri !== lp) {
+                        grps.push({ pri: items[gi].pri, items: [] });
+                        lp = items[gi].pri;
+                    }
+                    grps[grps.length - 1].items.push(items[gi]);
+                }
+
+                if (action === 'reset') {
+                    Energy.resetPriorities();
+                    UI.showPrioritySettings();
+                    return;
+                }
+
+                if (action === 'up' && groupIdx > 0) {
+                    var abovePri = grps[groupIdx - 1].pri;
+                    var thisPri = grps[groupIdx].pri;
+                    for (var u = 0; u < grps[groupIdx].items.length; u++) {
+                        current[grps[groupIdx].items[u].key] = abovePri;
+                    }
+                    for (var u2 = 0; u2 < grps[groupIdx - 1].items.length; u2++) {
+                        current[grps[groupIdx - 1].items[u2].key] = thisPri;
+                    }
+                } else if (action === 'down' && groupIdx < grps.length - 1) {
+                    var belowPri = grps[groupIdx + 1].pri;
+                    var thisPri2 = grps[groupIdx].pri;
+                    for (var d = 0; d < grps[groupIdx].items.length; d++) {
+                        current[grps[groupIdx].items[d].key] = belowPri;
+                    }
+                    for (var d2 = 0; d2 < grps[groupIdx + 1].items.length; d2++) {
+                        current[grps[groupIdx + 1].items[d2].key] = thisPri2;
+                    }
+                } else if (action === 'link' && groupIdx < grps.length - 1) {
+                    var linkPri = grps[groupIdx].pri;
+                    for (var li = 0; li < grps[groupIdx + 1].items.length; li++) {
+                        current[grps[groupIdx + 1].items[li].key] = linkPri;
+                    }
+                } else if (action === 'unlink') {
+                    var basePri = grps[groupIdx].pri;
+                    var slotsNeeded = grps[groupIdx].items.length - 1;
+                    for (var si = groupIdx + 1; si < grps.length; si++) {
+                        for (var sj = 0; sj < grps[si].items.length; sj++) {
+                            current[grps[si].items[sj].key] += slotsNeeded;
+                        }
+                    }
+                    for (var ui2 = 0; ui2 < grps[groupIdx].items.length; ui2++) {
+                        current[grps[groupIdx].items[ui2].key] = basePri + ui2;
+                    }
+                }
+
+                Energy.setCustomPriorities(current);
+                UI.showPrioritySettings();
+            });
         }
     }
 
@@ -1366,6 +1519,25 @@ var UI = (function () {
                 footerEl.innerHTML = '';
                 footerEl.style.display = 'none';
             }
+        },
+
+        // ---- Priority Settings ----
+
+        showPrioritySettings: function () {
+            if (typeof Energy === 'undefined' || !Energy.getPriorityCategories) return;
+
+            var categories = Energy.getPriorityCategories();
+            var current = Energy.getCustomPriorities();
+
+            // Build ordered list sorted by current priority value
+            var ordered = [];
+            for (var i = 0; i < categories.length; i++) {
+                var cat = categories[i];
+                ordered.push({ key: cat.key, label: cat.label, icon: cat.icon, pri: current[cat.key] });
+            }
+            ordered.sort(function(a, b) { return a.pri - b.pri; });
+
+            _renderPriorityModal(ordered);
         },
 
         // ---- Game over ----

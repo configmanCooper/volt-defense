@@ -18,6 +18,20 @@ var Energy = (function() {
     var PRIORITY_BATTERIES = 6;
     var PRIORITY_CONSUMER = 7;
 
+    // Category keys for the configurable priority system
+    var PRIORITY_CATEGORIES = [
+        { key: 'shields', label: 'Shields', icon: '🛡️', default: 1 },
+        { key: 'weapons', label: 'Weapons', icon: '⚔️', default: 2 },
+        { key: 'housing', label: 'Housing', icon: '🏠', default: 3 },
+        { key: 'miners',  label: 'Miners',  icon: '⛏️', default: 4 },
+        { key: 'carbon',  label: 'Carbon Collectors', icon: '🌿', default: 5 },
+        { key: 'batteries', label: 'Batteries', icon: '🔋', default: 6 },
+        { key: 'consumer', label: 'Consumer', icon: '💰', default: 7 }
+    ];
+
+    // Custom priorities (overrides defaults when set)
+    var _customPriorities = null; // null = use defaults
+
     var _tickCounter = 0;
 
     // Day/Night cycle state
@@ -76,25 +90,32 @@ var Energy = (function() {
         return _getCableMaxThroughput();
     }
 
+    function _getPri(catKey) {
+        if (_customPriorities && _customPriorities[catKey] != null) {
+            return _customPriorities[catKey];
+        }
+        for (var i = 0; i < PRIORITY_CATEGORIES.length; i++) {
+            if (PRIORITY_CATEGORIES[i].key === catKey) return PRIORITY_CATEGORIES[i].default;
+        }
+        return 6; // fallback default
+    }
+
     function _getEnergyPriority(building) {
         var def = _getDef(building.type);
-        if (!def) return PRIORITY_BATTERIES;
+        if (!def) return _getPri('batteries');
         var cat = def.category;
 
-        // Active shields get top priority
-        if (cat === 'defense' && building.shieldActive) return PRIORITY_SHIELDS_ACTIVE;
-        if (cat === 'defense') return PRIORITY_SHIELDS_ACTIVE;
-        if (cat === 'weapons') return PRIORITY_WEAPONS;
-        if (cat === 'mining') return PRIORITY_MINERS;
-        if (cat === 'housing') return PRIORITY_HOUSING;
-        if (cat === 'environment') return PRIORITY_CARBON;
+        if (cat === 'defense') return _getPri('shields');
+        if (cat === 'weapons') return _getPri('weapons');
+        if (cat === 'mining') return _getPri('miners');
+        if (cat === 'housing') return _getPri('housing');
+        if (cat === 'environment') return _getPri('carbon');
         if (cat === 'storage') {
-            // Consumer batteries get lowest priority
-            if (def.maxDischargeRate === 0 && def.sellPrice) return PRIORITY_CONSUMER;
-            return PRIORITY_BATTERIES;
+            if (def.maxDischargeRate === 0 && def.sellPrice) return _getPri('consumer');
+            return _getPri('batteries');
         }
-        if (cat === 'consumer') return PRIORITY_CONSUMER;
-        return PRIORITY_BATTERIES;
+        if (cat === 'consumer') return _getPri('consumer');
+        return _getPri('batteries');
     }
 
     function _applyDifficultyToEnergy(consumption) {
@@ -569,9 +590,9 @@ var Energy = (function() {
                     var groupEnd = r; // exclusive
 
                     // Battery-generators that aren't full: only discharge to
-                    // same-or-higher priority consumers (up to PRIORITY_BATTERIES).
+                    // same-or-higher priority consumers (up to batteries level).
                     // When full, they discharge to everything including consumer batteries.
-                    if (isBatteryGen && !batteryGenFull && groupTypePri > PRIORITY_BATTERIES) {
+                    if (isBatteryGen && !batteryGenFull && groupTypePri > _getPri('batteries')) {
                         continue;
                     }
 
@@ -825,6 +846,43 @@ var Energy = (function() {
         },
 
         // ================================================================
+        // Priority Settings API
+        // ================================================================
+        getPriorityCategories: function() {
+            return PRIORITY_CATEGORIES;
+        },
+
+        getCustomPriorities: function() {
+            if (!_customPriorities) {
+                var result = {};
+                for (var i = 0; i < PRIORITY_CATEGORIES.length; i++) {
+                    result[PRIORITY_CATEGORIES[i].key] = PRIORITY_CATEGORIES[i].default;
+                }
+                return result;
+            }
+            var copy = {};
+            for (var k in _customPriorities) {
+                if (_customPriorities.hasOwnProperty(k)) {
+                    copy[k] = _customPriorities[k];
+                }
+            }
+            return copy;
+        },
+
+        setCustomPriorities: function(priorities) {
+            _customPriorities = {};
+            for (var k in priorities) {
+                if (priorities.hasOwnProperty(k)) {
+                    _customPriorities[k] = priorities[k];
+                }
+            }
+        },
+
+        resetPriorities: function() {
+            _customPriorities = null;
+        },
+
+        // ================================================================
         // Save/Load
         // ================================================================
         getSerializableState: function() {
@@ -840,7 +898,8 @@ var Energy = (function() {
                 dayNightTimer: _dayNightTimer,
                 windSpeed: _windSpeed,
                 windTimer: _windTimer,
-                weather: _weather
+                weather: _weather,
+                customPriorities: _customPriorities
             };
         },
 
@@ -860,6 +919,11 @@ var Energy = (function() {
             if (data.windSpeed !== undefined) _windSpeed = data.windSpeed;
             if (data.windTimer !== undefined) _windTimer = data.windTimer;
             if (data.weather !== undefined) _weather = data.weather;
+            if (data.customPriorities) {
+                _customPriorities = data.customPriorities;
+            } else {
+                _customPriorities = null;
+            }
         }
     };
 })();
