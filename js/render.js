@@ -1018,6 +1018,23 @@ var Render = (function () {
                 }
             }
 
+            // Worker shortage indicator
+            if (!b.active && b.workerShortage && !empDisabled[b.id]) {
+                if (_animFrame % 50 < 30) {
+                    var wBadgeX = b.worldX + 8;
+                    var wBadgeY = b.worldY + 8;
+                    ctx.fillStyle = 'rgba(255,140,0,0.9)';
+                    ctx.beginPath();
+                    ctx.arc(wBadgeX, wBadgeY, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 8px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('W', wBadgeX, wBadgeY);
+                }
+            }
+
             // Icon (emoji)
             if (def.icon) {
                 var fontSize = Math.min(pw, ph) * 0.55;

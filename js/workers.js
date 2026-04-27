@@ -48,6 +48,7 @@ var Workers = (function () {
                         var def = Config.BUILDINGS[b.type];
                         if (def && def.workersRequired > 0) {
                             b.active = false;
+                            b.workerShortage = true;
                             _allocatedWorkers -= def.workersRequired;
                             if (_allocatedWorkers < 0) { _allocatedWorkers = 0; }
                             deactivated = true;
@@ -192,6 +193,36 @@ var Workers = (function () {
         }
     }
 
+    /**
+     * Re-activate buildings marked with workerShortage when free workers
+     * become available (reverse priority order — highest priority first).
+     */
+    function _reactivateShortageBuildings() {
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) { return; }
+        var available = _totalWorkers - _allocatedWorkers;
+        if (available <= 0) { return; }
+
+        var allBuildings = Buildings.getAll();
+        if (!allBuildings) { return; }
+
+        // Iterate in reverse deactivation order (highest priority first)
+        for (var p = _deactivationOrder.length - 1; p >= 0 && available > 0; p--) {
+            var typeKey = _deactivationOrder[p];
+            for (var i = 0; i < allBuildings.length && available > 0; i++) {
+                var b = allBuildings[i];
+                if (b.type === typeKey && !b.active && b.workerShortage && b.hp > 0) {
+                    var def = Config.BUILDINGS[b.type];
+                    if (def && def.workersRequired > 0 && available >= def.workersRequired) {
+                        b.active = true;
+                        b.workerShortage = false;
+                        _allocatedWorkers += def.workersRequired;
+                        available -= def.workersRequired;
+                    }
+                }
+            }
+        }
+    }
+
     return {
         init: function () {
             _totalWorkers = 0;
@@ -214,6 +245,7 @@ var Workers = (function () {
             _processRecruitment();
             _processDeparture();
             _processHomeless();
+            _reactivateShortageBuildings();
         },
 
         // ---- Worker management ------------------------------------------------
@@ -249,7 +281,65 @@ var Workers = (function () {
             return (_totalWorkers - _allocatedWorkers) >= count;
         },
 
-        // ---- Save / Load ------------------------------------------------------
+        /**
+         * Force workers to a specific building by stealing from the
+         * lowest-priority active building that has workers.
+         * Returns { success, reason }.
+         */
+        forceWorkersTo: function (buildingId) {
+            if (typeof Buildings === 'undefined' || !Buildings.getById || !Buildings.getAll) {
+                return { success: false, reason: 'Buildings not available.' };
+            }
+            var target = Buildings.getById(buildingId);
+            if (!target) { return { success: false, reason: 'Building not found.' }; }
+            var tDef = Config.BUILDINGS[target.type];
+            if (!tDef || !tDef.workersRequired) { return { success: false, reason: 'Building needs no workers.' }; }
+            if (target.active && !target.workerShortage) { return { success: false, reason: 'Building already staffed.' }; }
+
+            var needed = tDef.workersRequired;
+            var available = _totalWorkers - _allocatedWorkers;
+
+            // If there are enough free workers, just allocate
+            if (available >= needed) {
+                _allocatedWorkers += needed;
+                target.active = true;
+                target.workerShortage = false;
+                return { success: true, reason: 'Assigned ' + needed + ' idle workers.' };
+            }
+
+            // Need to steal from lowest-priority buildings
+            var toSteal = needed - available;
+            var allBuildings = Buildings.getAll();
+            var stolen = 0;
+
+            for (var p = 0; p < _deactivationOrder.length && stolen < toSteal; p++) {
+                var typeKey = _deactivationOrder[p];
+                for (var i = 0; i < allBuildings.length && stolen < toSteal; i++) {
+                    var b = allBuildings[i];
+                    if (b.id === buildingId) { continue; }
+                    if (b.type === typeKey && b.active && b.hp > 0) {
+                        var def = Config.BUILDINGS[b.type];
+                        if (def && def.workersRequired > 0) {
+                            b.active = false;
+                            b.workerShortage = true;
+                            _allocatedWorkers -= def.workersRequired;
+                            if (_allocatedWorkers < 0) { _allocatedWorkers = 0; }
+                            stolen += def.workersRequired;
+                        }
+                    }
+                }
+            }
+
+            // Now allocate to target
+            if ((_totalWorkers - _allocatedWorkers) >= needed) {
+                _allocatedWorkers += needed;
+                target.active = true;
+                target.workerShortage = false;
+                return { success: true, reason: 'Reassigned workers from lower-priority buildings.' };
+            }
+
+            return { success: false, reason: 'Not enough total workers to staff this building.' };
+        },
 
         getSerializableState: function () {
             return {

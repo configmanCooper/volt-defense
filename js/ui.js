@@ -1268,9 +1268,34 @@ var UI = (function () {
             // Workers
             if (def.workersRequired > 0) {
                 html += '<div class="info-stat">👷 Workers: ' + def.workersRequired + '</div>';
+                if (building.workerShortage && !building.active) {
+                    html += '<div class="info-stat" style="color:#ff8844;">⚠️ No workers assigned!</div>';
+                    html += '<button class="force-workers-btn" data-building-id="' + buildingId + '" style="margin:4px 0;padding:4px 10px;background:#cc6600;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">👷 Force Workers Here</button>';
+                }
             }
             if (def.workersHoused > 0) {
                 html += '<div class="info-stat">🏠 Houses: ' + def.workersHoused + ' workers</div>';
+            }
+
+            // Deposit remaining (for miners)
+            if (def.extractionRate && building.depositRef) {
+                var depRemain = Math.floor(building.depositRef.remaining);
+                var depMax = building.depositRef.maxAmount || depRemain;
+                var depPct = depMax > 0 ? Math.floor((depRemain / depMax) * 100) : 0;
+                var depColor = depPct > 50 ? '#44cc44' : (depPct > 20 ? '#ccaa44' : '#cc4444');
+                html += '<div class="info-stat" style="color:' + depColor + ';">⛏️ Deposit: ' + depRemain + '/' + depMax + ' (' + depPct + '%)</div>';
+            } else if (def.extractionRate && !building.depositRef) {
+                // Try to resolve deposit reference
+                var depAt = (typeof Map !== 'undefined' && Map.getDepositAt) ? Map.getDepositAt(building.gridX, building.gridY) : null;
+                if (depAt) {
+                    var drm = Math.floor(depAt.remaining);
+                    var dmx = depAt.maxAmount || drm;
+                    var dpc = dmx > 0 ? Math.floor((drm / dmx) * 100) : 0;
+                    var dco = dpc > 50 ? '#44cc44' : (dpc > 20 ? '#ccaa44' : '#cc4444');
+                    html += '<div class="info-stat" style="color:' + dco + ';">⛏️ Deposit: ' + drm + '/' + dmx + ' (' + dpc + '%)</div>';
+                } else {
+                    html += '<div class="info-stat" style="color:#cc4444;">⛏️ No deposit found!</div>';
+                }
             }
 
             // Weapon stats
@@ -1543,6 +1568,29 @@ var UI = (function () {
                         if (typeof Buildings !== 'undefined' && Buildings.toggleManualOff) {
                             var isOff = Buildings.toggleManualOff(bId);
                             // Refresh the panel to update label
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(bId);
+                            }
+                        }
+                    });
+                }
+
+                // Force workers button
+                var forceWBtns = _elements.infoPanel.querySelectorAll('.force-workers-btn');
+                for (var fw = 0; fw < forceWBtns.length; fw++) {
+                    forceWBtns[fw].addEventListener('click', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        if (typeof Workers !== 'undefined' && Workers.forceWorkersTo) {
+                            var result = Workers.forceWorkersTo(bId);
+                            if (result.success) {
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast(result.reason, 'success', 2000);
+                                }
+                            } else {
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast(result.reason, 'error', 2000);
+                                }
+                            }
                             if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
                                 UI.showBuildingInfo(bId);
                             }
