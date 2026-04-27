@@ -181,6 +181,13 @@ var Main = (function () {
 
     // ---- Game over ----------------------------------------------------------
 
+    function _getScoreMult() {
+        if (typeof Engine === 'undefined' || typeof Engine.getDifficultyKey !== 'function') return 1;
+        var key = Engine.getDifficultyKey();
+        var diff = Config.DIFFICULTY[key];
+        return (diff && diff.scoreMult) ? diff.scoreMult : 1;
+    }
+
     function _gameOver() {
         _stopLoops();
 
@@ -188,6 +195,8 @@ var Main = (function () {
             ? Enemies.getTotalScore() : 0;
         var waveCount = (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
             ? Engine.getWave() : 0;
+        var rawScore = (waveCount * 100) + killScore;
+        var finalScore = Math.round(rawScore * _getScoreMult());
 
         var stats = {
             wave: waveCount,
@@ -199,7 +208,7 @@ var Main = (function () {
                 ? Economy.getStats().totalEarned : 0,
             difficulty: (typeof Engine !== 'undefined' && typeof Engine.getDifficultyKey === 'function')
                 ? Engine.getDifficultyKey() : 'unknown',
-            score: (waveCount * 100) + killScore
+            score: finalScore
         };
 
         if (typeof UI !== 'undefined' && typeof UI.showGameOver === 'function') {
@@ -214,6 +223,8 @@ var Main = (function () {
             ? Enemies.getTotalScore() : 0;
         var waveCount = (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
             ? Engine.getWave() : 0;
+        var rawScore = (waveCount * 100) + killScore;
+        var finalScore = Math.round(rawScore * _getScoreMult());
 
         var stats = {
             wave: waveCount,
@@ -225,7 +236,7 @@ var Main = (function () {
                 ? Economy.getStats().totalEarned : 0,
             difficulty: (typeof Engine !== 'undefined' && typeof Engine.getDifficultyKey === 'function')
                 ? Engine.getDifficultyKey() : 'unknown',
-            score: (waveCount * 100) + killScore
+            score: finalScore
         };
 
         if (typeof UI !== 'undefined' && typeof UI.showVictory === 'function') {

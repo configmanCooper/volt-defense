@@ -1758,7 +1758,8 @@ var Config = {
             pollutionDecayMult: 1.3,
             workerRecruitMult: 1.3,
             scalingPerWave: 0.05,
-            maxWaves: 20
+            maxWaves: 20,
+            scoreMult: 0.8
         },
         volt: {
             name: 'Volt',
@@ -1777,7 +1778,8 @@ var Config = {
             pollutionDecayMult: 1.0,
             workerRecruitMult: 1.0,
             scalingPerWave: 0.08,
-            maxWaves: 30
+            maxWaves: 30,
+            scoreMult: 1.0
         },
         amp: {
             name: 'Amp',
@@ -1796,7 +1798,8 @@ var Config = {
             pollutionDecayMult: 0.8,
             workerRecruitMult: 0.8,
             scalingPerWave: 0.12,
-            maxWaves: 40
+            maxWaves: 40,
+            scoreMult: 1.2
         },
         lightning: {
             name: 'Lightning',
@@ -1815,7 +1818,8 @@ var Config = {
             pollutionDecayMult: 0.6,
             workerRecruitMult: 0.6,
             scalingPerWave: 0.15,
-            maxWaves: 50
+            maxWaves: 50,
+            scoreMult: 1.5
         }
     },
 
