@@ -1796,6 +1796,34 @@ var UI = (function () {
             ]);
         },
 
+        showVictory: function (stats) {
+            var waveReached = (stats && stats.wave) ? stats.wave : 0;
+            var enemiesKilled = (stats && stats.kills != null) ? stats.kills : 0;
+            var timePlayed = (stats && stats.time != null) ? stats.time : 0;
+            var diffKey = (stats && stats.difficulty) ? stats.difficulty : 'unknown';
+
+            var minutes = Math.floor(timePlayed / 60);
+            var seconds = Math.floor(timePlayed % 60);
+            var timeStr = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+
+            var score = (waveReached * 1000) + (enemiesKilled * 10);
+
+            var diffNames = { watt: 'Watt (Easy)', volt: 'Volt (Normal)', amp: 'Amp (Hard)', lightning: 'Lightning (Extreme)' };
+            var diffName = diffNames[diffKey] || diffKey;
+
+            var content = '';
+            content += '<div class="gameover-stat" style="font-size:1.3em;color:#ffd700;margin-bottom:8px;">🎉 You defended the grid! 🎉</div>';
+            content += '<div class="gameover-stat">⚡ Difficulty: <strong>' + diffName + '</strong></div>';
+            content += '<div class="gameover-stat">🌊 Waves Completed: <strong>' + waveReached + '</strong></div>';
+            content += '<div class="gameover-stat">💀 Enemies Killed: <strong>' + UI.formatNumber(enemiesKilled) + '</strong></div>';
+            content += '<div class="gameover-stat">⏱️ Time Played: <strong>' + timeStr + '</strong></div>';
+            content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumber(score) + '</strong></div>';
+
+            UI.showModal('🏆 VICTORY! 🏆', content, [
+                { label: '🏠 Return to Menu', action: 'return-to-menu', className: 'modal-btn modal-btn-primary' }
+            ]);
+        },
+
         // ---- Screens ----
 
         showMenu: function () {

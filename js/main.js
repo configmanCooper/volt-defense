@@ -134,6 +134,17 @@ var Main = (function () {
                 if (typeof Engine.setGameOver === 'function') Engine.setGameOver();
                 _gameOver();
             }
+
+            // Victory check: final wave reached and all enemies dead
+            if (typeof Engine !== 'undefined' && Engine.getState && Engine.getState() &&
+                Engine.getState().finalWaveReached && !Engine.isVictory() &&
+                typeof Enemies !== 'undefined' && typeof Enemies.getAll === 'function') {
+                var remaining = Enemies.getAll();
+                if (remaining.length === 0) {
+                    Engine.setVictory();
+                    _victory();
+                }
+            }
         }, _getTickRate());
 
         _lastFrameTime = performance.now();
@@ -188,6 +199,27 @@ var Main = (function () {
 
         if (typeof UI !== 'undefined' && typeof UI.showGameOver === 'function') {
             UI.showGameOver(stats);
+        }
+    }
+
+    function _victory() {
+        _stopLoops();
+
+        var stats = {
+            wave: (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
+                ? Engine.getWave() : 0,
+            kills: (typeof Enemies !== 'undefined' && typeof Enemies.getTotalKills === 'function')
+                ? Enemies.getTotalKills() : 0,
+            time: (typeof Engine !== 'undefined' && typeof Engine.getGameTime === 'function')
+                ? Engine.getGameTime() : 0,
+            money: (typeof Economy !== 'undefined' && typeof Economy.getStats === 'function')
+                ? Economy.getStats().totalEarned : 0,
+            difficulty: (typeof Engine !== 'undefined' && typeof Engine.getDifficultyKey === 'function')
+                ? Engine.getDifficultyKey() : 'unknown'
+        };
+
+        if (typeof UI !== 'undefined' && typeof UI.showVictory === 'function') {
+            UI.showVictory(stats);
         }
     }
 

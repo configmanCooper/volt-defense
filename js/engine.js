@@ -268,6 +268,10 @@ var Engine = (function() {
 
         setGameOver: function() { if (_state) _state.gameOver = true; },
 
+        isVictory: function() { return _state ? !!_state.victory : false; },
+
+        setVictory: function() { if (_state) _state.victory = true; },
+
         setGodMode: function(on) { if (_state) _state.godMode = !!on; },
         isGodMode: function() { return _state ? !!_state.godMode : false; },
 
@@ -309,10 +313,16 @@ var Engine = (function() {
                 }
             }
 
-            // Reset timer for next wave
+            // Reset timer for next wave (stop if final wave reached)
             var diff = _getDiff();
-            _state.waveTimer = diff ? diff.waveInterval :
-                ((typeof Config !== 'undefined' && Config.WAVE_INTERVAL) ? Config.WAVE_INTERVAL : 60);
+            var maxWaves = (diff && diff.maxWaves) ? diff.maxWaves : 50;
+            if (_state.wave >= maxWaves) {
+                _state.waveTimer = 0;
+                _state.finalWaveReached = true;
+            } else {
+                _state.waveTimer = diff ? diff.waveInterval :
+                    ((typeof Config !== 'undefined' && Config.WAVE_INTERVAL) ? Config.WAVE_INTERVAL : 60);
+            }
         },
 
         // ---- difficulty-adjusted helpers ----
@@ -406,7 +416,9 @@ var Engine = (function() {
                 rng: new SeededRNG(state.seed || 1),
                 seed: state.seed || 1,
                 wavesEnabled: state.wavesEnabled !== false,
-                godMode: state.godMode || false
+                godMode: state.godMode || false,
+                finalWaveReached: state.finalWaveReached || false,
+                victory: state.victory || false
             };
             // Fast-forward the RNG to the saved tick count if available
             if (state.tickCount) { _tickCount = state.tickCount; }
@@ -425,7 +437,9 @@ var Engine = (function() {
                 seed: _state.seed,
                 tickCount: _tickCount,
                 wavesEnabled: _state.wavesEnabled,
-                godMode: _state.godMode
+                godMode: _state.godMode,
+                finalWaveReached: _state.finalWaveReached || false,
+                victory: _state.victory || false
             };
         }
     };
