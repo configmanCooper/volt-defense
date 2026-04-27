@@ -126,6 +126,10 @@ var Economy = (function () {
                 _money += Config.CONSUMER_BATTERY_SELL_PRICE;
                 _stats.totalEarned += Config.CONSUMER_BATTERY_SELL_PRICE;
                 b.energy = 0;
+                // Increase capacity by 10% after each sale, up to 10000
+                var newCap = Math.round(cap * 1.1);
+                if (newCap > 10000) { newCap = 10000; }
+                b.scaledStorageCapacity = newCap;
             }
         }
     }
