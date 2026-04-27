@@ -323,6 +323,10 @@ var Engine = (function() {
             if (cost) {
                 if (cost.money != null) { result.money = Math.round(cost.money * mult); }
                 if (cost.iron != null) { result.iron = Math.round(cost.iron * mult); }
+                if (cost.coal != null) { result.coal = Math.round(cost.coal * mult); }
+                if (cost.uranium != null) { result.uranium = Math.round(cost.uranium * mult); }
+                if (cost.oil != null) { result.oil = Math.round(cost.oil * mult); }
+                if (cost.steel != null) { result.steel = Math.round(cost.steel * mult); }
             }
             return result;
         },
