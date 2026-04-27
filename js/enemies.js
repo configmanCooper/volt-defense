@@ -935,7 +935,9 @@ var Enemies = (function () {
             isBoss: false,
             mechanic: def.mechanic || null,
             wallsDestroyed: 0,
-            wallsToDestroyMax: 0
+            wallsToDestroyMax: 0,
+            jitterX: (Math.random() - 0.5) * 12,
+            jitterY: (Math.random() - 0.5) * 12
         };
 
         if (def.special && specialToCategory[def.special]) {

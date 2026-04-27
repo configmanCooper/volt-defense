@@ -1953,11 +1953,13 @@ var Render = (function () {
 
             // Flying enemy: draw shadow underneath, then offset drawing upward
             var flyOffset = 0;
+            var ejx = e.jitterX || 0;
+            var ejy = e.jitterY || 0;
             if (e.special === 'flying') {
                 // Shadow on the ground
                 ctx.fillStyle = 'rgba(0,0,0,0.25)';
                 ctx.beginPath();
-                ctx.ellipse(Math.floor(e.x) + 4, Math.floor(e.y) + 4, r + 2, r * 0.6, 0, 0, Math.PI * 2);
+                ctx.ellipse(Math.floor(e.x + ejx) + 4, Math.floor(e.y + ejy) + 4, r + 2, r * 0.6, 0, 0, Math.PI * 2);
                 ctx.fill();
                 flyOffset = -8 - Math.sin(_animFrame * 0.08) * 3; // bob up and down
             }
@@ -1969,14 +1971,16 @@ var Render = (function () {
                     var dox = (Math.random() - 0.5) * r * 2;
                     var doy = (Math.random() - 0.5) * r * 2;
                     ctx.beginPath();
-                    ctx.arc(Math.floor(e.x + dox), Math.floor(e.y + doy), 2, 0, Math.PI * 2);
+                    ctx.arc(Math.floor(e.x + ejx + dox), Math.floor(e.y + ejy + doy), 2, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
 
             // Body — use shape-specific draw function or fallback to circle
-            var ex = Math.floor(e.x);
-            var ey = Math.floor(e.y) + flyOffset;
+            var jx = e.jitterX || 0;
+            var jy = e.jitterY || 0;
+            var ex = Math.floor(e.x + jx);
+            var ey = Math.floor(e.y + jy) + flyOffset;
             var moveAngle = _getMoveAngle(e);
             var drawFn = ENEMY_DRAW_FNS[e.type];
             if (drawFn) {
