@@ -806,14 +806,9 @@ var Enemies = (function () {
             if (attackedBuilding.hp > 0) {
                 enemy.targetBuildingId = attackedBuilding.id;
             } else {
-                // Wall destroyed — track for wall_breakers and nullifiers
-                if (enemy.wallsToDestroyMax > 0) {
+                // Wall destroyed — track for nullifiers
+                if (enemy.wallsToDestroyMax > 0 && enemy.wallsToDestroyMax !== Infinity) {
                     enemy.wallsDestroyed = (enemy.wallsDestroyed || 0) + 1;
-                    if (enemy.special === 'targets_walls' && enemy.wallsDestroyed >= enemy.wallsToDestroyMax) {
-                        // Wall breaker done — head to core
-                        enemy.targetCategory = null;
-                        enemy.special = null;
-                    }
                 }
             }
         }
@@ -970,12 +965,9 @@ var Enemies = (function () {
         if (def.special && specialToCategory[def.special]) {
             enemy.targetCategory = specialToCategory[def.special];
         }
-        // Wall breakers destroy 2-4 walls then head to core
+        // Wall breakers destroy walls until none remain, then head to core
         if (def.special === 'targets_walls') {
-            var baseWalls = def.wallsToDestroy || 3;
-            enemy.wallsToDestroyMax = baseWalls + Math.floor(Math.random() * 3) - 1; // 2-4
-            if (enemy.wallsToDestroyMax < 2) enemy.wallsToDestroyMax = 2;
-            if (enemy.wallsToDestroyMax > 4) enemy.wallsToDestroyMax = 4;
+            enemy.wallsToDestroyMax = Infinity;
         }
         // Nullifiers break through 1-2 walls on the way to shields
         if (def.special === 'targets_shields') {
