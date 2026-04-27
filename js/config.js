@@ -941,7 +941,7 @@ var Config = {
             maxChargeRate: 50,
             maxDischargeRate: 50,
             pollution: 0,
-            upgradeTo: null,
+            upgradeTo: 'hc_pylon',
             description: 'Relay node. Extends cable network cheaply.',
             icon: '📡'
         },
