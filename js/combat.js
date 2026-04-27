@@ -15,6 +15,9 @@ var Combat = (function() {
     var _mortarImpacts = [];  // Active mortar impact visual effects
     var _drones = [];        // Active drones from drone bays
     var _nextDroneId = 1;
+    var _mines = [];         // Active proximity mines { id, x, y, buildingId, damage, splashRadius }
+    var _nextMineId = 1;
+    var _mineExplosions = []; // Visual effects for mine detonations
 
     // ---- helpers ----
 
@@ -586,7 +589,7 @@ var Combat = (function() {
             }
 
             // Blaster projectile handling — more accurate homing
-            if (p.type === 'blaster') {
+            if (p.type === 'blaster' || p.type === 'autocannon') {
                 var bTarget = null;
                 if (typeof Enemies !== 'undefined' && Enemies.getById) {
                     bTarget = Enemies.getById(p.targetId);
@@ -1210,6 +1213,186 @@ var Combat = (function() {
         }
         _drones = survivingDrones;
     }
+
+    // ---- Mine Layer ----
+
+    function _processMineLayers() {
+        var buildings = _getAllBuildings();
+        var enemies = _getAllEnemies();
+        var tps = _tps();
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'mine_layer') continue;
+            if (!b.active || b.hp <= 0) continue;
+
+            var def = _getBuildingDef(b.type);
+            if (!def) continue;
+
+            var maxMines = def.maxMines || 10;
+            var center = _getBuildingCenter(b);
+
+            // Count active mines for this building
+            var activeMineCount = 0;
+            for (var mc = 0; mc < _mines.length; mc++) {
+                if (_mines[mc].buildingId === b.id) activeMineCount++;
+            }
+
+            // Generate new mines
+            if (activeMineCount < maxMines) {
+                if (b.mineTimer == null) b.mineTimer = 0;
+                b.mineTimer++;
+
+                var genInterval = def.mineGenerateTicks || 240;
+                if (b.mineTimer >= genInterval) {
+                    // Check steel cost
+                    var steelCost = def.mineSteelCost || 5;
+                    if (typeof Economy !== 'undefined' && Economy.getResource && Economy.spendResource) {
+                        if (Economy.getResource('steel') >= steelCost) {
+                            Economy.spendResource('steel', steelCost);
+                            b.mineTimer = 0;
+
+                            // Place mine in a circle around the building
+                            var mineRadius = def.mineRadius || 200;
+                            var angleStep = (2 * Math.PI) / maxMines;
+                            // Find next available slot
+                            var usedSlots = {};
+                            for (var ms = 0; ms < _mines.length; ms++) {
+                                if (_mines[ms].buildingId === b.id) {
+                                    usedSlots[_mines[ms].slot] = true;
+                                }
+                            }
+                            var slot = 0;
+                            for (var s = 0; s < maxMines; s++) {
+                                if (!usedSlots[s]) { slot = s; break; }
+                            }
+                            var mAngle = slot * angleStep;
+                            _mines.push({
+                                id: _nextMineId++,
+                                x: center.x + Math.cos(mAngle) * mineRadius,
+                                y: center.y + Math.sin(mAngle) * mineRadius,
+                                buildingId: b.id,
+                                slot: slot,
+                                damage: def.mineDamage || 150,
+                                splashRadius: def.mineSplashRadius || 60
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check mine detonation
+        var survivingMines = [];
+        for (var mi = 0; mi < _mines.length; mi++) {
+            var mine = _mines[mi];
+            var detonated = false;
+
+            // Check if parent building is dead
+            var parent = null;
+            if (typeof Buildings !== 'undefined' && Buildings.getById) {
+                parent = Buildings.getById(mine.buildingId);
+            }
+            if (!parent || parent.hp <= 0) continue; // Remove orphaned mines
+
+            for (var ei = 0; ei < enemies.length; ei++) {
+                var e = enemies[ei];
+                if (!e || e.hp <= 0) continue;
+                var dist = _distance(mine.x, mine.y, e.x, e.y);
+                if (dist <= 30) {
+                    // Detonate!
+                    for (var ae = 0; ae < enemies.length; ae++) {
+                        var se = enemies[ae];
+                        if (!se || se.hp <= 0) continue;
+                        var sd = _distance(mine.x, mine.y, se.x, se.y);
+                        if (sd <= mine.splashRadius) {
+                            if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                                Enemies.damageEnemy(se.id, mine.damage, 0);
+                            }
+                        }
+                    }
+                    _mineExplosions.push({ x: mine.x, y: mine.y, radius: mine.splashRadius, life: 1.0 });
+                    detonated = true;
+                    break;
+                }
+            }
+            if (!detonated) survivingMines.push(mine);
+        }
+        _mines = survivingMines;
+
+        // Decay mine explosions
+        var activeExplosions = [];
+        for (var xe = 0; xe < _mineExplosions.length; xe++) {
+            _mineExplosions[xe].life -= 1 / tps;
+            if (_mineExplosions[xe].life > 0) activeExplosions.push(_mineExplosions[xe]);
+        }
+        _mineExplosions = activeExplosions;
+    }
+
+    // ---- Autocannon ----
+
+    function _processAutocannons() {
+        var buildings = _getAllBuildings();
+
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            if (b.type !== 'autocannon') continue;
+            if (!b.active || b.hp <= 0) continue;
+
+            var def = _getBuildingDef(b.type);
+            if (!def) continue;
+
+            if (b.reloadTimer == null) b.reloadTimer = 0;
+            if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
+
+            var effectiveRange = _getEffectiveRange(b, def.range);
+            var center = _getBuildingCenter(b);
+
+            // Target closest enemy
+            var enemy = null;
+            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
+                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
+            }
+            if (!enemy) continue;
+
+            var energyCost = def.energyPerShot || 15;
+            if (b.energy < energyCost) continue;
+
+            // Track burst counter for steel consumption
+            if (b.burstCounter == null) b.burstCounter = 0;
+            b.burstCounter++;
+            var burstSize = def.burstShotCount || 5;
+            if (b.burstCounter >= burstSize) {
+                var steelCost = def.steelPerBurst || 1;
+                if (typeof Economy !== 'undefined' && Economy.getResource && Economy.spendResource) {
+                    if (Economy.getResource('steel') < steelCost) continue;
+                    Economy.spendResource('steel', steelCost);
+                }
+                b.burstCounter = 0;
+            }
+
+            b.energy -= energyCost;
+
+            var dx = enemy.x - center.x;
+            var dy = enemy.y - center.y;
+            var angle = Math.atan2(dy, dx);
+
+            _projectiles.push({
+                id: _nextProjectileId++,
+                x: center.x,
+                y: center.y,
+                targetId: enemy.id,
+                damage: def.damage,
+                speed: def.projectileSpeed || 500,
+                type: 'autocannon',
+                angle: angle,
+                distanceTraveled: 0,
+                maxDistance: effectiveRange * 1.3
+            });
+
+            b.reloadTimer = def.reloadTicks || 3;
+        }
+    }
 
     // ---- Plasma Cannon ----
 
@@ -1575,6 +1758,8 @@ var Combat = (function() {
             _processEmpTowers();
             _processMortars();
             _processDroneBays();
+            _processMineLayers();
+            _processAutocannons();
             _processPlasmaCanons();
             _processFusionBeams();
             _handleSpecialEnemies();
@@ -1591,6 +1776,8 @@ var Combat = (function() {
         getMortarImpacts: function() { return _mortarImpacts; },
         getDrones: function() { return _drones; },
         getFusionBeams: function() { return _fusionBeams; },
+        getMines: function() { return _mines; },
+        getMineExplosions: function() { return _mineExplosions; },
 
         getSerializableState: function() {
             var projData = [];
@@ -1654,6 +1841,17 @@ var Combat = (function() {
                 });
             }
 
+            // Serialize mines
+            var mineData = [];
+            for (var mi = 0; mi < _mines.length; mi++) {
+                var m = _mines[mi];
+                mineData.push({
+                    id: m.id, x: m.x, y: m.y,
+                    buildingId: m.buildingId, slot: m.slot,
+                    damage: m.damage, splashRadius: m.splashRadius
+                });
+            }
+
             return {
                 projectiles: projData,
                 nextProjectileId: _nextProjectileId,
@@ -1661,7 +1859,9 @@ var Combat = (function() {
                 railShots: railData,
                 empBlasts: blastData,
                 drones: droneData,
-                nextDroneId: _nextDroneId
+                nextDroneId: _nextDroneId,
+                mines: mineData,
+                nextMineId: _nextMineId
             };
         },
 
@@ -1720,6 +1920,15 @@ var Combat = (function() {
             }
 
             _nextDroneId = data.nextDroneId || 1;
+
+            _mines = [];
+            if (data.mines) {
+                for (var mi2 = 0; mi2 < data.mines.length; mi2++) {
+                    _mines.push(data.mines[mi2]);
+                }
+            }
+            _nextMineId = data.nextMineId || 1;
+            _mineExplosions = [];
         }
     };
 })();

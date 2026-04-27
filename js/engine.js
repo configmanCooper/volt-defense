@@ -237,6 +237,19 @@ var Engine = (function() {
         damageCoreHP: function(amount) {
             if (!_state) { return; }
             if (_state.godMode) { return; }
+            // Check for armored core damage reduction
+            if (typeof Buildings !== 'undefined' && Buildings.getAll) {
+                var allB = Buildings.getAll();
+                for (var ci = 0; ci < allB.length; ci++) {
+                    if (allB[ci].type === 'core_armored' && allB[ci].hp > 0) {
+                        var coreDef = Config.BUILDINGS.core_armored;
+                        if (coreDef && coreDef.damageReduction) {
+                            amount *= (1 - coreDef.damageReduction);
+                        }
+                        break;
+                    }
+                }
+            }
             _state.coreHP -= amount;
             if (_state.coreHP <= 0) {
                 _state.coreHP = 0;

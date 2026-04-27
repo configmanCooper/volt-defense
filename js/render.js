@@ -1299,7 +1299,7 @@ var Render = (function () {
             // Trail
             trail = _trails[p.id];
             if (trail && trail.length > 1) {
-                var trailColor = (p.type === 'blaster') ? '0,204,255' : '255,68,0';
+                var trailColor = (p.type === 'blaster') ? '0,204,255' : (p.type === 'autocannon') ? '255,170,0' : '255,68,0';
                 for (j = 0; j < trail.length - 1; j++) {
                     alpha = (j + 1) / trail.length * 0.6;
                     ctx.fillStyle = 'rgba(' + trailColor + ',' + alpha.toFixed(2) + ')';
@@ -1329,6 +1329,12 @@ var Render = (function () {
                 ctx.fillStyle = '#ffffff';
                 ctx.beginPath();
                 ctx.arc(Math.floor(p.x), Math.floor(p.y), 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'autocannon') {
+                // Yellow/orange bullet
+                ctx.fillStyle = '#ffaa00';
+                ctx.beginPath();
+                ctx.arc(Math.floor(p.x), Math.floor(p.y), 2.5, 0, Math.PI * 2);
                 ctx.fill();
             } else {
                 ctx.fillStyle = COLORS.MISSILE.body;
@@ -1657,6 +1663,49 @@ var Render = (function () {
                 ctx.fillRect(Math.floor(drone.x) - 5, Math.floor(drone.y) - 9, Math.floor(10 * hpRatio), 2);
             }
             ctx.restore();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: Mines
+    // ------------------------------------------------------------------------
+    function _drawMines(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getMines !== 'function') return;
+        var mines = Combat.getMines();
+        if (!mines || !mines.length) return;
+
+        for (var i = 0; i < mines.length; i++) {
+            var mine = mines[i];
+            if (!_isInViewport(mine.x, mine.y, 15)) continue;
+
+            // Mine body - dark red circle
+            ctx.fillStyle = '#882222';
+            ctx.beginPath();
+            ctx.arc(Math.floor(mine.x), Math.floor(mine.y), 5, 0, Math.PI * 2);
+            ctx.fill();
+            // Center dot - bright red
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(Math.floor(mine.x), Math.floor(mine.y), 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Layer: Mine explosions
+    // ------------------------------------------------------------------------
+    function _drawMineExplosions(ctx) {
+        if (typeof Combat === 'undefined' || !Combat || typeof Combat.getMineExplosions !== 'function') return;
+        var explosions = Combat.getMineExplosions();
+        if (!explosions || !explosions.length) return;
+
+        for (var i = 0; i < explosions.length; i++) {
+            var exp = explosions[i];
+            var alpha = Math.min(exp.life, 0.4);
+            ctx.beginPath();
+            ctx.arc(Math.floor(exp.x), Math.floor(exp.y), exp.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 60, 20, ' + alpha.toFixed(3) + ')';
+            ctx.fill();
         }
     }
 
@@ -2213,6 +2262,8 @@ var Render = (function () {
             _drawEmpBlasts(_ctx);
             _drawFlameEffects(_ctx);
             _drawDrones(_ctx);
+            _drawMines(_ctx);
+            _drawMineExplosions(_ctx);
             _drawPlasmaProjectiles(_ctx);
             _drawFusionBeams(_ctx);
             _drawDamageNumbers(_ctx);
