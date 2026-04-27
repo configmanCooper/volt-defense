@@ -2618,7 +2618,7 @@ var Render = (function () {
         }
 
         // Cable connection preview: line to nearest (or Alt-cycled) connectable building
-        if (typeof Buildings !== 'undefined' && Buildings && typeof Buildings.getAll === 'function') {
+        if (!(def && def.noCables) && typeof Buildings !== 'undefined' && Buildings && typeof Buildings.getAll === 'function') {
             var cx = px + pw / 2;
             var cy = py + ph / 2;
             var closest = null;
