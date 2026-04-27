@@ -36,6 +36,7 @@ var Enemies = (function () {
     var _spawnQueue = [];
     var _spawnTimer = 0;
     var _totalKills = 0;
+    var _totalScore = 0;
     var _totalEscaped = 0;
     var _spawnPoints = [];
     var _reachableSpawnsCache = null;  // cached list of spawn points that can reach core
@@ -794,6 +795,7 @@ var Enemies = (function () {
                     }
                 }
                 _totalKills++;
+                _totalScore += (def && def.scoreValue) ? def.scoreValue : 1;
                 for (var j = _enemies.length - 1; j >= 0; j--) {
                     if (_enemies[j].id === enemy.id) {
                         _enemies.splice(j, 1);
@@ -1617,6 +1619,10 @@ var Enemies = (function () {
             return _totalKills;
         },
 
+        getTotalScore: function () {
+            return _totalScore;
+        },
+
         // ---- Enemy manipulation -----------------------------------------------
 
         damageEnemy: function (enemyId, damage, armorBypass) {
@@ -1647,6 +1653,7 @@ var Enemies = (function () {
                     }
 
                     _totalKills++;
+                    _totalScore += (def && def.scoreValue) ? def.scoreValue : 1;
                     _enemies.splice(i, 1);
                     return true;
                 }
@@ -1773,6 +1780,7 @@ var Enemies = (function () {
                 spawnQueue: _spawnQueue,
                 spawnTimer: _spawnTimer,
                 totalKills: _totalKills,
+                totalScore: _totalScore,
                 totalEscaped: _totalEscaped,
                 spawnPoints: _spawnPoints
             };
@@ -1787,6 +1795,7 @@ var Enemies = (function () {
             _spawnQueue    = data.spawnQueue    || [];
             _spawnTimer    = data.spawnTimer    || 0;
             _totalKills    = data.totalKills    || 0;
+            _totalScore    = data.totalScore    || 0;
             _totalEscaped  = data.totalEscaped  || 0;
             _spawnPoints   = data.spawnPoints   || [];
         },

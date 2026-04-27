@@ -184,9 +184,13 @@ var Main = (function () {
     function _gameOver() {
         _stopLoops();
 
+        var killScore = (typeof Enemies !== 'undefined' && typeof Enemies.getTotalScore === 'function')
+            ? Enemies.getTotalScore() : 0;
+        var waveCount = (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
+            ? Engine.getWave() : 0;
+
         var stats = {
-            wave: (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
-                ? Engine.getWave() : 0,
+            wave: waveCount,
             kills: (typeof Enemies !== 'undefined' && typeof Enemies.getTotalKills === 'function')
                 ? Enemies.getTotalKills() : 0,
             time: (typeof Engine !== 'undefined' && typeof Engine.getGameTime === 'function')
@@ -194,7 +198,8 @@ var Main = (function () {
             money: (typeof Economy !== 'undefined' && typeof Economy.getStats === 'function')
                 ? Economy.getStats().totalEarned : 0,
             difficulty: (typeof Engine !== 'undefined' && typeof Engine.getDifficultyKey === 'function')
-                ? Engine.getDifficultyKey() : 'unknown'
+                ? Engine.getDifficultyKey() : 'unknown',
+            score: (waveCount * 100) + killScore
         };
 
         if (typeof UI !== 'undefined' && typeof UI.showGameOver === 'function') {
@@ -205,9 +210,13 @@ var Main = (function () {
     function _victory() {
         _stopLoops();
 
+        var killScore = (typeof Enemies !== 'undefined' && typeof Enemies.getTotalScore === 'function')
+            ? Enemies.getTotalScore() : 0;
+        var waveCount = (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
+            ? Engine.getWave() : 0;
+
         var stats = {
-            wave: (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
-                ? Engine.getWave() : 0,
+            wave: waveCount,
             kills: (typeof Enemies !== 'undefined' && typeof Enemies.getTotalKills === 'function')
                 ? Enemies.getTotalKills() : 0,
             time: (typeof Engine !== 'undefined' && typeof Engine.getGameTime === 'function')
@@ -215,7 +224,8 @@ var Main = (function () {
             money: (typeof Economy !== 'undefined' && typeof Economy.getStats === 'function')
                 ? Economy.getStats().totalEarned : 0,
             difficulty: (typeof Engine !== 'undefined' && typeof Engine.getDifficultyKey === 'function')
-                ? Engine.getDifficultyKey() : 'unknown'
+                ? Engine.getDifficultyKey() : 'unknown',
+            score: (waveCount * 100) + killScore
         };
 
         if (typeof UI !== 'undefined' && typeof UI.showVictory === 'function') {

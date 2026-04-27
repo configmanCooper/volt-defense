@@ -1783,7 +1783,7 @@ var UI = (function () {
             var seconds = Math.floor(timePlayed % 60);
             var timeStr = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
 
-            var score = (waveReached * 1000) + (enemiesKilled * 10);
+            var score = (stats && stats.score != null) ? stats.score : 0;
 
             var content = '';
             content += '<div class="gameover-stat">🌊 Waves Survived: <strong>' + waveReached + '</strong></div>';
@@ -1806,7 +1806,7 @@ var UI = (function () {
             var seconds = Math.floor(timePlayed % 60);
             var timeStr = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
 
-            var score = (waveReached * 1000) + (enemiesKilled * 10);
+            var score = (stats && stats.score != null) ? stats.score : 0;
 
             var diffNames = { watt: 'Watt (Easy)', volt: 'Volt (Normal)', amp: 'Amp (Hard)', lightning: 'Lightning (Extreme)' };
             var diffName = diffNames[diffKey] || diffKey;
