@@ -1191,7 +1191,18 @@ var Enemies = (function () {
                 _enemyAttackBuilding(enemy);
                 return;
             }
-            _enemyReachedCore(enemy);
+            // Only count as reaching core if actually near it (within 2 grid cells)
+            var coreCheck = _getCorePosition();
+            var cdx = enemy.x - coreCheck.x;
+            var cdy = enemy.y - coreCheck.y;
+            var coreDist = cdx * cdx + cdy * cdy;
+            var threshold = Config.GRID_CELL_SIZE * 2;
+            if (coreDist <= threshold * threshold) {
+                _enemyReachedCore(enemy);
+                return;
+            }
+            // Not near core — force re-path next tick
+            enemy.repathTimer = 0;
             return;
         }
 

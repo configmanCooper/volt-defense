@@ -933,9 +933,11 @@ var Render = (function () {
             ctx.fill();
         }
 
-        // HP bar if damaged
-        if (building.hp < building.maxHp) {
-            _drawHPBar(ctx, cx, y, w, building.hp / building.maxHp);
+        // HP bar — show engine core HP (matches HUD) instead of building HP
+        var coreHP = (typeof Engine !== 'undefined' && Engine.getCoreHP) ? Engine.getCoreHP() : building.hp;
+        var coreMaxHP = (typeof Config !== 'undefined' && Config.CORE_HP) ? Config.CORE_HP : building.maxHp;
+        if (coreHP < coreMaxHP) {
+            _drawHPBar(ctx, cx, y, w, coreHP / coreMaxHP);
         }
 
         // Selection highlight
