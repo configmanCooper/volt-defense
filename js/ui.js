@@ -1262,7 +1262,8 @@ var UI = (function () {
                 html += '<div class="info-stat">⚡ Consumption: ' + def.energyConsumption + '/s</div>';
             }
             if (def.energyStorageCapacity > 0) {
-                html += '<div class="info-stat">🔋 Stored: <span id="info-energy-text">' + Math.floor(building.energy) + '</span>/' + def.energyStorageCapacity + '</div>';
+                var displayCap = (building.scaledStorageCapacity && building.scaledStorageCapacity > 0) ? building.scaledStorageCapacity : def.energyStorageCapacity;
+                html += '<div class="info-stat">🔋 Stored: <span id="info-energy-text">' + Math.floor(building.energy) + '</span>/' + displayCap + '</div>';
             }
 
             // Workers

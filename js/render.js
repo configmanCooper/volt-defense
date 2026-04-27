@@ -2643,6 +2643,8 @@ var Render = (function () {
                 var isRestricted = !!restrictedCats[placingCat];
                 for (var bi = 0; bi < bList.length; bi++) {
                     var bOther = bList[bi];
+                    // Walls don't use electricity — skip as cable targets
+                    if (bOther.type === 'wall' || bOther.type === 'steel_wall') continue;
                     if (isRestricted) {
                         var otherDef = Config.BUILDINGS[bOther.type];
                         var otherCat = otherDef ? otherDef.category : '';

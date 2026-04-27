@@ -64,6 +64,8 @@ var Input = (function () {
         for (var i = 0; i < allBuildings.length; i++) {
             var other = allBuildings[i];
             if (excludeId && other.id === excludeId) continue;
+            // Walls don't use electricity — skip as cable targets
+            if (other.type === 'wall' || other.type === 'steel_wall') continue;
             if (isRestricted) {
                 var otherDef = Config.BUILDINGS[other.type];
                 var otherCat = otherDef ? otherDef.category : '';
