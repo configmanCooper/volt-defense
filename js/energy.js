@@ -378,6 +378,25 @@ var Energy = (function() {
             // Track worst pylon priority each building was charged through this tick
             var _inheritedPylonPri = {};
 
+            // Pre-compute pylon priority floor for each building:
+            // If any adjacent pylon has a cable priority set for a building,
+            // that building's priority can never be lower (better) than that value.
+            // This ensures pylon cable priorities can't be bypassed via alternate paths.
+            var _pylonPriFloor = {};
+            for (var bId in adjacency) {
+                var bNeighbors = adjacency[bId];
+                var worstPri = 1;
+                for (var k = 0; k < bNeighbors.length; k++) {
+                    var kB = Buildings.getById(bNeighbors[k]);
+                    if (kB && (kB.type === 'pylon' || kB.type === 'hc_pylon' || kB.type === 'water_pylon')) {
+                        if (kB.cablePriorities && kB.cablePriorities[bId]) {
+                            worstPri = Math.max(worstPri, kB.cablePriorities[bId]);
+                        }
+                    }
+                }
+                if (worstPri > 1) _pylonPriFloor[bId] = worstPri;
+            }
+
             // For each generator, BFS to distribute energy
             for (var g = 0; g < generators.length; g++) {
                 var gen = generators[g];
@@ -434,6 +453,11 @@ var Energy = (function() {
                         var edgePri = currentPylonPri;
                         if (isPylon && currentBuilding.cablePriorities && currentBuilding.cablePriorities[nId]) {
                             edgePri = Math.max(edgePri, currentBuilding.cablePriorities[nId]);
+                        }
+                        // Apply pylon priority floor: if any adjacent pylon assigned
+                        // a cable priority to this building, it acts as a minimum
+                        if (_pylonPriFloor[nId]) {
+                            edgePri = Math.max(edgePri, _pylonPriFloor[nId]);
                         }
 
                         // BFS relaxation: allow revisits when a better priority path is found
