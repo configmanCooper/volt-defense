@@ -265,12 +265,18 @@ var Render = (function () {
     // ------------------------------------------------------------------------
     function _drawHPBar(ctx, sx, sy, w, ratio) {
         var barW = w;
-        var barH = 4;
+        var barH = 5;
         var bx = Math.floor(sx - barW / 2);
-        var by = Math.floor(sy - 6);
+        var by = Math.floor(sy - 8);
+        // Background
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
+        // Red underlay
         ctx.fillStyle = COLORS.UI.hpRed;
         ctx.fillRect(bx, by, barW, barH);
-        ctx.fillStyle = COLORS.UI.hpGreen;
+        // Green fill
+        var greenColor = ratio > 0.5 ? COLORS.UI.hpGreen : (ratio > 0.25 ? '#ddaa22' : '#dd3333');
+        ctx.fillStyle = greenColor;
         ctx.fillRect(bx, by, Math.floor(barW * ratio), barH);
     }
 
