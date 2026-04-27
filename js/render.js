@@ -51,7 +51,10 @@ var Render = (function () {
             saboteur: '#996633',
             siege_engine: '#441111',
             phase_walker: '#aa44ff',
-            jammer: '#669966'
+            jammer: '#669966',
+            scout_drone: '#99ddff',
+            heavy_flyer: '#556688',
+            tunneler: '#8b5a2b'
         },
         SHIELD: {
             fill: 'rgba(100, 180, 255, 0.15)',
@@ -103,7 +106,8 @@ var Render = (function () {
     // Enemy size multipliers (base radius 8)
     var ENEMY_RADIUS = {
         tank: 12, heavy_tank: 14, siege_engine: 16,
-        spark: 6, runner: 7, swarm: 5
+        spark: 6, runner: 7, swarm: 5,
+        scout_drone: 6, heavy_flyer: 13, tunneler: 9
     };
     var ENEMY_RADIUS_DEFAULT = 8;
 
@@ -1222,10 +1226,33 @@ var Render = (function () {
                 ctx.globalAlpha = 0.6;
             }
 
+            // Flying enemy: draw shadow underneath, then offset drawing upward
+            var flyOffset = 0;
+            if (e.special === 'flying') {
+                // Shadow on the ground
+                ctx.fillStyle = 'rgba(0,0,0,0.25)';
+                ctx.beginPath();
+                ctx.ellipse(Math.floor(e.x) + 4, Math.floor(e.y) + 4, r + 2, r * 0.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                flyOffset = -8 - Math.sin(_animFrame * 0.08) * 3; // bob up and down
+            }
+
+            // Tunneler: dirt particle trail
+            if (e.special === 'burrows') {
+                ctx.fillStyle = 'rgba(139,90,43,0.4)';
+                for (var dt = 0; dt < 3; dt++) {
+                    var dox = (Math.random() - 0.5) * r * 2;
+                    var doy = (Math.random() - 0.5) * r * 2;
+                    ctx.beginPath();
+                    ctx.arc(Math.floor(e.x + dox), Math.floor(e.y + doy), 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
             // Body
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(Math.floor(e.x), Math.floor(e.y), r, 0, Math.PI * 2);
+            ctx.arc(Math.floor(e.x), Math.floor(e.y) + flyOffset, r, 0, Math.PI * 2);
             ctx.fill();
 
             // Direction indicator (small triangle)

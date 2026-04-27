@@ -403,7 +403,7 @@ var Enemies = (function () {
      * If waterOnly is true, ONLY water tiles are walkable (for river serpents).
      * targetBuildingId is optional — buildings are blocked unless they match.
      */
-    function _findPathTo(startX, startY, endX, endY, canSwim, waterOnly, targetBuildingId) {
+    function _findPathTo(startX, startY, endX, endY, canSwim, waterOnly, targetBuildingId, ignoreWalls) {
         var startGrid = _worldToGrid(startX, startY);
         var endGrid   = _worldToGrid(endX, endY);
 
@@ -432,6 +432,8 @@ var Enemies = (function () {
                 var bld = Buildings.getAt(gx, gy);
                 if (bld && bld.hp > 0) {
                     if (bld.type === 'core') return true;
+                    // Burrowers ignore walls
+                    if (ignoreWalls && (bld.type === 'wall' || bld.type === 'electric_wall' || bld.type === 'steel_wall')) return true;
                     if (!targetBuildingId || bld.id !== targetBuildingId) {
                         return false;
                     }
@@ -592,8 +594,17 @@ var Enemies = (function () {
             while (_deferredPathQueue.length > 0 && processed < maxPerBatch) {
                 var enemy = _deferredPathQueue.shift();
                 if (enemy.hp <= 0) continue;
+                // Flying enemies never need A*
+                if (enemy.special === 'flying') continue;
                 var targetKey = enemy.targetBuildingId || 'core';
-                var path = _findPathRaw(enemy.x, enemy.y, enemy.targetBuildingId);
+                var burrows = enemy.special === 'burrows';
+                var path;
+                if (burrows) {
+                    var corePos = _getCorePosition();
+                    path = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, false, false, enemy.targetBuildingId, true);
+                } else {
+                    path = _findPathRaw(enemy.x, enemy.y, enemy.targetBuildingId);
+                }
                 var grid = _worldToGrid(enemy.x, enemy.y);
                 _setCachedPath(grid.gx, grid.gy, targetKey, path);
                 if (path) {
@@ -945,10 +956,17 @@ var Enemies = (function () {
             enemy.isBoss = true;
         }
 
+        // Flying enemies always use direct path (straight line to core)
+        if (def.special === 'flying') {
+            enemy.path = _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
+            return enemy;
+        }
+
         // Compute initial path — use cache, defer A* on miss
+        // Burrowers skip cache since their paths differ (ignore walls)
         var grid = _worldToGrid(spawnX, spawnY);
         var targetKey = enemy.targetBuildingId || 'core';
-        var cached = _getCachedPath(grid.gx, grid.gy, targetKey);
+        var cached = (def.special !== 'burrows') ? _getCachedPath(grid.gx, grid.gy, targetKey) : undefined;
         if (cached !== undefined) {
             enemy.path = cached || _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
         } else {
@@ -1049,7 +1067,8 @@ var Enemies = (function () {
 
                 var procSpecials = [null, 'targets_power', 'targets_housing', 'targets_mining',
                                    'targets_weapons', 'targets_storage', 'targets_shields',
-                                   'emp_disable', 'ignores_shields', 'river_spawn'];
+                                   'emp_disable', 'ignores_shields', 'river_spawn',
+                                   'flying', 'burrows'];
                 var procSpecial = procSpecials[Math.floor(simpleRng() * procSpecials.length)];
 
                 var procMechanics = [null, null, null, 'ranged_attack', 'teleport', 'laser_resist', 'missile_resist'];
@@ -1114,8 +1133,12 @@ var Enemies = (function () {
         if (enemy.repathTimer <= 0) {
             enemy.repathTimer = 20; // repath every 2 seconds
 
-            // Skip if pathfinding budget exhausted this tick
-            if (_pathBudgetThisTick >= _maxPathfindsPerTick) {
+            // Flying enemies always use direct path — no A* needed
+            if (enemy.special === 'flying') {
+                var flyCore = _getCorePosition();
+                enemy.path = _directPath(enemy.x, enemy.y, flyCore.x, flyCore.y);
+                enemy.pathIndex = 0;
+            } else if (_pathBudgetThisTick >= _maxPathfindsPerTick) {
                 enemy.repathTimer = 1; // retry next tick
             } else {
                 _pathBudgetThisTick++;
@@ -1128,7 +1151,8 @@ var Enemies = (function () {
                         if (enemy.special === 'river_spawn' && enemy.targetCategory === 'water_buildings') {
                             useWaterOnly = true;
                         }
-                        var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId);
+                        var burrows = enemy.special === 'burrows';
+                        var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId, burrows);
                         if (newPath) {
                             enemy.path = newPath;
                             enemy.pathIndex = newPath.length > 1 ? 1 : 0;
@@ -1147,7 +1171,8 @@ var Enemies = (function () {
                 // Core pathing: if no target or target unreachable, path to core
                 if (!enemy.targetBuildingId) {
                     var corePos = _getCorePosition();
-                    var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null);
+                    var coreBurrows = enemy.special === 'burrows';
+                    var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null, coreBurrows);
                     if (corePath) {
                         enemy.path = corePath;
                         enemy.pathIndex = corePath.length > 1 ? 1 : 0;
