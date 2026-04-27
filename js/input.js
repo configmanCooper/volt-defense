@@ -31,6 +31,7 @@ var Input = (function () {
     // Cable target cycling (Alt key during placement)
     var _cableTargetIdx = -1; // -1 = auto (nearest), 0+ = index into eligible list
     var _lastAltTime = 0;
+    var _lastRightClickTime = 0;
 
     // Deposit hover tooltip
     var _hoverGrid = { x: -1, y: -1 };
@@ -518,6 +519,10 @@ var Input = (function () {
             canvas.addEventListener('contextmenu', function (e) {
                 e.preventDefault();
                 if (!_debugMode) return;
+                // Throttle rapid right-clicks
+                var now = Date.now();
+                if (now - _lastRightClickTime < 100) return;
+                _lastRightClickTime = now;
                 // Debug: right-click to kill enemy
                 var rect = canvas.getBoundingClientRect();
                 var sx = e.clientX - rect.left;
@@ -531,9 +536,6 @@ var Input = (function () {
                 var enemy = _getEnemyAtWorld(wx, wy);
                 if (enemy && typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
                     Enemies.damageEnemy(enemy.id, enemy.hp + 1000, 1.0);
-                    if (typeof UI !== 'undefined' && UI.showToast) {
-                        UI.showToast('💀 Killed ' + (enemy.type || 'enemy'), 'info', 1000);
-                    }
                 }
             });
 
