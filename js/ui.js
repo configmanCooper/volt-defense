@@ -373,8 +373,8 @@ var UI = (function () {
 
     function _renderPriorityModal(ordered) {
         var html = '<div style="max-width:420px;margin:0 auto;">';
-        html += '<p style="font-size:12px;color:#aaa;margin-bottom:12px;">Higher position = higher priority. Items at the same level charge equally. Use arrows to reorder.</p>';
-        html += '<div id="priority-list" style="display:flex;flex-direction:column;gap:2px;">';
+        html += '<p style="font-size:12px;color:#aaa;margin-bottom:12px;">Drag items to reorder. Drop onto another item to give them equal priority. Drag out of a group to separate.</p>';
+        html += '<div id="priority-list" style="display:flex;flex-direction:column;gap:2px;position:relative;">';
 
         // Group by priority value
         var groups = [];
@@ -392,44 +392,26 @@ var UI = (function () {
             var isLinked = group.items.length > 1;
             var borderColor = isLinked ? '#ffcc00' : '#3a3a5a';
 
-            html += '<div class="pri-group" data-group="' + g + '" style="border:1px solid ' + borderColor + ';border-radius:6px;padding:6px 8px;background:#1a1a2e;display:flex;align-items:center;gap:8px;">';
+            html += '<div class="pri-group" data-group="' + g + '" style="border:1px solid ' + borderColor + ';border-radius:6px;padding:6px 8px;background:#1a1a2e;display:flex;align-items:center;gap:8px;min-height:36px;transition:background 0.15s;">';
 
             // Rank number
             html += '<span style="color:#ffd700;font-weight:bold;font-size:16px;min-width:20px;text-align:center;">' + (g + 1) + '</span>';
 
-            // Category labels
+            // Category labels (each draggable)
             html += '<div style="flex:1;display:flex;flex-wrap:wrap;gap:4px;">';
             for (var ci = 0; ci < group.items.length; ci++) {
                 var item = group.items[ci];
-                html += '<span style="background:#2a2a4a;padding:3px 8px;border-radius:4px;font-size:13px;white-space:nowrap;">';
+                html += '<span class="pri-item" draggable="true" data-pri-key="' + item.key + '" style="background:#2a2a4a;padding:3px 8px;border-radius:4px;font-size:13px;white-space:nowrap;cursor:grab;user-select:none;border:1px solid transparent;transition:border-color 0.15s,opacity 0.15s;">';
                 html += item.icon + ' ' + item.label;
                 html += '</span>';
             }
             html += '</div>';
 
-            // Control buttons
-            html += '<div style="display:flex;flex-direction:column;gap:2px;">';
-            if (g > 0) {
-                html += '<button class="pri-btn" data-pri-action="up" data-pri-group="' + g + '" title="Move up (higher priority)" style="background:#333;border:1px solid #555;color:#fff;cursor:pointer;padding:1px 6px;border-radius:3px;font-size:12px;">▲</button>';
-            } else {
-                html += '<span style="padding:1px 6px;font-size:12px;visibility:hidden;">▲</span>';
-            }
-            if (g < groups.length - 1) {
-                html += '<button class="pri-btn" data-pri-action="down" data-pri-group="' + g + '" title="Move down (lower priority)" style="background:#333;border:1px solid #555;color:#fff;cursor:pointer;padding:1px 6px;border-radius:3px;font-size:12px;">▼</button>';
-            } else {
-                html += '<span style="padding:1px 6px;font-size:12px;visibility:hidden;">▼</span>';
-            }
-            html += '</div>';
-
-            // Link/unlink button
-            if (isLinked) {
-                html += '<button class="pri-btn" data-pri-action="unlink" data-pri-group="' + g + '" title="Split into separate levels" style="background:#553300;border:1px solid #ffcc00;color:#ffcc00;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:11px;">⛓️‍💥</button>';
-            } else if (g < groups.length - 1) {
-                html += '<button class="pri-btn" data-pri-action="link" data-pri-group="' + g + '" title="Link with level below (equal priority)" style="background:#1a3a1a;border:1px solid #44aa44;color:#44aa44;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:11px;">🔗</button>';
-            }
-
             html += '</div>';
         }
+
+        // Drop zone at the very bottom (for moving to lowest priority)
+        html += '<div class="pri-drop-bottom" data-drop-pos="bottom" style="height:8px;border-radius:4px;transition:background 0.15s;"></div>';
 
         html += '</div>';
 
@@ -443,81 +425,282 @@ var UI = (function () {
             { label: 'Done', action: 'close-modal', className: 'menu-btn' }
         ]);
 
-        // Attach click handlers
+        // Attach drag-and-drop handlers
         var modalBody = document.getElementById('modal-body');
-        if (modalBody) {
-            modalBody.addEventListener('click', function (evt) {
-                var btn = evt.target.closest('[data-pri-action]');
-                if (!btn) return;
-                var action = btn.getAttribute('data-pri-action');
-                var groupIdx = parseInt(btn.getAttribute('data-pri-group'));
+        if (!modalBody) return;
 
-                // Rebuild groups from current state
-                var categories = Energy.getPriorityCategories();
-                var current = Energy.getCustomPriorities();
-                var items = [];
-                for (var ci2 = 0; ci2 < categories.length; ci2++) {
-                    items.push({ key: categories[ci2].key, label: categories[ci2].label, icon: categories[ci2].icon, pri: current[categories[ci2].key] });
+        var dragKey = null;       // key of the item being dragged
+        var dragEl = null;        // DOM element being dragged
+        var dropTarget = null;    // current drop target element
+
+        // Touch drag state
+        var touchDragging = false;
+        var touchClone = null;
+        var touchStartX = 0;
+        var touchStartY = 0;
+
+        function _getGroupsFromState() {
+            var categories = Energy.getPriorityCategories();
+            var current = Energy.getCustomPriorities();
+            var items = [];
+            for (var ci2 = 0; ci2 < categories.length; ci2++) {
+                items.push({ key: categories[ci2].key, label: categories[ci2].label, icon: categories[ci2].icon, pri: current[categories[ci2].key] });
+            }
+            items.sort(function(a, b) { return a.pri - b.pri; });
+            var grps = [];
+            var lp = null;
+            for (var gi = 0; gi < items.length; gi++) {
+                if (items[gi].pri !== lp) {
+                    grps.push({ pri: items[gi].pri, items: [] });
+                    lp = items[gi].pri;
                 }
-                items.sort(function(a, b) { return a.pri - b.pri; });
+                grps[grps.length - 1].items.push(items[gi]);
+            }
+            return { groups: grps, current: current };
+        }
 
-                // Rebuild groups
-                var grps = [];
-                var lp = null;
-                for (var gi = 0; gi < items.length; gi++) {
-                    if (items[gi].pri !== lp) {
-                        grps.push({ pri: items[gi].pri, items: [] });
-                        lp = items[gi].pri;
+        function _applyDrop(draggedKey, targetGroupIdx, merge) {
+            var state = _getGroupsFromState();
+            var grps = state.groups;
+            var current = state.current;
+
+            // Find which group the dragged item is in
+            var srcGroupIdx = -1;
+            for (var sg = 0; sg < grps.length; sg++) {
+                for (var si = 0; si < grps[sg].items.length; si++) {
+                    if (grps[sg].items[si].key === draggedKey) { srcGroupIdx = sg; break; }
+                }
+                if (srcGroupIdx >= 0) break;
+            }
+            if (srcGroupIdx < 0) return;
+
+            // If dropping on the same solo group, nothing to do
+            if (srcGroupIdx === targetGroupIdx && grps[srcGroupIdx].items.length === 1 && !merge) return;
+
+            if (merge && targetGroupIdx >= 0 && targetGroupIdx < grps.length) {
+                // Merge: give dragged item same priority as target group
+                current[draggedKey] = grps[targetGroupIdx].pri;
+            } else {
+                // Move: remove from current group and insert at target position
+                // First, normalize priorities to sequential integers
+                var newPris = {};
+                var rank = 1;
+                for (var ng = 0; ng < grps.length; ng++) {
+                    for (var ni = 0; ni < grps[ng].items.length; ni++) {
+                        if (grps[ng].items[ni].key === draggedKey) continue;
+                        if (newPris['_g' + ng] == null) newPris['_g' + ng] = rank++;
+                        current[grps[ng].items[ni].key] = newPris['_g' + ng];
                     }
-                    grps[grps.length - 1].items.push(items[gi]);
                 }
 
-                if (action === 'reset') {
-                    Energy.resetPriorities();
-                    UI.showPrioritySettings();
-                    return;
+                // Insert dragged item at target position
+                if (targetGroupIdx < 0) targetGroupIdx = 0;
+                // Shift everything at targetGroupIdx and below down by 1
+                var insertPri = targetGroupIdx + 1;
+                for (var k in current) {
+                    if (k === draggedKey) continue;
+                    if (current[k] >= insertPri) current[k]++;
                 }
+                current[draggedKey] = insertPri;
+            }
 
-                if (action === 'up' && groupIdx > 0) {
-                    var abovePri = grps[groupIdx - 1].pri;
-                    var thisPri = grps[groupIdx].pri;
-                    for (var u = 0; u < grps[groupIdx].items.length; u++) {
-                        current[grps[groupIdx].items[u].key] = abovePri;
-                    }
-                    for (var u2 = 0; u2 < grps[groupIdx - 1].items.length; u2++) {
-                        current[grps[groupIdx - 1].items[u2].key] = thisPri;
-                    }
-                } else if (action === 'down' && groupIdx < grps.length - 1) {
-                    var belowPri = grps[groupIdx + 1].pri;
-                    var thisPri2 = grps[groupIdx].pri;
-                    for (var d = 0; d < grps[groupIdx].items.length; d++) {
-                        current[grps[groupIdx].items[d].key] = belowPri;
-                    }
-                    for (var d2 = 0; d2 < grps[groupIdx + 1].items.length; d2++) {
-                        current[grps[groupIdx + 1].items[d2].key] = thisPri2;
-                    }
-                } else if (action === 'link' && groupIdx < grps.length - 1) {
-                    var linkPri = grps[groupIdx].pri;
-                    for (var li = 0; li < grps[groupIdx + 1].items.length; li++) {
-                        current[grps[groupIdx + 1].items[li].key] = linkPri;
-                    }
-                } else if (action === 'unlink') {
-                    var basePri = grps[groupIdx].pri;
-                    var slotsNeeded = grps[groupIdx].items.length - 1;
-                    for (var si = groupIdx + 1; si < grps.length; si++) {
-                        for (var sj = 0; sj < grps[si].items.length; sj++) {
-                            current[grps[si].items[sj].key] += slotsNeeded;
+            // Normalize all priorities to clean 1,2,3... sequence
+            var allItems = [];
+            for (var ak in current) {
+                allItems.push({ key: ak, pri: current[ak] });
+            }
+            allItems.sort(function(a, b) { return a.pri - b.pri; });
+            var normalRank = 1;
+            var lastNPri = null;
+            for (var an = 0; an < allItems.length; an++) {
+                if (allItems[an].pri !== lastNPri) {
+                    if (lastNPri !== null) normalRank++;
+                    lastNPri = allItems[an].pri;
+                }
+                current[allItems[an].key] = normalRank;
+            }
+
+            Energy.setCustomPriorities(current);
+            UI.showPrioritySettings();
+        }
+
+        function _clearHighlights() {
+            var allGroups = modalBody.querySelectorAll('.pri-group');
+            for (var ag = 0; ag < allGroups.length; ag++) {
+                allGroups[ag].style.background = '#1a1a2e';
+                allGroups[ag].style.borderTopColor = '';
+                allGroups[ag].style.borderBottomColor = '';
+            }
+            var allItems = modalBody.querySelectorAll('.pri-item');
+            for (var ai = 0; ai < allItems.length; ai++) {
+                allItems[ai].style.borderColor = 'transparent';
+            }
+            var bottom = modalBody.querySelector('.pri-drop-bottom');
+            if (bottom) bottom.style.background = '';
+            dropTarget = null;
+        }
+
+        function _getDropInfo(evt) {
+            // Find which group or gap the mouse is over
+            var allGroups = modalBody.querySelectorAll('.pri-group');
+            var clientY = evt.clientY || (evt.touches && evt.touches[0] ? evt.touches[0].clientY : 0);
+            var clientX = evt.clientX || (evt.touches && evt.touches[0] ? evt.touches[0].clientX : 0);
+
+            for (var dg = 0; dg < allGroups.length; dg++) {
+                var rect = allGroups[dg].getBoundingClientRect();
+                if (clientY >= rect.top && clientY <= rect.bottom) {
+                    var groupIdx = parseInt(allGroups[dg].getAttribute('data-group'));
+                    var midY = rect.top + rect.height / 2;
+
+                    // Check if hovering over a specific item in the group (for merge)
+                    var items = allGroups[dg].querySelectorAll('.pri-item');
+                    for (var di = 0; di < items.length; di++) {
+                        var itemKey = items[di].getAttribute('data-pri-key');
+                        if (itemKey === dragKey) continue;
+                        var ir = items[di].getBoundingClientRect();
+                        if (clientX >= ir.left && clientX <= ir.right && clientY >= ir.top && clientY <= ir.bottom) {
+                            return { type: 'merge', groupIdx: groupIdx, el: allGroups[dg] };
                         }
                     }
-                    for (var ui2 = 0; ui2 < grps[groupIdx].items.length; ui2++) {
-                        current[grps[groupIdx].items[ui2].key] = basePri + ui2;
+
+                    // Above or below midpoint = insert above or below
+                    if (clientY < midY) {
+                        return { type: 'insert', groupIdx: groupIdx, el: allGroups[dg], side: 'top' };
+                    } else {
+                        return { type: 'insert', groupIdx: groupIdx + 1, el: allGroups[dg], side: 'bottom' };
                     }
                 }
+            }
 
-                Energy.setCustomPriorities(current);
-                UI.showPrioritySettings();
-            });
+            // Below all groups
+            return { type: 'insert', groupIdx: allGroups.length, el: null, side: 'bottom' };
         }
+
+        // --- Mouse drag handlers ---
+        modalBody.addEventListener('dragstart', function (evt) {
+            var item = evt.target.closest('.pri-item');
+            if (!item) return;
+            dragKey = item.getAttribute('data-pri-key');
+            dragEl = item;
+            item.style.opacity = '0.4';
+            evt.dataTransfer.effectAllowed = 'move';
+            evt.dataTransfer.setData('text/plain', dragKey);
+        });
+
+        modalBody.addEventListener('dragend', function () {
+            if (dragEl) dragEl.style.opacity = '1';
+            _clearHighlights();
+            dragKey = null;
+            dragEl = null;
+        });
+
+        modalBody.addEventListener('dragover', function (evt) {
+            if (!dragKey) return;
+            evt.preventDefault();
+            evt.dataTransfer.dropEffect = 'move';
+
+            _clearHighlights();
+            var info = _getDropInfo(evt);
+            if (!info) return;
+
+            if (info.type === 'merge' && info.el) {
+                info.el.style.background = '#2a2a1a';
+                info.el.style.borderColor = '#ffcc00';
+            } else if (info.type === 'insert' && info.el) {
+                if (info.side === 'top') {
+                    info.el.style.borderTopColor = '#44aaff';
+                } else {
+                    info.el.style.borderBottomColor = '#44aaff';
+                }
+            } else {
+                var bottom = modalBody.querySelector('.pri-drop-bottom');
+                if (bottom) bottom.style.background = '#44aaff';
+            }
+            dropTarget = info;
+        });
+
+        modalBody.addEventListener('drop', function (evt) {
+            evt.preventDefault();
+            if (!dragKey || !dropTarget) return;
+            _applyDrop(dragKey, dropTarget.groupIdx, dropTarget.type === 'merge');
+        });
+
+        // --- Touch drag handlers ---
+        modalBody.addEventListener('touchstart', function (evt) {
+            var item = evt.target.closest('.pri-item');
+            if (!item) return;
+            dragKey = item.getAttribute('data-pri-key');
+            dragEl = item;
+            touchStartX = evt.touches[0].clientX;
+            touchStartY = evt.touches[0].clientY;
+            touchDragging = false;
+        }, { passive: true });
+
+        modalBody.addEventListener('touchmove', function (evt) {
+            if (!dragKey) return;
+            var dx = evt.touches[0].clientX - touchStartX;
+            var dy = evt.touches[0].clientY - touchStartY;
+            if (!touchDragging && Math.abs(dx) + Math.abs(dy) > 10) {
+                touchDragging = true;
+                dragEl.style.opacity = '0.4';
+                // Create visual clone
+                touchClone = dragEl.cloneNode(true);
+                touchClone.style.position = 'fixed';
+                touchClone.style.pointerEvents = 'none';
+                touchClone.style.zIndex = '10000';
+                touchClone.style.opacity = '0.8';
+                touchClone.style.transform = 'scale(1.1)';
+                document.body.appendChild(touchClone);
+            }
+            if (touchDragging) {
+                evt.preventDefault();
+                if (touchClone) {
+                    touchClone.style.left = (evt.touches[0].clientX - 40) + 'px';
+                    touchClone.style.top = (evt.touches[0].clientY - 15) + 'px';
+                }
+                _clearHighlights();
+                var info = _getDropInfo(evt);
+                if (info) {
+                    if (info.type === 'merge' && info.el) {
+                        info.el.style.background = '#2a2a1a';
+                        info.el.style.borderColor = '#ffcc00';
+                    } else if (info.type === 'insert' && info.el) {
+                        if (info.side === 'top') {
+                            info.el.style.borderTopColor = '#44aaff';
+                        } else {
+                            info.el.style.borderBottomColor = '#44aaff';
+                        }
+                    }
+                    dropTarget = info;
+                }
+            }
+        }, { passive: false });
+
+        modalBody.addEventListener('touchend', function () {
+            if (touchClone) {
+                document.body.removeChild(touchClone);
+                touchClone = null;
+            }
+            if (touchDragging && dragKey && dropTarget) {
+                _applyDrop(dragKey, dropTarget.groupIdx, dropTarget.type === 'merge');
+            }
+            if (dragEl) dragEl.style.opacity = '1';
+            _clearHighlights();
+            dragKey = null;
+            dragEl = null;
+            touchDragging = false;
+        });
+
+        // Reset button handler
+        modalBody.addEventListener('click', function (evt) {
+            var btn = evt.target.closest('[data-pri-action]');
+            if (!btn) return;
+            var action = btn.getAttribute('data-pri-action');
+            if (action === 'reset') {
+                Energy.resetPriorities();
+                UI.showPrioritySettings();
+            }
+        });
     }
 
     function _getRefundAmount(building) {
