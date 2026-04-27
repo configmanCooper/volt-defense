@@ -1624,6 +1624,11 @@ var Combat = (function() {
                     var center = _getBuildingCenter(b);
                     var dist = _distance(e.x, e.y, center.x, center.y);
                     if (dist <= 200) {
+                        // Free workers before disabling
+                        var bDef = _getBuildingDef(b.type);
+                        if (bDef && bDef.workersRequired > 0 && typeof Workers !== 'undefined' && typeof Workers.freeWorkers === 'function') {
+                            Workers.freeWorkers(bDef.workersRequired);
+                        }
                         b.active = false;
                         b.empDisabled = true;
                         _empDisabled[String(b.id)] = 50; // 50 ticks

@@ -266,12 +266,28 @@ var Workers = (function () {
         loadState: function (data) {
             if (!data) { return; }
             _totalWorkers = data.totalWorkers || 0;
-            _allocatedWorkers = data.allocatedWorkers || 0;
             _maxCapacity = data.maxCapacity || 0;
             _recruitTimer = data.recruitTimer || 0;
             _departTimer = data.departTimer || 0;
             _homelessTimer = data.homelessTimer || 0;
             _homelessDepartTimer = data.homelessDepartTimer || 0;
+
+            // Recalculate allocatedWorkers from active buildings to prevent drift
+            _allocatedWorkers = 0;
+            if (typeof Buildings !== 'undefined' && typeof Buildings.getAll === 'function') {
+                var allB = Buildings.getAll();
+                for (var i = 0; i < allB.length; i++) {
+                    if (allB[i].active && allB[i].hp > 0) {
+                        var bDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[allB[i].type] : null;
+                        if (bDef && bDef.workersRequired) {
+                            _allocatedWorkers += bDef.workersRequired;
+                        }
+                    }
+                }
+            }
+            if (_allocatedWorkers > _totalWorkers) {
+                _allocatedWorkers = _totalWorkers;
+            }
         }
     };
 })();
