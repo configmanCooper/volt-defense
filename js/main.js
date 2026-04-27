@@ -244,6 +244,14 @@ var Main = (function () {
             actions.appendChild(loadBtn);
 
             if (info) {
+                var dlBtn = document.createElement('button');
+                dlBtn.className = 'menu-btn save-slot-btn';
+                dlBtn.textContent = '⬇';
+                dlBtn.title = 'Download save file';
+                dlBtn.setAttribute('data-action', 'download-slot');
+                dlBtn.setAttribute('data-slot', i);
+                actions.appendChild(dlBtn);
+
                 delBtn = document.createElement('button');
                 delBtn.className = 'menu-btn save-slot-btn save-slot-del';
                 delBtn.textContent = '🗑';
@@ -285,6 +293,14 @@ var Main = (function () {
                 loadBtn.setAttribute('data-action', 'load-autosave');
                 loadBtn.setAttribute('data-slot', i);
                 actions.appendChild(loadBtn);
+
+                var dlAutoBtn = document.createElement('button');
+                dlAutoBtn.className = 'menu-btn save-slot-btn';
+                dlAutoBtn.textContent = '⬇';
+                dlAutoBtn.title = 'Download autosave file';
+                dlAutoBtn.setAttribute('data-action', 'download-autosave');
+                dlAutoBtn.setAttribute('data-slot', i);
+                actions.appendChild(dlAutoBtn);
 
                 entry.appendChild(label);
                 entry.appendChild(actions);
@@ -427,6 +443,16 @@ var Main = (function () {
             saveBtn.setAttribute('data-slot', i);
             actions.appendChild(saveBtn);
 
+            if (info) {
+                var dlBtn2 = document.createElement('button');
+                dlBtn2.className = 'menu-btn save-slot-btn';
+                dlBtn2.textContent = '⬇';
+                dlBtn2.title = 'Download save file';
+                dlBtn2.setAttribute('data-action', 'download-slot');
+                dlBtn2.setAttribute('data-slot', i);
+                actions.appendChild(dlBtn2);
+            }
+
             entry.appendChild(label);
             entry.appendChild(actions);
             container.appendChild(entry);
@@ -519,6 +545,38 @@ var Main = (function () {
                             _startLoops();
                             _initialized = true;
                         }
+                    }
+                }
+            } else if (action === 'download-slot') {
+                var dlSlotNum = parseInt(target.getAttribute('data-slot'), 10);
+                if (dlSlotNum >= 1 && dlSlotNum <= 5) {
+                    var dlData = localStorage.getItem('voltdefense_save_' + dlSlotNum);
+                    if (dlData) {
+                        var blob = new Blob([dlData], { type: 'application/json' });
+                        var url = URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'voltdefense_save_' + dlSlotNum + '.json';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                }
+            } else if (action === 'download-autosave') {
+                var dlAutoNum = parseInt(target.getAttribute('data-slot'), 10);
+                if (dlAutoNum >= 1 && dlAutoNum <= 2) {
+                    var dlAutoData = localStorage.getItem('voltdefense_autosave_' + dlAutoNum);
+                    if (dlAutoData) {
+                        var blob2 = new Blob([dlAutoData], { type: 'application/json' });
+                        var url2 = URL.createObjectURL(blob2);
+                        var a2 = document.createElement('a');
+                        a2.href = url2;
+                        a2.download = 'voltdefense_autosave_' + dlAutoNum + '.json';
+                        document.body.appendChild(a2);
+                        a2.click();
+                        document.body.removeChild(a2);
+                        URL.revokeObjectURL(url2);
                     }
                 }
             } else if (action === 'delete-slot') {

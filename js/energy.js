@@ -91,7 +91,8 @@ var Energy = (function() {
         if (cat === 'storage') {
             // Consumer batteries get lowest priority
             if (def.maxDischargeRate === 0 && def.sellPrice) return PRIORITY_CONSUMER;
-            return PRIORITY_BATTERIES;
+            // Regular batteries charge at weapon priority so they fill alongside weapons
+            return PRIORITY_WEAPONS;
         }
         return PRIORITY_BATTERIES;
     }
@@ -379,22 +380,50 @@ var Energy = (function() {
             var _inheritedPylonPri = {};
 
             // Pre-compute pylon priority floor for each building:
-            // If any adjacent pylon has a cable priority set for a building,
-            // that building's priority can never be lower (better) than that value.
-            // This ensures pylon cable priorities can't be bypassed via alternate paths.
+            // When a pylon has a cable priority set (e.g. P5), that priority
+            // propagates through ALL non-pylon buildings on that side of the cable.
+            // This creates "priority zones" bounded by pylons.
             var _pylonPriFloor = {};
+            // Step 1: Find seed buildings (directly connected to prioritized pylon cables)
+            var _floorSeeds = [];
             for (var bId in adjacency) {
                 var bNeighbors = adjacency[bId];
-                var worstPri = 1;
                 for (var k = 0; k < bNeighbors.length; k++) {
                     var kB = Buildings.getById(bNeighbors[k]);
                     if (kB && (kB.type === 'pylon' || kB.type === 'hc_pylon' || kB.type === 'water_pylon')) {
-                        if (kB.cablePriorities && kB.cablePriorities[bId]) {
-                            worstPri = Math.max(worstPri, kB.cablePriorities[bId]);
+                        if (kB.cablePriorities && kB.cablePriorities[bId] && kB.cablePriorities[bId] > 1) {
+                            _floorSeeds.push({ id: bId, pri: kB.cablePriorities[bId], pylonId: kB.id });
                         }
                     }
                 }
-                if (worstPri > 1) _pylonPriFloor[bId] = worstPri;
+            }
+            // Step 2: BFS from each seed to propagate floor through non-pylon buildings
+            for (var fs = 0; fs < _floorSeeds.length; fs++) {
+                var seed = _floorSeeds[fs];
+                var fQueue = [seed.id];
+                var fVisited = {};
+                fVisited[seed.id] = true;
+                fVisited[seed.pylonId] = true; // Don't propagate back through source pylon
+                while (fQueue.length > 0) {
+                    var fId = fQueue.shift();
+                    // Set floor (keep worst across multiple seeds)
+                    if (!_pylonPriFloor[fId] || seed.pri > _pylonPriFloor[fId]) {
+                        _pylonPriFloor[fId] = seed.pri;
+                    }
+                    var fNeighbors = adjacency[fId] || [];
+                    for (var fk = 0; fk < fNeighbors.length; fk++) {
+                        var fNId = fNeighbors[fk];
+                        if (fVisited[fNId]) continue;
+                        fVisited[fNId] = true;
+                        var fNB = Buildings.getById(fNId);
+                        if (!fNB || fNB.hp <= 0) continue;
+                        // Stop at pylons — they define their own priority zones
+                        if (fNB.type === 'pylon' || fNB.type === 'hc_pylon' || fNB.type === 'water_pylon') {
+                            continue;
+                        }
+                        fQueue.push(fNId);
+                    }
+                }
             }
 
             // For each generator, BFS to distribute energy
@@ -408,6 +437,14 @@ var Energy = (function() {
                     ? Infinity
                     : (genDef ? (genDef.maxDischargeRate || Infinity) / tps : Infinity);
                 var totalDischarged = 0;
+
+                // Battery-generators: only discharge to lower-priority consumers when full
+                var isBatteryGen = (genDef && genDef.category === 'storage' && (!genDef.energyGeneration || genDef.energyGeneration <= 0));
+                var batteryGenFull = false;
+                if (isBatteryGen) {
+                    var genCapacity = _getBuildingCapacity(gen, genDef);
+                    batteryGenFull = (gen.energy >= genCapacity - 0.01);
+                }
 
                 // BFS to find reachable consumers ordered by priority
                 var visited = {};
@@ -530,6 +567,13 @@ var Energy = (function() {
                         r++;
                     }
                     var groupEnd = r; // exclusive
+
+                    // Battery-generators that aren't full: only discharge to
+                    // same-or-higher priority consumers (shields, weapons, other batteries).
+                    // When full, they discharge to everything.
+                    if (isBatteryGen && !batteryGenFull && groupTypePri > PRIORITY_WEAPONS) {
+                        continue;
+                    }
 
                     // Collect group members that still need energy
                     var groupMembers = [];
