@@ -190,6 +190,11 @@ var Energy = (function() {
         }
         building.energy = 0;
         building.sellReady = false;
+        // Increase capacity by 10% after each sale, up to 10000
+        var currentCap = _getBuildingCapacity(building, def);
+        var newCap = Math.round(currentCap * 1.1);
+        if (newCap > 10000) newCap = 10000;
+        building.scaledStorageCapacity = newCap;
     }
 
     // Determine fuel cost interval from building definition
