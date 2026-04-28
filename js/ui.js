@@ -2156,7 +2156,9 @@ var UI = (function () {
             var godActive = (typeof Engine !== 'undefined' && Engine.isGodMode) ? Engine.isGodMode() : false;
             var wavesOn = (typeof Engine !== 'undefined' && Engine.isWavesEnabled) ? Engine.isWavesEnabled() : true;
             togglesEl.innerHTML = '<button class="debug-toggle' + (godActive ? ' active' : '') + '" id="debug-god-toggle">🛡️ God Mode</button>' +
-                '<button class="debug-toggle' + (!wavesOn ? ' active' : '') + '" id="debug-wave-toggle">🚫 Stop Waves</button>';
+                '<button class="debug-toggle' + (!wavesOn ? ' active' : '') + '" id="debug-wave-toggle">🚫 Stop Waves</button>' +
+                '<button class="debug-toggle" id="debug-skip-wave">⏭️ Skip Wave</button>' +
+                '<button class="debug-toggle" id="debug-skip-wave-empty">⏭️ Skip (No Enemies)</button>';
             document.getElementById('debug-god-toggle').addEventListener('click', function () {
                 var isOn = (typeof Engine !== 'undefined' && Engine.isGodMode) ? Engine.isGodMode() : false;
                 if (typeof Engine !== 'undefined' && Engine.setGodMode) {
@@ -2176,6 +2178,18 @@ var UI = (function () {
                 this.classList.toggle('active');
                 if (typeof UI !== 'undefined' && UI.showToast) {
                     UI.showToast(!isOn ? 'Waves resumed' : '🚫 Waves stopped', 'info', 2000);
+                }
+            });
+
+            document.getElementById('debug-skip-wave').addEventListener('click', function () {
+                if (typeof Engine !== 'undefined' && Engine.startNextWave) {
+                    Engine.startNextWave();
+                }
+            });
+
+            document.getElementById('debug-skip-wave-empty').addEventListener('click', function () {
+                if (typeof Engine !== 'undefined' && Engine.skipWaveEmpty) {
+                    Engine.skipWaveEmpty();
                 }
             });
 

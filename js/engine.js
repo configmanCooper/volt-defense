@@ -336,6 +336,24 @@ var Engine = (function() {
             }
         },
 
+        // Debug: skip to next wave without spawning enemies
+        skipWaveEmpty: function() {
+            if (!_state) return;
+            _state.wave++;
+            var diff = _getDiff();
+            var maxWaves = (diff && diff.maxWaves) ? diff.maxWaves : 50;
+            if (_state.wave >= maxWaves) {
+                _state.waveTimer = 0;
+                _state.finalWaveReached = true;
+            } else {
+                _state.waveTimer = diff ? diff.waveInterval :
+                    ((typeof Config !== 'undefined' && Config.WAVE_INTERVAL) ? Config.WAVE_INTERVAL : 60);
+            }
+            if (typeof UI !== 'undefined' && UI.showToast) {
+                UI.showToast('⏭️ Skipped to wave ' + _state.wave + ' (no enemies)', 'info', 2000);
+            }
+        },
+
         // ---- difficulty-adjusted helpers ----
 
         applyDifficultyToCost: function(cost) {

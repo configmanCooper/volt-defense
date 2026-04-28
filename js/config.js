@@ -1743,7 +1743,7 @@ var Config = {
             nexusShieldDPS: 20,
             nexusDamagePerSpawnKill: 10,
             firstWave: 50,
-            description: 'The ultimate boss — a reality-warping nexus that generates 5 random enemies around it every 5 seconds. The Nexus is invulnerable to all direct weapon damage except uranium-based weapons, which deal only 10% damage. The only reliable way to damage it: kill its spawns — each spawn killed deals 10 damage to the Nexus. It fires lasers at ALL buildings within 500 pixels (2 dmg/s each, 20 dmg/s to active shields). With 1000 HP, you must survive its onslaught while systematically destroying its minions. Final boss.'
+            description: 'The ultimate boss — a reality-warping nexus that generates 5 random enemies around it every 5 seconds. The Nexus is invulnerable to all direct weapon damage except uranium-based weapons, which deal only 10% damage. It projects a 300-pixel protective shield that reduces all damage to nearby enemies by 75%. The only reliable way to damage it: kill its spawns — each spawn killed deals 10 damage to the Nexus. It fires lasers at ALL buildings within 500 pixels (2 dmg/s each, 20 dmg/s to active shields). With 1000 HP, you must survive its onslaught while systematically destroying its minions. Final boss.'
         }
     },
 

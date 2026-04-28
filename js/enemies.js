@@ -2295,6 +2295,20 @@ var Enemies = (function () {
                     }
                 }
 
+                // Nexus shield aura: enemies within 300px of a nexus take 75% less damage
+                if (enemy.mechanic !== 'nexus') {
+                    for (var ni = 0; ni < _enemies.length; ni++) {
+                        var nexus = _enemies[ni];
+                        if (nexus.mechanic !== 'nexus' || nexus.hp <= 0) continue;
+                        var ndx = enemy.x - nexus.x;
+                        var ndy = enemy.y - nexus.y;
+                        if (ndx * ndx + ndy * ndy <= 90000) { // 300*300
+                            damage *= 0.25;
+                            break;
+                        }
+                    }
+                }
+
                 // Calculate effective armor
                 var effectiveArmor = enemy.armor;
                 if (armorBypass && armorBypass > 0) {

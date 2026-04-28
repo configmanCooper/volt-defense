@@ -2460,6 +2460,30 @@ var Render = (function () {
 
         var i, e, r, color, hpRatio;
 
+        // Draw nexus shield auras first (behind enemies)
+        for (i = 0; i < all.length; i++) {
+            e = all[i];
+            if (e.mechanic !== 'nexus' || e.hp <= 0) continue;
+            if (!_isInViewport(e.x, e.y, 320)) continue;
+            var shieldRadius = 300;
+            var shimmer = 0.12 + Math.sin(_animFrame * 0.06) * 0.05;
+            // Fill
+            ctx.beginPath();
+            ctx.arc(Math.floor(e.x), Math.floor(e.y), shieldRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(140, 60, 255, ' + shimmer + ')';
+            ctx.fill();
+            // Border
+            ctx.strokeStyle = 'rgba(170, 100, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Inner glow ring
+            ctx.strokeStyle = 'rgba(200, 150, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(Math.floor(e.x), Math.floor(e.y), shieldRadius * 0.95, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
         for (i = 0; i < all.length; i++) {
             e = all[i];
             if (e.hp <= 0) continue;
