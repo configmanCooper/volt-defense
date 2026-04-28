@@ -142,6 +142,17 @@ var Engine = (function() {
                 wavesEnabled: true
             };
 
+            // Reset modules to clear previous game state
+            if (typeof Buildings !== 'undefined' && Buildings.loadState) {
+                Buildings.loadState({ buildings: [], cables: [], nextId: 1 });
+            }
+            if (typeof Enemies !== 'undefined' && Enemies.loadState) {
+                Enemies.loadState({ enemies: [], nextId: 1, currentWave: 0, spawnQueue: [], spawnTimer: 0, totalKills: 0, totalScore: 0, totalEscaped: 0, spawnPoints: [] });
+            }
+            if (typeof Combat !== 'undefined' && Combat.loadState) {
+                Combat.loadState({ projectiles: [] });
+            }
+
             // Generate map
             if (typeof Map !== 'undefined' && Map.generate) {
                 Map.generate(rng);
