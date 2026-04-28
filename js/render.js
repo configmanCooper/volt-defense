@@ -57,7 +57,8 @@ var Render = (function () {
             tunneler: '#8b5a2b',
             zapper: '#33ff99',
             plasma_parasite: '#ff33ff',
-            emp_sniper: '#3399ff'
+            emp_sniper: '#3399ff',
+            flying_bomber: '#885522'
         },
         SHIELD: {
             fill: 'rgba(100, 180, 255, 0.15)',
@@ -111,7 +112,8 @@ var Render = (function () {
         tank: 12, heavy_tank: 14, siege_engine: 16,
         spark: 6, runner: 7, swarm: 5,
         scout_drone: 6, heavy_flyer: 13, tunneler: 9,
-        zapper: 7, plasma_parasite: 9, emp_sniper: 10
+        zapper: 7, plasma_parasite: 9, emp_sniper: 10,
+        flying_bomber: 15
     };
     var ENEMY_RADIUS_DEFAULT = 8;
 
@@ -2003,6 +2005,51 @@ var Render = (function () {
         ctx.restore();
     }
 
+    // 💣 Flying Bomber — large bomber plane shape with bomb bay
+    function _drawFlyingBomber(ctx, x, y, r, anim, angle) {
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        // Fuselage
+        ctx.fillStyle = '#885522';
+        ctx.beginPath();
+        ctx.moveTo(x + cos * r * 1.1, y + sin * r * 1.1);             // nose
+        ctx.lineTo(x - cos * r * 0.3 - sin * r * 1.4, y - sin * r * 0.3 + cos * r * 1.4);  // left wingtip
+        ctx.lineTo(x - cos * r * 0.5 - sin * r * 0.4, y - sin * r * 0.5 + cos * r * 0.4);  // left inner
+        ctx.lineTo(x - cos * r * 0.9, y - sin * r * 0.9);              // tail
+        ctx.lineTo(x - cos * r * 0.5 + sin * r * 0.4, y - sin * r * 0.5 - cos * r * 0.4);  // right inner
+        ctx.lineTo(x - cos * r * 0.3 + sin * r * 1.4, y - sin * r * 0.3 - cos * r * 1.4);  // right wingtip
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#553311';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Bomb bay (dark center)
+        ctx.fillStyle = '#332211';
+        ctx.beginPath();
+        ctx.ellipse(x, y, r * 0.35, r * 0.2, angle, 0, Math.PI * 2);
+        ctx.fill();
+        // Engine glow
+        var glow = 0.5 + Math.sin(anim * 0.15) * 0.3;
+        ctx.fillStyle = 'rgba(255, 150, 50, ' + glow + ')';
+        ctx.beginPath();
+        ctx.arc(x - cos * r * 0.7 - sin * r * 0.5, y - sin * r * 0.7 + cos * r * 0.5, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x - cos * r * 0.7 + sin * r * 0.5, y - sin * r * 0.7 - cos * r * 0.5, 3, 0, Math.PI * 2);
+        ctx.fill();
+        // Tail fins
+        ctx.strokeStyle = '#aa7744';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - cos * r * 0.7, y - sin * r * 0.7);
+        ctx.lineTo(x - cos * r * 0.9 - sin * r * 0.5, y - sin * r * 0.9 + cos * r * 0.5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - cos * r * 0.7, y - sin * r * 0.7);
+        ctx.lineTo(x - cos * r * 0.9 + sin * r * 0.5, y - sin * r * 0.9 - cos * r * 0.5);
+        ctx.stroke();
+    }
+
     // ---- Ranged Effect Rendering ----
 
     function _drawRangedEffects(ctx) {
@@ -2136,6 +2183,43 @@ var Render = (function () {
                     ctx.fill();
                 }
                 ctx.restore();
+            } else if (fx.type === 'bomb_drop') {
+                // Bomb falling from flying bomber to target
+                ctx.save();
+                var bdx = fx.toX - fx.fromX;
+                var bdy = fx.toY - fx.fromY;
+                var bombX = fx.fromX + bdx * progress;
+                var bombY = fx.fromY + bdy * progress + progress * 15;
+                var bombSize = 3 + progress * 3;
+                // Bomb body
+                ctx.fillStyle = '#443322';
+                ctx.beginPath();
+                ctx.ellipse(Math.floor(bombX), Math.floor(bombY), bombSize, bombSize * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#221100';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                // Fuse spark
+                var sparkAlpha = 0.6 + Math.sin(_animFrame * 0.5) * 0.4;
+                ctx.fillStyle = 'rgba(255, 200, 50, ' + sparkAlpha + ')';
+                ctx.beginPath();
+                ctx.arc(Math.floor(bombX), Math.floor(bombY - bombSize), 2, 0, Math.PI * 2);
+                ctx.fill();
+                // Explosion on impact
+                if (progress > 0.7) {
+                    var expProgress = (progress - 0.7) / 0.3;
+                    var expRadius = 8 + expProgress * 20;
+                    var expAlpha = (1 - expProgress) * 0.8;
+                    ctx.fillStyle = 'rgba(255, 120, 30, ' + expAlpha + ')';
+                    ctx.beginPath();
+                    ctx.arc(Math.floor(fx.toX), Math.floor(fx.toY), expRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'rgba(255, 220, 100, ' + (expAlpha * 0.6) + ')';
+                    ctx.beginPath();
+                    ctx.arc(Math.floor(fx.toX), Math.floor(fx.toY), expRadius * 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
             }
         }
     }
@@ -2168,7 +2252,8 @@ var Render = (function () {
         wall_breaker: _drawWallBreaker,
         zapper: _drawZapper,
         plasma_parasite: _drawPlasmaParasite,
-        emp_sniper: _drawEMPSniper
+        emp_sniper: _drawEMPSniper,
+        flying_bomber: _drawFlyingBomber
     };
 
     // ------------------------------------------------------------------------
@@ -2213,6 +2298,13 @@ var Render = (function () {
             if (e.charged && e.type === 'plasma_parasite') {
                 ctx.shadowBlur = 14;
                 ctx.shadowColor = '#ff00ff';
+            }
+
+            // Flying bomber hovering/bombing: pulsing red glow
+            if (e.isBombing && e.type === 'flying_bomber') {
+                var bombGlow = 0.4 + Math.sin(_animFrame * 0.12) * 0.3;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = 'rgba(255, 80, 20, ' + bombGlow + ')';
             }
 
             // Flying enemy: draw shadow underneath, then offset drawing upward

@@ -780,9 +780,9 @@ var Enemies = (function () {
         enemy.targetBuildingId = null;
         enemy.repathTimer = 0;
 
-        // Self-damage: non-boss, non-ranged enemies die after attacking
+        // Self-damage: non-boss, non-ranged, non-bombing enemies die after attacking
         // Exception: walls don't kill the attacker
-        if (attackedBuilding && !enemy.isBoss && enemy.mechanic !== 'ranged_attack') {
+        if (attackedBuilding && !enemy.isBoss && enemy.mechanic !== 'ranged_attack' && enemy.mechanic !== 'bombing') {
             var isWall = (attackedBuilding.type === 'wall' || attackedBuilding.type === 'electric_wall');
             if (!isWall) {
                 // Kill enemy and give reward
@@ -999,6 +999,17 @@ var Enemies = (function () {
             if (def.chargedSpeed) enemy.chargedSpeed = def.chargedSpeed * (difficulty.enemySpeedMult || 1) * 0.85;
             if (def.chargedDamage) enemy.chargedDamage = Math.round(def.chargedDamage * (difficulty.enemyDamageMult || 1));
             if (def.empDuration) enemy.empDuration = def.empDuration;
+        }
+
+        // Bombing mechanic (flying bomber)
+        if (def.mechanic === 'bombing') {
+            enemy.bombDamage = Math.round((def.bombDamage || 20) * (difficulty.enemyDamageMult || 1));
+            enemy.bombCoreDamage = Math.round((def.bombCoreDamage || 5) * (difficulty.enemyDamageMult || 1));
+            enemy.bombCooldown = (def.attackCooldown || 10) * Config.TICKS_PER_SECOND;
+            enemy.bombTimer = 0;
+            enemy.bombingTargetId = null;
+            enemy.isBombing = false;
+            enemy.hoveringCore = false;
         }
 
         // Flying enemies always use direct path (straight line to core)
@@ -1319,6 +1330,105 @@ var Enemies = (function () {
         return true; // attacking, don't move
     }
 
+    /**
+     * Handle flying bomber bombing for one tick.
+     * Returns true if the bomber is hovering (should not move).
+     */
+    function _handleBombing(enemy) {
+        if (enemy.bombTimer > 0) {
+            enemy.bombTimer--;
+        }
+
+        // If hovering over core
+        if (enemy.hoveringCore) {
+            if (enemy.bombTimer <= 0) {
+                enemy.bombTimer = enemy.bombCooldown;
+                if (typeof Engine !== 'undefined' && Engine.damageCoreHP) {
+                    Engine.damageCoreHP(enemy.bombCoreDamage);
+                }
+                _rangedEffects.push({
+                    type: 'bomb_drop',
+                    fromX: enemy.x, fromY: enemy.y,
+                    toX: enemy.x, toY: enemy.y + 20,
+                    timer: 15, maxTimer: 15,
+                    isCore: true
+                });
+            }
+            return true;
+        }
+
+        // Check if over a building
+        if (typeof Buildings === 'undefined' || !Buildings.getAll) return false;
+        var buildings = Buildings.getAll();
+        var cellSz = Config.GRID_CELL_SIZE;
+        var overlapDist = cellSz * 0.8;
+        var bestBuilding = null;
+        var bestDistSq = overlapDist * overlapDist;
+
+        // If we have a current bombing target, check if it's still alive
+        if (enemy.bombingTargetId) {
+            for (var i = 0; i < buildings.length; i++) {
+                if (buildings[i].id === enemy.bombingTargetId && buildings[i].hp > 0) {
+                    bestBuilding = buildings[i];
+                    break;
+                }
+            }
+            if (!bestBuilding) {
+                // Target destroyed, resume movement
+                enemy.bombingTargetId = null;
+                enemy.isBombing = false;
+                enemy.bombTimer = 0;
+                return false;
+            }
+        } else {
+            // Look for a building we're currently over
+            for (var j = 0; j < buildings.length; j++) {
+                var b = buildings[j];
+                if (b.hp <= 0) continue;
+                var bx = b.worldX || (b.gridX * cellSz + cellSz / 2);
+                var by = b.worldY || (b.gridY * cellSz + cellSz / 2);
+                var ddx = bx - enemy.x;
+                var ddy = by - enemy.y;
+                var dsq = ddx * ddx + ddy * ddy;
+                if (dsq < bestDistSq) {
+                    bestDistSq = dsq;
+                    bestBuilding = b;
+                }
+            }
+        }
+
+        if (!bestBuilding) {
+            enemy.isBombing = false;
+            enemy.bombingTargetId = null;
+            return false;
+        }
+
+        // We're over a building — stop and bomb it
+        enemy.isBombing = true;
+        enemy.bombingTargetId = bestBuilding.id;
+
+        if (enemy.bombTimer <= 0) {
+            enemy.bombTimer = enemy.bombCooldown;
+            bestBuilding.hp -= enemy.bombDamage;
+            if (bestBuilding.hp <= 0) {
+                bestBuilding.hp = 0;
+                enemy.bombingTargetId = null;
+                enemy.isBombing = false;
+            }
+            var btx = bestBuilding.worldX || (bestBuilding.gridX * cellSz + cellSz / 2);
+            var bty = bestBuilding.worldY || (bestBuilding.gridY * cellSz + cellSz / 2);
+            _rangedEffects.push({
+                type: 'bomb_drop',
+                fromX: enemy.x, fromY: enemy.y,
+                toX: btx, toY: bty,
+                timer: 15, maxTimer: 15,
+                isCore: false
+            });
+        }
+
+        return true; // hovering, don't move
+    }
+
     // ---- Movement ----------------------------------------------------------
 
     /**
@@ -1340,6 +1450,13 @@ var Enemies = (function () {
         if (enemy.mechanic === 'ranged_attack' && !enemy.charged) {
             if (_handleRangedAttack(enemy)) {
                 return; // enemy is attacking from range, don't move
+            }
+        }
+
+        // Flying bomber: check for buildings below and bomb them
+        if (enemy.mechanic === 'bombing') {
+            if (_handleBombing(enemy)) {
+                return; // hovering and bombing, don't move
             }
         }
 
@@ -1482,6 +1599,14 @@ var Enemies = (function () {
      * Handle an enemy reaching the core.
      */
     function _enemyReachedCore(enemy) {
+        // Flying bombers hover over the core and bomb it repeatedly
+        if (enemy.mechanic === 'bombing') {
+            enemy.hoveringCore = true;
+            enemy.isBombing = true;
+            enemy.bombTimer = 0; // bomb immediately on arrival
+            return;
+        }
+
         if (typeof Engine !== 'undefined' && Engine.damageCoreHP) {
             Engine.damageCoreHP(enemy.damage * 0.75);
         }
