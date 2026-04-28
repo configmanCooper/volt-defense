@@ -756,6 +756,11 @@ var UI = (function () {
         var building = Buildings.getById(_selectedBuildingId);
         if (!building) return;
 
+        // Sync core building HP with engine state
+        if ((building.type === 'core' || building.type === 'core_armored') && typeof Engine !== 'undefined' && Engine.getCoreHP) {
+            building.hp = Engine.getCoreHP();
+        }
+
         // Update HP
         var hpFill = document.getElementById('info-hp-fill');
         var hpText = document.getElementById('info-hp-text');
@@ -1211,6 +1216,11 @@ var UI = (function () {
 
             _selectedBuildingId = buildingId;
             _selectedEnemyId = null;
+
+            // Sync core building HP with engine state
+            if ((building.type === 'core' || building.type === 'core_armored') && typeof Engine !== 'undefined' && Engine.getCoreHP) {
+                building.hp = Engine.getCoreHP();
+            }
 
             var hpPct = building.maxHp > 0 ? Math.floor((building.hp / building.maxHp) * 100) : 0;
             var html = '';
