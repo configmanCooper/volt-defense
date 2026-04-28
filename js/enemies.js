@@ -1012,6 +1012,47 @@ var Enemies = (function () {
             enemy.hoveringCore = false;
         }
 
+        // Reflector mechanic (mirror sentinel)
+        if (def.mechanic === 'reflects') {
+            enemy.reflectDPS = def.reflectDPS || 1;
+            enemy.isReflecting = false;
+        }
+
+        // Spawner mechanic (swarm mother)
+        if (def.mechanic === 'spawner') {
+            enemy.spawnType = def.spawnType || 'swarm';
+            enemy.spawnCount = def.spawnCount || 3;
+            enemy.spawnCooldown = (def.spawnCooldown || 5) * Config.TICKS_PER_SECOND;
+            enemy.spawnTimer = enemy.spawnCooldown;
+            enemy.spawnDoubleThreshold = def.spawnDoubleThreshold || 0.5;
+            enemy.spawnedIds = [];
+        }
+
+        // Jumper mechanic (quake titan)
+        if (def.mechanic === 'jumper') {
+            enemy.jumpDistance = def.jumpDistance || 50;
+            enemy.jumpCooldown = (def.jumpCooldown || 3) * Config.TICKS_PER_SECOND;
+            enemy.jumpTimer = enemy.jumpCooldown;
+            enemy.jumpAOERadius = def.jumpAOERadius || 300;
+            enemy.jumpAOEDamage = Math.round((def.jumpAOEDamage || 10) * (difficulty.enemyDamageMult || 1));
+            enemy.jumpCoreDamage = Math.round((def.jumpCoreDamage || 5) * (difficulty.enemyDamageMult || 1));
+            enemy.isJumping = false;
+            enemy.jumpAnimTimer = 0;
+        }
+
+        // Nexus mechanic (final boss)
+        if (def.mechanic === 'nexus') {
+            enemy.spawnCooldown = (def.spawnCooldown || 5) * Config.TICKS_PER_SECOND;
+            enemy.spawnTimer = enemy.spawnCooldown;
+            enemy.spawnCount = def.spawnCount || 5;
+            enemy.nexusLaserRange = def.nexusLaserRange || 500;
+            enemy.nexusLaserDPS = def.nexusLaserDPS || 2;
+            enemy.nexusShieldDPS = def.nexusShieldDPS || 20;
+            enemy.nexusDamagePerSpawnKill = def.nexusDamagePerSpawnKill || 10;
+            enemy.spawnedIds = [];
+            enemy.nexusLaserTargets = [];
+        }
+
         // Flying enemies always use direct path (straight line to core)
         if (def.special === 'flying') {
             enemy.path = _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
@@ -1460,6 +1501,11 @@ var Enemies = (function () {
             }
         }
 
+        // Jumper mechanic: don't use normal movement, handled in _handleJumperMechanics
+        if (enemy.mechanic === 'jumper') {
+            return;
+        }
+
         // Periodic repath for ALL enemies
         if (enemy.repathTimer == null) enemy.repathTimer = 0;
         enemy.repathTimer--;
@@ -1727,6 +1773,276 @@ var Enemies = (function () {
         }
     }
 
+    // ---- Boss Spawn Mechanics (Swarm Mother, Nexus) -----------------------
+
+    function _handleBossSpawnMechanics() {
+        for (var i = 0; i < _enemies.length; i++) {
+            var enemy = _enemies[i];
+            if (enemy.mechanic !== 'spawner' && enemy.mechanic !== 'nexus') continue;
+            if (enemy.hp <= 0) continue;
+
+            enemy.spawnTimer--;
+            if (enemy.spawnTimer > 0) continue;
+
+            // Determine cooldown (swarm mother doubles below threshold)
+            var cooldown = enemy.spawnCooldown;
+            if (enemy.mechanic === 'spawner' && enemy.hp < enemy.maxHp * enemy.spawnDoubleThreshold) {
+                cooldown = Math.max(1, Math.floor(cooldown / 2));
+            }
+            enemy.spawnTimer = cooldown;
+
+            // Determine what to spawn
+            var spawnType;
+            var count = enemy.spawnCount;
+
+            if (enemy.mechanic === 'spawner') {
+                spawnType = enemy.spawnType;
+            } else {
+                // Nexus: spawn random non-boss enemies
+                spawnType = null;
+            }
+
+            for (var s = 0; s < count; s++) {
+                var typeKey;
+                if (spawnType) {
+                    typeKey = spawnType;
+                } else {
+                    // Pick random non-boss enemy type
+                    var nonBossTypes = [];
+                    var keys = Object.keys(Config.ENEMIES);
+                    for (var k = 0; k < keys.length; k++) {
+                        if (!Config.ENEMIES[keys[k]].isBoss && keys[k] !== 'the_nexus' && keys[k] !== 'swarm_mother' && keys[k] !== 'quake_titan') {
+                            nonBossTypes.push(keys[k]);
+                        }
+                    }
+                    var rng = _getRng();
+                    var ri = rng && typeof rng.randomInt === 'function'
+                        ? rng.randomInt(0, nonBossTypes.length - 1)
+                        : Math.floor(Math.random() * nonBossTypes.length);
+                    typeKey = nonBossTypes[ri];
+                }
+
+                // Spawn near the boss
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 30 + Math.random() * 40;
+                var sx = enemy.x + Math.cos(angle) * dist;
+                var sy = enemy.y + Math.sin(angle) * dist;
+                sx = Math.max(0, Math.min(Config.MAP_WIDTH, sx));
+                sy = Math.max(0, Math.min(Config.MAP_HEIGHT, sy));
+
+                var spawned = _createEnemy(typeKey, sx, sy, _currentWave);
+                if (spawned) {
+                    spawned.parentBossId = enemy.id;
+                    // Give spawned enemy a path
+                    if (spawned.special === 'flying') {
+                        // already has direct path from _createEnemy
+                    } else {
+                        var path = _findPath(sx, sy, spawned.targetBuildingId);
+                        if (path) {
+                            spawned.path = path;
+                            spawned.pathIndex = 0;
+                        } else {
+                            var coreP = _getCorePosition();
+                            spawned.path = _directPath(sx, sy, coreP.x, coreP.y);
+                            spawned.pathIndex = 0;
+                        }
+                    }
+                    _enemies.push(spawned);
+                    enemy.spawnedIds.push(spawned.id);
+                }
+            }
+        }
+    }
+
+    // ---- Jumper Mechanics (Quake Titan) ------------------------------------
+
+    function _handleJumperMechanics() {
+        for (var i = 0; i < _enemies.length; i++) {
+            var enemy = _enemies[i];
+            if (enemy.mechanic !== 'jumper') continue;
+            if (enemy.hp <= 0) continue;
+            if (enemy.stunTimer > 0) { enemy.stunTimer--; continue; }
+            if (enemy.blocked) { enemy.blocked = false; continue; }
+
+            // Ensure path exists
+            if (!enemy.path || enemy.path.length === 0) {
+                var corePos = _getCorePosition();
+                var corePath = _findPath(enemy.x, enemy.y, null);
+                if (corePath) {
+                    enemy.path = corePath;
+                    enemy.pathIndex = 0;
+                } else {
+                    enemy.path = _directPath(enemy.x, enemy.y, corePos.x, corePos.y);
+                    enemy.pathIndex = 0;
+                }
+            }
+
+            // Repath periodically
+            if (enemy.repathTimer == null) enemy.repathTimer = 0;
+            enemy.repathTimer--;
+            if (enemy.repathTimer <= 0) {
+                enemy.repathTimer = 20;
+                var crPos = _getCorePosition();
+                var newJPath = _findPath(enemy.x, enemy.y, null);
+                if (newJPath) {
+                    enemy.path = newJPath;
+                    enemy.pathIndex = newJPath.length > 1 ? 1 : 0;
+                }
+            }
+
+            enemy.jumpTimer--;
+            if (enemy.jumpTimer <= 0) {
+                enemy.jumpTimer = enemy.jumpCooldown;
+                enemy.isJumping = true;
+                enemy.jumpAnimTimer = 6; // 6 ticks animation
+
+                // Calculate jump direction along path
+                var jTarget = null;
+                if (enemy.path && enemy.pathIndex < enemy.path.length) {
+                    jTarget = enemy.path[enemy.pathIndex];
+                }
+                if (!jTarget) {
+                    var jCore = _getCorePosition();
+                    jTarget = { x: jCore.x, y: jCore.y };
+                }
+
+                var jdx = jTarget.x - enemy.x;
+                var jdy = jTarget.y - enemy.y;
+                var jdist = Math.sqrt(jdx * jdx + jdy * jdy);
+                if (jdist > 0) {
+                    var jumpDist = Math.min(enemy.jumpDistance, jdist);
+                    enemy.x += (jdx / jdist) * jumpDist;
+                    enemy.y += (jdy / jdist) * jumpDist;
+                    enemy.distanceTraveled += jumpDist;
+                }
+
+                // Advance path index if close to waypoint
+                if (enemy.path && enemy.pathIndex < enemy.path.length) {
+                    var wpDx = enemy.path[enemy.pathIndex].x - enemy.x;
+                    var wpDy = enemy.path[enemy.pathIndex].y - enemy.y;
+                    if (wpDx * wpDx + wpDy * wpDy < 400) {
+                        enemy.pathIndex++;
+                    }
+                }
+
+                // AoE damage on landing
+                _jumpAOEDamage(enemy);
+
+                // Check if reached core
+                var coreDist = _getCorePosition();
+                var cdx = coreDist.x - enemy.x;
+                var cdy = coreDist.y - enemy.y;
+                if (cdx * cdx + cdy * cdy < 2500) { // within 50px
+                    _enemyReachedCore(enemy);
+                }
+            } else {
+                if (enemy.jumpAnimTimer > 0) enemy.jumpAnimTimer--;
+                if (enemy.jumpAnimTimer <= 0) enemy.isJumping = false;
+            }
+        }
+    }
+
+    function _jumpAOEDamage(enemy) {
+        var radius = enemy.jumpAOERadius;
+        var radiusSq = radius * radius;
+
+        // Damage buildings
+        if (typeof Buildings !== 'undefined' && Buildings.getAll) {
+            var buildings = Buildings.getAll();
+            for (var b = 0; b < buildings.length; b++) {
+                var bld = buildings[b];
+                if (bld.hp <= 0) continue;
+                var def = Config.BUILDINGS[bld.type];
+                if (!def) continue;
+                var bCenterX = bld.worldX + (def.size[0] * Config.GRID_CELL_SIZE) / 2;
+                var bCenterY = bld.worldY + (def.size[1] * Config.GRID_CELL_SIZE) / 2;
+                var dx = bCenterX - enemy.x;
+                var dy = bCenterY - enemy.y;
+                if (dx * dx + dy * dy <= radiusSq) {
+                    if (bld.type === 'core') {
+                        if (typeof Engine !== 'undefined' && Engine.damageCoreHP) {
+                            Engine.damageCoreHP(enemy.jumpCoreDamage);
+                        }
+                    } else {
+                        bld.hp -= enemy.jumpAOEDamage;
+                        if (bld.hp < 0) bld.hp = 0;
+                    }
+                }
+            }
+        }
+
+        // Add shockwave visual effect
+        _rangedEffects.push({
+            type: 'quake_shockwave',
+            x: enemy.x,
+            y: enemy.y,
+            radius: radius,
+            timer: 15,
+            maxTimer: 15
+        });
+    }
+
+    // ---- Nexus Laser Mechanics ---------------------------------------------
+
+    function _handleNexusLaserMechanics() {
+        for (var i = 0; i < _enemies.length; i++) {
+            var enemy = _enemies[i];
+            if (enemy.mechanic !== 'nexus') continue;
+            if (enemy.hp <= 0) continue;
+
+            enemy.nexusLaserTargets = [];
+
+            if (typeof Buildings === 'undefined' || !Buildings.getAll) continue;
+            var buildings = Buildings.getAll();
+            var rangeSq = enemy.nexusLaserRange * enemy.nexusLaserRange;
+
+            for (var b = 0; b < buildings.length; b++) {
+                var bld = buildings[b];
+                if (bld.hp <= 0) continue;
+                var def = Config.BUILDINGS[bld.type];
+                if (!def) continue;
+                var bCenterX = bld.worldX + (def.size[0] * Config.GRID_CELL_SIZE) / 2;
+                var bCenterY = bld.worldY + (def.size[1] * Config.GRID_CELL_SIZE) / 2;
+                var dx = bCenterX - enemy.x;
+                var dy = bCenterY - enemy.y;
+                if (dx * dx + dy * dy > rangeSq) continue;
+
+                // Determine damage per tick
+                var dps;
+                var isShield = (bld.type === 'shield_generator' && bld.shieldActive);
+                if (isShield) {
+                    dps = enemy.nexusShieldDPS;
+                } else {
+                    dps = enemy.nexusLaserDPS;
+                }
+                var dmgPerTick = dps / Config.TICKS_PER_SECOND;
+
+                if (isShield && bld.shieldHP > 0) {
+                    bld.shieldHP -= dmgPerTick;
+                    if (bld.shieldHP <= 0) {
+                        bld.shieldHP = 0;
+                        bld.shieldActive = false;
+                    }
+                } else {
+                    if (bld.type === 'core') {
+                        if (typeof Engine !== 'undefined' && Engine.damageCoreHP) {
+                            Engine.damageCoreHP(dmgPerTick);
+                        }
+                    } else {
+                        bld.hp -= dmgPerTick;
+                        if (bld.hp < 0) bld.hp = 0;
+                    }
+                }
+
+                enemy.nexusLaserTargets.push({
+                    x: bCenterX,
+                    y: bCenterY,
+                    isShield: isShield
+                });
+            }
+        }
+    }
+
     // ---- Public API --------------------------------------------------------
 
     return {
@@ -1807,6 +2123,15 @@ var Enemies = (function () {
             for (var i = _enemies.length - 1; i >= 0; i--) {
                 _moveEnemy(_enemies[i]);
             }
+
+            // 2b. Handle boss spawn mechanics (swarm mother, nexus)
+            _handleBossSpawnMechanics();
+
+            // 2c. Handle jumper mechanics (quake titan)
+            _handleJumperMechanics();
+
+            // 2d. Handle nexus laser mechanics
+            _handleNexusLaserMechanics();
 
             // 3. Tick ranged effects (decay timers)
             for (var ri = _rangedEffects.length - 1; ri >= 0; ri--) {
@@ -1956,10 +2281,19 @@ var Enemies = (function () {
 
         // ---- Enemy manipulation -----------------------------------------------
 
-        damageEnemy: function (enemyId, damage, armorBypass) {
+        damageEnemy: function (enemyId, damage, armorBypass, weaponType) {
             for (var i = 0; i < _enemies.length; i++) {
                 var enemy = _enemies[i];
                 if (enemy.id !== enemyId) { continue; }
+
+                // Nexus: invincible except uranium weapons (10% damage)
+                if (enemy.mechanic === 'nexus') {
+                    if (weaponType === 'uranium_cannon' || weaponType === 'uranium_laser') {
+                        damage = damage * 0.1;
+                    } else {
+                        return false; // no damage from non-uranium
+                    }
+                }
 
                 // Calculate effective armor
                 var effectiveArmor = enemy.armor;
@@ -1985,7 +2319,51 @@ var Enemies = (function () {
 
                     _totalKills++;
                     _totalScore += (def && def.scoreValue) ? def.scoreValue : 1;
+
+                    // Swarm mother / nexus: kill all spawned enemies on boss death
+                    if (enemy.spawnedIds && enemy.spawnedIds.length > 0) {
+                        for (var si = _enemies.length - 1; si >= 0; si--) {
+                            if (_enemies[si].parentBossId === enemy.id) {
+                                _enemies.splice(si, 1);
+                                // Adjust i if needed
+                                if (si < i) i--;
+                            }
+                        }
+                    }
+
                     _enemies.splice(i, 1);
+
+                    // If this was a spawn of a nexus/swarm mother, damage the parent
+                    if (enemy.parentBossId) {
+                        for (var pi = 0; pi < _enemies.length; pi++) {
+                            if (_enemies[pi].id === enemy.parentBossId && _enemies[pi].nexusDamagePerSpawnKill) {
+                                _enemies[pi].hp -= _enemies[pi].nexusDamagePerSpawnKill;
+                                if (_enemies[pi].hp <= 0) {
+                                    var pDef = Config.ENEMIES[_enemies[pi].type];
+                                    if (pDef) {
+                                        var pReward = pDef.killReward || 0;
+                                        var pDiff = _getDifficulty();
+                                        pReward = Math.round(pReward * (pDiff.killRewardMult || 1));
+                                        if (typeof Economy !== 'undefined' && Economy.addMoney) {
+                                            Economy.addMoney(pReward, 'kill');
+                                        }
+                                    }
+                                    _totalKills++;
+                                    _totalScore += (pDef && pDef.scoreValue) ? pDef.scoreValue : 1;
+                                    // Kill nexus spawns too
+                                    var nexusId = _enemies[pi].id;
+                                    _enemies.splice(pi, 1);
+                                    for (var ns = _enemies.length - 1; ns >= 0; ns--) {
+                                        if (_enemies[ns].parentBossId === nexusId) {
+                                            _enemies.splice(ns, 1);
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+
                     return true;
                 }
                 return false;

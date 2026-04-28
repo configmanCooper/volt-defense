@@ -58,7 +58,11 @@ var Render = (function () {
             zapper: '#33ff99',
             plasma_parasite: '#ff33ff',
             emp_sniper: '#3399ff',
-            flying_bomber: '#885522'
+            flying_bomber: '#885522',
+            mirror_sentinel: '#88bbdd',
+            swarm_mother: '#ffcc00',
+            quake_titan: '#994422',
+            the_nexus: '#aa00ff'
         },
         SHIELD: {
             fill: 'rgba(100, 180, 255, 0.15)',
@@ -113,7 +117,8 @@ var Render = (function () {
         spark: 6, runner: 7, swarm: 5,
         scout_drone: 6, heavy_flyer: 13, tunneler: 9,
         zapper: 7, plasma_parasite: 9, emp_sniper: 10,
-        flying_bomber: 15
+        flying_bomber: 15, mirror_sentinel: 10,
+        swarm_mother: 18, quake_titan: 20, the_nexus: 22
     };
     var ENEMY_RADIUS_DEFAULT = 8;
 
@@ -2006,6 +2011,174 @@ var Render = (function () {
     }
 
     // 💣 Flying Bomber — large bomber plane shape with bomb bay
+    // ---- Mirror Sentinel ----
+    function _drawMirrorSentinel(ctx, x, y, r, anim, angle) {
+        // Body: armored hexagonal shape
+        ctx.fillStyle = '#88bbdd';
+        ctx.beginPath();
+        for (var hi = 0; hi < 6; hi++) {
+            var ha = (hi / 6) * Math.PI * 2 + angle;
+            var hx = x + Math.cos(ha) * r * 0.9;
+            var hy = y + Math.sin(ha) * r * 0.9;
+            if (hi === 0) ctx.moveTo(hx, hy);
+            else ctx.lineTo(hx, hy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#4488aa';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Reflective shield shimmer
+        var shimmer = 0.3 + Math.sin(anim * 0.12) * 0.2;
+        ctx.strokeStyle = 'rgba(200, 230, 255, ' + shimmer + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 1.3, 0, Math.PI * 2);
+        ctx.stroke();
+        // Mirror center
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ---- Swarm Mother ----
+    function _drawSwarmMother(ctx, x, y, r, anim, angle) {
+        // Large insectoid body
+        ctx.fillStyle = '#ffcc00';
+        ctx.beginPath();
+        ctx.ellipse(x, y, r * 1.1, r * 0.7, angle, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#996600';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Wings (translucent, flapping)
+        var wingFlap = Math.sin(anim * 0.3) * 0.3;
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        ctx.fillStyle = 'rgba(255, 220, 100, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(x - sin * r * (0.8 + wingFlap), y + cos * r * (0.8 + wingFlap), r * 0.9, r * 0.3, angle + 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(x + sin * r * (0.8 + wingFlap), y - cos * r * (0.8 + wingFlap), r * 0.9, r * 0.3, angle - 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Crown mark (boss)
+        ctx.fillStyle = '#ff6600';
+        ctx.beginPath();
+        ctx.arc(x + cos * r * 0.4, y + sin * r * 0.4, r * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        // Abdomen segments
+        ctx.strokeStyle = '#cc9900';
+        ctx.lineWidth = 1;
+        for (var seg = 0; seg < 3; seg++) {
+            var sx = x - cos * r * (0.2 + seg * 0.25);
+            var sy = y - sin * r * (0.2 + seg * 0.25);
+            ctx.beginPath();
+            ctx.moveTo(sx - sin * r * 0.5, sy + cos * r * 0.5);
+            ctx.lineTo(sx + sin * r * 0.5, sy - cos * r * 0.5);
+            ctx.stroke();
+        }
+    }
+
+    // ---- Quake Titan ----
+    function _drawQuakeTitan(ctx, x, y, r, anim, angle, enemy) {
+        var jumpScale = 1.0;
+        if (enemy && enemy.isJumping) {
+            jumpScale = 1.3; // bulge when jumping
+        }
+        // Massive rocky body
+        ctx.fillStyle = '#994422';
+        ctx.beginPath();
+        ctx.moveTo(x, y - r * jumpScale);
+        ctx.lineTo(x + r * 0.8 * jumpScale, y - r * 0.3 * jumpScale);
+        ctx.lineTo(x + r * jumpScale, y + r * 0.4 * jumpScale);
+        ctx.lineTo(x + r * 0.5 * jumpScale, y + r * jumpScale);
+        ctx.lineTo(x - r * 0.5 * jumpScale, y + r * jumpScale);
+        ctx.lineTo(x - r * jumpScale, y + r * 0.4 * jumpScale);
+        ctx.lineTo(x - r * 0.8 * jumpScale, y - r * 0.3 * jumpScale);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#552211';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Cracks/lava veins
+        ctx.strokeStyle = '#ff6600';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.3, y - r * 0.5);
+        ctx.lineTo(x + r * 0.1, y);
+        ctx.lineTo(x - r * 0.2, y + r * 0.5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + r * 0.4, y - r * 0.3);
+        ctx.lineTo(x + r * 0.1, y + r * 0.2);
+        ctx.stroke();
+        // Glowing eyes
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.arc(x - r * 0.25, y - r * 0.3, r * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x + r * 0.25, y - r * 0.3, r * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        // Shockwave ring when jumping
+        if (enemy && enemy.isJumping) {
+            var ringAlpha = 0.6;
+            ctx.strokeStyle = 'rgba(255, 120, 0, ' + ringAlpha + ')';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(x, y, r * 2.5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    // ---- The Nexus ----
+    function _drawTheNexus(ctx, x, y, r, anim, angle, enemy) {
+        // Swirling void center
+        var pulse = 0.7 + Math.sin(anim * 0.08) * 0.3;
+        var gradient = ctx.createRadialGradient(x, y, 0, x, y, r * 1.2);
+        gradient.addColorStop(0, 'rgba(170, 0, 255, ' + pulse + ')');
+        gradient.addColorStop(0.5, 'rgba(80, 0, 150, 0.4)');
+        gradient.addColorStop(1, 'rgba(30, 0, 60, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Rotating rings
+        ctx.strokeStyle = '#cc66ff';
+        ctx.lineWidth = 2;
+        for (var ring = 0; ring < 3; ring++) {
+            var rAngle = anim * 0.05 * (ring + 1) + ring * (Math.PI * 2 / 3);
+            ctx.beginPath();
+            ctx.ellipse(x, y, r * (0.6 + ring * 0.25), r * (0.3 + ring * 0.1), rAngle, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        // Central eye
+        ctx.fillStyle = '#ff00ff';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        // Nexus laser beams (drawn from nexusLaserTargets)
+        if (enemy && enemy.nexusLaserTargets && enemy.nexusLaserTargets.length > 0) {
+            for (var li = 0; li < enemy.nexusLaserTargets.length; li++) {
+                var lt = enemy.nexusLaserTargets[li];
+                var ltSX = (lt.x - _camera.x) * _zoom;
+                var ltSY = (lt.y - _camera.y) * _zoom;
+                ctx.strokeStyle = lt.isShield ? 'rgba(255, 100, 100, 0.6)' : 'rgba(170, 0, 255, 0.4)';
+                ctx.lineWidth = lt.isShield ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(ltSX, ltSY);
+                ctx.stroke();
+            }
+        }
+    }
+
     function _drawFlyingBomber(ctx, x, y, r, anim, angle) {
         var cos = Math.cos(angle);
         var sin = Math.sin(angle);
@@ -2220,6 +2393,23 @@ var Render = (function () {
                     ctx.fill();
                 }
                 ctx.restore();
+            } else if (fx.type === 'quake_shockwave') {
+                // Expanding shockwave from quake titan jump
+                ctx.save();
+                var shockRadius = fx.radius * progress;
+                var shockAlpha = alpha * 0.6;
+                ctx.strokeStyle = 'rgba(255, 120, 0, ' + shockAlpha + ')';
+                ctx.lineWidth = 4 * alpha;
+                ctx.beginPath();
+                ctx.arc(Math.floor(fx.x), Math.floor(fx.y), shockRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                // Inner ring
+                ctx.strokeStyle = 'rgba(255, 200, 50, ' + (shockAlpha * 0.5) + ')';
+                ctx.lineWidth = 2 * alpha;
+                ctx.beginPath();
+                ctx.arc(Math.floor(fx.x), Math.floor(fx.y), shockRadius * 0.6, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
             }
         }
     }
@@ -2253,7 +2443,11 @@ var Render = (function () {
         zapper: _drawZapper,
         plasma_parasite: _drawPlasmaParasite,
         emp_sniper: _drawEMPSniper,
-        flying_bomber: _drawFlyingBomber
+        flying_bomber: _drawFlyingBomber,
+        mirror_sentinel: _drawMirrorSentinel,
+        swarm_mother: _drawSwarmMother,
+        quake_titan: _drawQuakeTitan,
+        the_nexus: _drawTheNexus
     };
 
     // ------------------------------------------------------------------------
@@ -2307,6 +2501,13 @@ var Render = (function () {
                 ctx.shadowColor = 'rgba(255, 80, 20, ' + bombGlow + ')';
             }
 
+            // Mirror sentinel reflection shield glow
+            if (e.isReflecting && e.mechanic === 'reflects') {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#88ddff';
+                e.isReflecting = false; // reset each frame
+            }
+
             // Flying enemy: draw shadow underneath, then offset drawing upward
             var flyOffset = 0;
             var ejx = e.jitterX || 0;
@@ -2340,7 +2541,7 @@ var Render = (function () {
             var moveAngle = _getMoveAngle(e);
             var drawFn = ENEMY_DRAW_FNS[e.type];
             if (drawFn) {
-                drawFn(ctx, ex, ey, r, _animFrame, moveAngle);
+                drawFn(ctx, ex, ey, r, _animFrame, moveAngle, e);
             } else {
                 // Fallback: colored circle + direction triangle (procedural enemies)
                 ctx.fillStyle = color;
@@ -2508,11 +2709,20 @@ var Render = (function () {
             }
 
             ctx.save();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = lineW;
-            if (ramp >= 6) {
-                ctx.shadowBlur = 4 + ramp;
-                ctx.shadowColor = ramp >= 10 ? COLORS.LASER.glow : color;
+            // Reflection beams: cyan color
+            if (beam.isReflection) {
+                ctx.strokeStyle = '#88ddff';
+                ctx.lineWidth = 1.5;
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = '#88ddff';
+                ctx.setLineDash([4, 4]);
+            } else {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineW;
+                if (ramp >= 6) {
+                    ctx.shadowBlur = 4 + ramp;
+                    ctx.shadowColor = ramp >= 10 ? COLORS.LASER.glow : color;
+                }
             }
             ctx.beginPath();
             ctx.moveTo(beam.fromX, beam.fromY);

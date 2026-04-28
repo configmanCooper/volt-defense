@@ -380,6 +380,40 @@ var Combat = (function() {
             if ((eDef2 && eDef2.mechanic === 'laser_resist') || enemy.mechanic === 'laser_resist') {
                 actualDamage *= 0.5;
             }
+
+            // Mirror sentinel reflection: reflect damage back to building
+            if ((eDef2 && eDef2.mechanic === 'reflects') || enemy.mechanic === 'reflects') {
+                var reflectDPS = (eDef2 && eDef2.reflectDPS) || 1;
+                var reflectDmg = reflectDPS / tps;
+                b.hp -= reflectDmg;
+                if (b.hp < 0) b.hp = 0;
+                enemy.isReflecting = true;
+                // Add reflection beam effect
+                _laserBeams.push({
+                    fromX: enemy.x,
+                    fromY: enemy.y,
+                    toX: center.x,
+                    toY: center.y,
+                    rampLevel: 1,
+                    buildingId: b.id,
+                    isReflection: true
+                });
+                // Still add the incoming beam
+                _laserBeams.push({
+                    fromX: center.x,
+                    fromY: center.y,
+                    toX: enemy.x,
+                    toY: enemy.y,
+                    rampLevel: rampMultiplier,
+                    buildingId: b.id
+                });
+                if (killed) {
+                    b.target = null;
+                    b.laserRampTime = 0;
+                }
+                continue; // skip normal damage to enemy
+            }
+
             var killed = false;
             if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
                 killed = Enemies.damageEnemy(enemy.id, actualDamage, armorBypass);
@@ -534,7 +568,8 @@ var Combat = (function() {
                 angle: angle,
                 distanceTraveled: 0,
                 maxDistance: effectiveRange * ((typeof Config !== 'undefined' && Config.BLASTER_MAX_RANGE_MULT != null)
-                    ? Config.BLASTER_MAX_RANGE_MULT : 1.3)
+                    ? Config.BLASTER_MAX_RANGE_MULT : 1.3),
+                sourceBuildingId: b.id
             });
 
             b.reloadTimer = def.reloadTicks || 5;
@@ -615,8 +650,25 @@ var Combat = (function() {
 
                 var bHitDist = _distance(p.x, p.y, bTarget.x, bTarget.y);
                 if (bHitDist <= hitDist) {
-                    if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
-                        Enemies.damageEnemy(p.targetId, p.damage, 0);
+                    // Reflector check: blaster reflects back to source building
+                    var bTargetDef = _getEnemyDef(bTarget.type);
+                    if ((bTargetDef && bTargetDef.mechanic === 'reflects') || bTarget.mechanic === 'reflects') {
+                        var reflDPS = (bTargetDef && bTargetDef.reflectDPS) || 1;
+                        if (p.sourceBuildingId) {
+                            var allBlds = _getAllBuildings();
+                            for (var bi = 0; bi < allBlds.length; bi++) {
+                                if (allBlds[bi].id === p.sourceBuildingId) {
+                                    allBlds[bi].hp -= reflDPS;
+                                    if (allBlds[bi].hp < 0) allBlds[bi].hp = 0;
+                                    break;
+                                }
+                            }
+                        }
+                        bTarget.isReflecting = true;
+                    } else {
+                        if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                            Enemies.damageEnemy(p.targetId, p.damage, 0);
+                        }
                     }
                     continue;
                 }
