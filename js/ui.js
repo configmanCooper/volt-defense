@@ -2158,7 +2158,8 @@ var UI = (function () {
             togglesEl.innerHTML = '<button class="debug-toggle' + (godActive ? ' active' : '') + '" id="debug-god-toggle">🛡️ God Mode</button>' +
                 '<button class="debug-toggle' + (!wavesOn ? ' active' : '') + '" id="debug-wave-toggle">🚫 Stop Waves</button>' +
                 '<button class="debug-toggle" id="debug-skip-wave">⏭️ Skip Wave</button>' +
-                '<button class="debug-toggle" id="debug-skip-wave-empty">⏭️ Skip (No Enemies)</button>';
+                '<button class="debug-toggle" id="debug-skip-wave-empty">⏭️ Skip (No Enemies)</button>' +
+                '<button class="debug-toggle" id="debug-wave-5s">⏱️ Wave in 5s</button>';
             document.getElementById('debug-god-toggle').addEventListener('click', function () {
                 var isOn = (typeof Engine !== 'undefined' && Engine.isGodMode) ? Engine.isGodMode() : false;
                 if (typeof Engine !== 'undefined' && Engine.setGodMode) {
@@ -2190,6 +2191,15 @@ var UI = (function () {
             document.getElementById('debug-skip-wave-empty').addEventListener('click', function () {
                 if (typeof Engine !== 'undefined' && Engine.skipWaveEmpty) {
                     Engine.skipWaveEmpty();
+                }
+            });
+
+            document.getElementById('debug-wave-5s').addEventListener('click', function () {
+                if (typeof Engine !== 'undefined' && Engine.setWaveTimer) {
+                    Engine.setWaveTimer(5);
+                    if (typeof UI !== 'undefined' && UI.showToast) {
+                        UI.showToast('⏱️ Next wave in 5 seconds', 'info', 2000);
+                    }
                 }
             });
 

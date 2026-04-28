@@ -230,6 +230,8 @@ var Engine = (function() {
 
         getWaveTimer: function() { return _state ? _state.waveTimer : 0; },
 
+        setWaveTimer: function(seconds) { if (_state) _state.waveTimer = seconds; },
+
         getPollution: function() { return _state ? _state.pollution : 0; },
 
         addPollution: function(amount) {
