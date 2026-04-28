@@ -1240,7 +1240,7 @@ var Config = {
             pollution: 0,
             contactDamage: 2,
             upgradeTo: null,
-            description: 'Electrified wall that deals 2 damage/s to enemies attacking it. Requires energy.',
+            description: 'Electrified wall that deals 2 damage/s to any enemy within 25 pixels. Requires energy.',
             icon: '⚡🧱'
         },
         steel_wall: {

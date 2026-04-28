@@ -148,15 +148,15 @@ var Combat = (function() {
             var by = b.worldY + cellSz / 2;
             var damagePerTick = def.contactDamage / tps;
             var energyCostPerTick = def.energyConsumption / tps;
+            var shockRange = 25;
+            var shockRangeSq = shockRange * shockRange;
 
             for (var j = 0; j < enemies.length; j++) {
                 var e = enemies[j];
                 if (e.hp <= 0) continue;
-                // Only damage enemies that are attacking this wall
-                if (e.targetBuildingId !== b.id) continue;
                 var dx = e.x - bx;
                 var dy = e.y - by;
-                if (dx * dx + dy * dy > cellSz * cellSz) continue;
+                if (dx * dx + dy * dy > shockRangeSq) continue;
 
                 e.hp -= damagePerTick;
                 b.energy -= energyCostPerTick;
