@@ -1606,6 +1606,35 @@ var Enemies = (function () {
         }
 
         var effectiveSpeed = enemy.speed * enemy.slowFactor * speedMult;
+
+        // Speed matching: faster enemies slow down to match nearby slower enemies,
+        // unless within 1000px of a player building (then full speed)
+        if (!enemy.isBoss) {
+            var nearBuilding = false;
+            if (typeof Buildings !== 'undefined' && Buildings.getAll) {
+                var allBlds = Buildings.getAll();
+                for (var nb = 0; nb < allBlds.length; nb++) {
+                    var bdx = allBlds[nb].worldX - enemy.x;
+                    var bdy = allBlds[nb].worldY - enemy.y;
+                    if (bdx * bdx + bdy * bdy <= 1000000) { // 1000^2
+                        nearBuilding = true;
+                        break;
+                    }
+                }
+            }
+            if (!nearBuilding) {
+                var nearby = _getNearbyEnemies(enemy.x, enemy.y, 500);
+                var slowest = effectiveSpeed;
+                for (var sn = 0; sn < nearby.length; sn++) {
+                    var ne = nearby[sn];
+                    if (ne.id === enemy.id || ne.hp <= 0) continue;
+                    var neSpeed = ne.speed * (ne.slowFactor || 1) * speedMult;
+                    if (neSpeed < slowest) slowest = neSpeed;
+                }
+                if (slowest < effectiveSpeed) effectiveSpeed = slowest;
+            }
+        }
+
         var movePerTick = effectiveSpeed / Config.TICKS_PER_SECOND;
 
         var target = enemy.path[enemy.pathIndex];
