@@ -377,7 +377,11 @@ var Buildings = (function() {
                 // Manual shutdown toggle for polluting power plants
                 manualOff: false,
                 // Track placement time for refund tiers
-                placedAt: (typeof Engine !== 'undefined' && Engine.getGameTime) ? Engine.getGameTime() : 0
+                placedAt: (typeof Engine !== 'undefined' && Engine.getGameTime) ? Engine.getGameTime() : 0,
+                // Weapon targeting priority
+                targetPriority: 'closest_core',
+                // Weapon target lock: stay on target until dead or out of range
+                targetLock: true
             };
 
             // Link miner to deposit
@@ -936,7 +940,9 @@ var Buildings = (function() {
                     smeltTimer: b.smeltTimer || 0,
                     mineTimer: b.mineTimer || 0,
                     burstCounter: b.burstCounter || 0,
-                    workerShortage: b.workerShortage || false
+                    workerShortage: b.workerShortage || false,
+                    targetPriority: b.targetPriority || 'closest_core',
+                    targetLock: b.targetLock !== false
                 });
             }
             var cableData = [];
@@ -998,7 +1004,9 @@ var Buildings = (function() {
                         smeltTimer: saved.smeltTimer || 0,
                         mineTimer: saved.mineTimer || 0,
                         burstCounter: saved.burstCounter || 0,
-                        workerShortage: saved.workerShortage || false
+                        workerShortage: saved.workerShortage || false,
+                        targetPriority: saved.targetPriority || 'closest_core',
+                        targetLock: saved.targetLock !== false
                     };
 
                     // Re-link miner deposits

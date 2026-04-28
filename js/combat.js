@@ -69,6 +69,43 @@ var Combat = (function() {
         return [];
     }
 
+    /**
+     * Acquire a target for a weapon building based on its targetPriority and targetLock settings.
+     * Returns the enemy to target, or null if none in range.
+     */
+    function _acquireTarget(b, center, effectiveRange) {
+        if (typeof Enemies === 'undefined') return null;
+
+        // Target lock: if locked target is still alive and in range, keep it
+        if (b.targetLock && b.target != null) {
+            var locked = Enemies.getById(b.target);
+            if (locked && locked.hp > 0) {
+                var ldx = locked.x - center.x;
+                var ldy = locked.y - center.y;
+                if (ldx * ldx + ldy * ldy <= effectiveRange * effectiveRange) {
+                    return locked;
+                }
+            }
+            // Target dead or out of range, clear lock
+            b.target = null;
+        }
+
+        var priority = b.targetPriority || 'closest_core';
+        var enemy = null;
+
+        if (Enemies.getByPriority) {
+            enemy = Enemies.getByPriority(center.x, center.y, effectiveRange, priority, null);
+        } else if (Enemies.getClosest) {
+            enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
+        }
+
+        if (enemy && b.targetLock) {
+            b.target = enemy.id;
+        }
+
+        return enemy;
+    }
+
     // ---- Core Repair ----
 
     function _processCoreRepair() {
@@ -329,11 +366,10 @@ var Combat = (function() {
 
             var center = _getBuildingCenter(b);
 
-            // Find closest enemy in range
-            var enemy = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
-                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
-            }
+            // Store previous target for ramp reset check
+            var prevTarget = b.target;
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
 
             if (!enemy) {
                 b.laserRampTime = 0;
@@ -342,7 +378,7 @@ var Combat = (function() {
             }
 
             // Target switch resets ramp
-            if (b.target !== enemy.id) {
+            if (prevTarget !== enemy.id) {
                 b.laserRampTime = 0;
             }
             b.target = enemy.id;
@@ -465,11 +501,8 @@ var Combat = (function() {
 
             var center = _getBuildingCenter(b);
 
-            // Find furthest enemy in range
-            var enemy = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getFurthest) {
-                enemy = Enemies.getFurthest(center.x, center.y, effectiveRange);
-            }
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
 
             if (!enemy) { continue; }
 
@@ -542,11 +575,8 @@ var Combat = (function() {
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
-            // Blasters target closest enemy (more accurate than missiles)
-            var enemy = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
-                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
-            }
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) { continue; }
 
             var energyCost = def.energyPerShot || 0;
@@ -779,11 +809,8 @@ var Combat = (function() {
             var energyDraw = (def.energyDraw || 50) / tps;
             if (b.energy < energyDraw) { continue; }
 
-            // Find closest enemy
-            var enemy = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
-                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
-            }
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) { continue; }
 
             b.energy -= energyDraw;
@@ -929,11 +956,8 @@ var Combat = (function() {
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
-            // Find closest enemy to aim at
-            var target = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
-                target = Enemies.getClosest(center.x, center.y, effectiveRange);
-            }
+            // Find target enemy using priority
+            var target = _acquireTarget(b, center, effectiveRange);
             if (!target) { continue; }
 
             // Check iron
@@ -1219,18 +1243,28 @@ var Combat = (function() {
             drone.lifetime--;
             if (drone.lifetime <= 0 || drone.hp <= 0) { continue; }
 
-            // Find closest enemy within range of home bay
-            var bestDist = drone.range;
+            // Find target enemy using parent bay's priority, searching from home bay position
+            var bay = null;
+            if (typeof Buildings !== 'undefined' && Buildings.getById) {
+                bay = Buildings.getById(drone.bayId);
+            }
+            var dronePriority = (bay && bay.targetPriority) ? bay.targetPriority : 'closest_weapon';
             var bestEnemy = null;
-            for (var ei = 0; ei < enemies.length; ei++) {
-                var en = enemies[ei];
-                if (!en || en.hp <= 0) { continue; }
-                var homeDist = _distance(drone.homeX, drone.homeY, en.x, en.y);
-                if (homeDist > drone.range) { continue; }
-                var droneDist = _distance(drone.x, drone.y, en.x, en.y);
-                if (droneDist < bestDist) {
-                    bestDist = droneDist;
-                    bestEnemy = en;
+            if (typeof Enemies !== 'undefined' && Enemies.getByPriority) {
+                bestEnemy = Enemies.getByPriority(drone.homeX, drone.homeY, drone.range, dronePriority, null);
+            } else {
+                // fallback: closest to drone
+                var bestDist2 = drone.range;
+                for (var ei = 0; ei < enemies.length; ei++) {
+                    var en2 = enemies[ei];
+                    if (!en2 || en2.hp <= 0) { continue; }
+                    var homeDist2 = _distance(drone.homeX, drone.homeY, en2.x, en2.y);
+                    if (homeDist2 > drone.range) { continue; }
+                    var droneDist2 = _distance(drone.x, drone.y, en2.x, en2.y);
+                    if (droneDist2 < bestDist2) {
+                        bestDist2 = droneDist2;
+                        bestEnemy = en2;
+                    }
                 }
             }
 
@@ -1407,11 +1441,8 @@ var Combat = (function() {
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
-            // Target closest enemy
-            var enemy = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
-                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
-            }
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) continue;
 
             var energyCost = def.energyPerShot || 15;
@@ -1476,11 +1507,8 @@ var Combat = (function() {
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
-            // Find closest enemy in range
-            var enemy = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
-                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
-            }
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) { continue; }
 
             // Check energy
@@ -1558,11 +1586,10 @@ var Combat = (function() {
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
-            // Find closest enemy in range
-            var enemy = null;
-            if (typeof Enemies !== 'undefined' && Enemies.getClosest) {
-                enemy = Enemies.getClosest(center.x, center.y, effectiveRange);
-            }
+            // Store previous target for ramp reset check
+            var prevTarget = b.target;
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
 
             if (!enemy) {
                 b.fusionRampTime = 0;
@@ -1571,7 +1598,7 @@ var Combat = (function() {
             }
 
             // Target switch resets ramp
-            if (b.target !== enemy.id) {
+            if (prevTarget !== enemy.id) {
                 b.fusionRampTime = 0;
             }
             b.target = enemy.id;

@@ -1332,6 +1332,34 @@ var UI = (function () {
                 html += '<div class="info-stat">🎯 Range: ' + def.range + 'px</div>';
             }
 
+            // Targeting priority dropdown for weapons
+            if (def.category === 'weapons') {
+                var curPrio = building.targetPriority || 'closest_core';
+                var prioOptions = [
+                    { value: 'closest_core', label: 'Closest to Core' },
+                    { value: 'closest_weapon', label: 'Closest to Weapon' },
+                    { value: 'lowest_hp', label: 'Lowest HP' },
+                    { value: 'highest_hp', label: 'Highest HP' },
+                    { value: 'highest_maxhp', label: 'Highest Max HP' },
+                    { value: 'fastest', label: 'Fastest' },
+                    { value: 'slowest', label: 'Slowest' }
+                ];
+                html += '<div class="info-stat" style="margin:6px 0 2px;">';
+                html += '<label style="font-size:11px;color:#aaa;">🎯 Target Priority:</label><br>';
+                html += '<select class="target-priority-select" data-building-id="' + buildingId + '" style="width:100%;margin-top:2px;padding:3px;background:#222;color:#eee;border:1px solid #555;border-radius:3px;font-size:12px;">';
+                for (var po = 0; po < prioOptions.length; po++) {
+                    html += '<option value="' + prioOptions[po].value + '"' + (curPrio === prioOptions[po].value ? ' selected' : '') + '>' + prioOptions[po].label + '</option>';
+                }
+                html += '</select></div>';
+                // Target lock checkbox
+                var lockOn = building.targetLock !== false;
+                html += '<div class="info-stat" style="margin:2px 0 4px;">';
+                html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">';
+                html += '<input type="checkbox" class="target-lock-cb" data-building-id="' + buildingId + '"' + (lockOn ? ' checked' : '') + '>';
+                html += '<span style="color:#aaa;">🔒 Lock on target until dead/out of range</span>';
+                html += '</label></div>';
+            }
+
             // Shield stats (live-updated)
             if (def.shieldHP > 0) {
                 html += '<div class="info-stat">🛡️ Shield: <span id="info-shield-text">' + Math.floor(building.shieldHP || 0) + '</span>/' + def.shieldHP + '</div>';
@@ -1591,6 +1619,32 @@ var UI = (function () {
                             if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
                                 UI.showBuildingInfo(bId);
                             }
+                        }
+                    });
+                }
+
+                // Wire up targeting priority dropdown
+                var targetPrioSelects = _elements.infoPanel.querySelectorAll('.target-priority-select');
+                for (var tp = 0; tp < targetPrioSelects.length; tp++) {
+                    targetPrioSelects[tp].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        var bld = (typeof Buildings !== 'undefined' && Buildings.getById) ? Buildings.getById(bId) : null;
+                        if (bld) {
+                            bld.targetPriority = this.value;
+                            bld.target = null; // Clear locked target so new priority takes effect immediately
+                        }
+                    });
+                }
+
+                // Wire up target lock checkbox
+                var targetLockCbs = _elements.infoPanel.querySelectorAll('.target-lock-cb');
+                for (var tl = 0; tl < targetLockCbs.length; tl++) {
+                    targetLockCbs[tl].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        var bld = (typeof Buildings !== 'undefined' && Buildings.getById) ? Buildings.getById(bId) : null;
+                        if (bld) {
+                            bld.targetLock = this.checked;
+                            if (!this.checked) bld.target = null;
                         }
                     });
                 }

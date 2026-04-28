@@ -2263,6 +2263,64 @@ var Enemies = (function () {
             return furthest;
         },
 
+        /**
+         * Get an enemy in range by targeting priority.
+         * priority: 'closest_core' | 'closest_weapon' | 'lowest_hp' |
+         *           'highest_hp' | 'highest_maxhp' | 'fastest' | 'slowest'
+         * corePos: {x,y} — needed for closest_core
+         */
+        getByPriority: function (worldX, worldY, range, priority, corePos) {
+            var rangeSq = range * range;
+            var candidates = _getNearbyEnemies(worldX, worldY, range);
+            var best = null;
+            var bestVal = null;
+
+            for (var i = 0; i < candidates.length; i++) {
+                var c = candidates[i];
+                var d = _distSq(worldX, worldY, c.x, c.y);
+                if (d > rangeSq) continue;
+
+                var val;
+                switch (priority) {
+                    case 'closest_core':
+                        // Closest to core = most distance traveled
+                        val = c.distanceTraveled;
+                        if (best === null || val > bestVal) { best = c; bestVal = val; }
+                        break;
+                    case 'closest_weapon':
+                        val = d;
+                        if (best === null || val < bestVal) { best = c; bestVal = val; }
+                        break;
+                    case 'lowest_hp':
+                        val = c.hp;
+                        if (best === null || val < bestVal) { best = c; bestVal = val; }
+                        break;
+                    case 'highest_hp':
+                        val = c.hp;
+                        if (best === null || val > bestVal) { best = c; bestVal = val; }
+                        break;
+                    case 'highest_maxhp':
+                        val = c.maxHp;
+                        if (best === null || val > bestVal) { best = c; bestVal = val; }
+                        break;
+                    case 'fastest':
+                        val = c.speed;
+                        if (best === null || val > bestVal) { best = c; bestVal = val; }
+                        break;
+                    case 'slowest':
+                        val = c.speed;
+                        if (best === null || val < bestVal) { best = c; bestVal = val; }
+                        break;
+                    default:
+                        // fallback: closest to weapon
+                        val = d;
+                        if (best === null || val < bestVal) { best = c; bestVal = val; }
+                        break;
+                }
+            }
+            return best;
+        },
+
         getCount: function () {
             return _enemies.length;
         },
