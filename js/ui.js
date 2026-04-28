@@ -880,7 +880,16 @@ var UI = (function () {
                 _elements.wave.textContent = state.wave;
             }
             if (_elements.waveTimer) {
-                _elements.waveTimer.textContent = Math.ceil(Engine.getWaveTimer()) + 's';
+                var wt = Engine.getWaveTimer();
+                var st = Engine.getState();
+                if (st && st.finalWaveReached) {
+                    var enemiesLeft = (typeof Enemies !== 'undefined' && Enemies.getAll) ? Enemies.getAll().length : 0;
+                    var spawning = (typeof Enemies !== 'undefined' && Enemies.isSpawning) ? Enemies.isSpawning() : false;
+                    var totalLeft = enemiesLeft + (spawning ? 1 : 0);
+                    _elements.waveTimer.textContent = 'Final Wave! ' + enemiesLeft + ' left';
+                } else {
+                    _elements.waveTimer.textContent = Math.ceil(wt) + 's';
+                }
             }
             if (_elements.money && typeof Economy !== 'undefined' && Economy.getMoney) {
                 _elements.money.textContent = UI.formatNumber(Economy.getMoney());

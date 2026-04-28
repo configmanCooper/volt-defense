@@ -1881,6 +1881,10 @@ var Enemies = (function () {
             return _enemies;
         },
 
+        isSpawning: function () {
+            return _spawnQueue.length > 0;
+        },
+
         getRangedEffects: function () {
             return _rangedEffects;
         },

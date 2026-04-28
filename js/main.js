@@ -135,12 +135,13 @@ var Main = (function () {
                 _gameOver();
             }
 
-            // Victory check: final wave reached and all enemies dead
+            // Victory check: final wave reached, all enemies dead, spawn queue empty
             if (typeof Engine !== 'undefined' && Engine.getState && Engine.getState() &&
                 Engine.getState().finalWaveReached && !Engine.isVictory() &&
                 typeof Enemies !== 'undefined' && typeof Enemies.getAll === 'function') {
                 var remaining = Enemies.getAll();
-                if (remaining.length === 0) {
+                var stillSpawning = (typeof Enemies.isSpawning === 'function') ? Enemies.isSpawning() : false;
+                if (remaining.length === 0 && !stillSpawning) {
                     Engine.setVictory();
                     _victory();
                 }
