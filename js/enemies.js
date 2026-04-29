@@ -2112,6 +2112,39 @@ var Enemies = (function () {
                 continue;
             }
 
+            // Charged state: keeps moving, looking for a weapon within 500px
+            if (enemy.drainState === 'charged') {
+                if (typeof Buildings !== 'undefined' && Buildings.getAll) {
+                    var chargeSearchRange = 500;
+                    var chargeRangeSq = chargeSearchRange * chargeSearchRange;
+                    var chClosest = null;
+                    var chClosestDist = Infinity;
+                    var chBlds = Buildings.getAll();
+                    for (var ch = 0; ch < chBlds.length; ch++) {
+                        var chb = chBlds[ch];
+                        if (chb.hp <= 0) continue;
+                        var chDef = Config.BUILDINGS[chb.type];
+                        if (!chDef || chDef.category !== 'weapons') continue;
+                        var chCX = chb.worldX + (chDef.size[0] * Config.GRID_CELL_SIZE) / 2;
+                        var chCY = chb.worldY + (chDef.size[1] * Config.GRID_CELL_SIZE) / 2;
+                        var chdx = chCX - enemy.x;
+                        var chdy = chCY - enemy.y;
+                        var chDistSq = chdx * chdx + chdy * chdy;
+                        if (chDistSq > chargeRangeSq) continue;
+                        if (chDistSq < chClosestDist) {
+                            chClosestDist = chDistSq;
+                            chClosest = chb;
+                        }
+                    }
+                    if (chClosest) {
+                        enemy.drainState = 'zapping';
+                        enemy.drainTimer = enemy.drainZapDuration;
+                        enemy._zapTargetId = chClosest.id;
+                    }
+                }
+                continue;
+            }
+
             if (enemy.drainState === 'zapping') {
                 enemy.drainTimer--;
                 // Find the weapon target and damage it
@@ -2229,6 +2262,8 @@ var Enemies = (function () {
 
             // Check if threshold reached — find closest weapon and zap it
             if (enemy.drainAbsorbed >= enemy.drainThreshold) {
+                var zapSearchRange = 500;
+                var zapSearchRangeSq = zapSearchRange * zapSearchRange;
                 var closestWeapon = null;
                 var closestDist = Infinity;
                 var allBlds = Buildings.getAll();
@@ -2242,7 +2277,7 @@ var Enemies = (function () {
                     var wdx = wCX - enemy.x;
                     var wdy = wCY - enemy.y;
                     var wDistSq = wdx * wdx + wdy * wdy;
-                    if (wDistSq > rangeSq) continue;
+                    if (wDistSq > zapSearchRangeSq) continue;
                     if (wDistSq < closestDist) {
                         closestDist = wDistSq;
                         closestWeapon = wb;
@@ -2253,10 +2288,8 @@ var Enemies = (function () {
                     enemy.drainTimer = enemy.drainZapDuration;
                     enemy._zapTargetId = closestWeapon.id;
                 } else {
-                    // No weapon in range, reset and cooldown
-                    enemy.drainAbsorbed = 0;
-                    enemy.drainState = 'cooldown';
-                    enemy.drainTimer = enemy.drainCooldown;
+                    // No weapon in range yet — enter charged state, keep moving
+                    enemy.drainState = 'charged';
                 }
             }
         }

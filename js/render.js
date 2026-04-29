@@ -2541,6 +2541,10 @@ var Render = (function () {
                 } else if (e.drainState === 'zapping') {
                     ctx.shadowBlur = 24;
                     ctx.shadowColor = '#aaccff';
+                } else if (e.drainState === 'charged') {
+                    var chargeGlow = 0.6 + Math.sin(_animFrame * 0.2) * 0.4;
+                    ctx.shadowBlur = 22;
+                    ctx.shadowColor = 'rgba(150, 200, 255, ' + chargeGlow + ')';
                 }
             }
 
