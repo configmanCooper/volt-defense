@@ -2167,13 +2167,13 @@ var Render = (function () {
         if (enemy && enemy.nexusLaserTargets && enemy.nexusLaserTargets.length > 0) {
             for (var li = 0; li < enemy.nexusLaserTargets.length; li++) {
                 var lt = enemy.nexusLaserTargets[li];
-                var ltSX = (lt.x - _camera.x) * _zoom;
-                var ltSY = (lt.y - _camera.y) * _zoom;
+                var ltX = Math.floor(lt.x);
+                var ltY = Math.floor(lt.y);
                 ctx.strokeStyle = lt.isShield ? 'rgba(255, 100, 100, 0.6)' : 'rgba(170, 0, 255, 0.4)';
                 ctx.lineWidth = lt.isShield ? 2 : 1;
                 ctx.beginPath();
                 ctx.moveTo(x, y);
-                ctx.lineTo(ltSX, ltSY);
+                ctx.lineTo(ltX, ltY);
                 ctx.stroke();
             }
         }
