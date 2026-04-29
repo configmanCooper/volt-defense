@@ -1766,7 +1766,7 @@ var Config = {
         // Wave 7: Wall Breakers arrive
         { number: 7, enemies: [{ type: 'wall_breaker', count: 2 }, { type: 'grunt', count: 8 }, { type: 'runner', count: 5 }, { type: 'shielded_grunt', count: 3 }, { type: 'bomber', count: 2 }], spawnDelay: 450, spawnPoints: 1 },
         // Wave 8: Home Wreckers arrive (target housing)
-        { number: 8, enemies: [{ type: 'home_wrecker', count: 2 }, { type: 'grunt', count: 6 }, { type: 'river_serpent', count: 2 }, { type: 'runner', count: 4 }], spawnDelay: 450, spawnPoints: 2 },
+        { number: 8, enemies: [{ type: 'home_wrecker', count: 2 }, { type: 'grunt', count: 6 }, { type: 'shielded_grunt', count: 2 }, { type: 'river_serpent', count: 2 }, { type: 'runner', count: 4 }], spawnDelay: 450, spawnPoints: 2 },
         // Wave 9
         { number: 9, enemies: [{ type: 'shielded_grunt', count: 5 }, { type: 'bomber', count: 3 }, { type: 'home_wrecker', count: 2 }, { type: 'spark', count: 8 }], spawnDelay: 400, spawnPoints: 2 },
         // Wave 10: Drill Worms + Tank (target mines)
