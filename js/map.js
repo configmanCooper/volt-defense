@@ -344,10 +344,10 @@ var Map = (function() {
             }
         }
 
-        // Uranium: 2-4 single or double cells, 100-300 units/cell, min 2000px apart, never within 50 tiles of center
-        var uraniumClusters = rng.randomInt(2, 4);
+        // Uranium: 3-6 single or double cells, 100-300 units/cell, min 1500px apart, never within 50 tiles of center
+        var uraniumClusters = rng.randomInt(3, 6);
         for (var i = 0; i < uraniumClusters; i++) {
-            var spot = findSpot(2000, 2000);
+            var spot = findSpot(1500, 2000);
             if (!spot) { continue; }
             var clusterSize = rng.randomInt(1, 2);
             for (var c = 0; c < clusterSize; c++) {
