@@ -2617,6 +2617,22 @@ var Render = (function () {
                 _drawHPBar(ctx, ex, ey - r, r * 2, hpRatio);
             }
 
+            // Overload boss charge progress bar (while draining)
+            if (e.mechanic === 'energy_drain' && (e.drainState === 'draining' || e.drainState === 'idle') && e.drainAbsorbed > 0 && e.drainThreshold > 0) {
+                var chargeRatio = Math.min(e.drainAbsorbed / e.drainThreshold, 1);
+                var cbW = r * 2;
+                var cbH = 3;
+                var cbX = ex - cbW / 2;
+                var cbY = ey + r + 4;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(cbX - 1, cbY - 1, cbW + 2, cbH + 2);
+                ctx.fillStyle = 'rgba(60, 60, 80, 0.8)';
+                ctx.fillRect(cbX, cbY, cbW, cbH);
+                var cFill = chargeRatio < 0.5 ? 'rgba(100, 150, 255, 0.9)' : 'rgba(180, 220, 255, 0.95)';
+                ctx.fillStyle = cFill;
+                ctx.fillRect(cbX, cbY, cbW * chargeRatio, cbH);
+            }
+
             // Overload boss energy drain / zap visuals
             if (e.mechanic === 'energy_drain') {
                 // Draining: draw energy beams from batteries to boss
