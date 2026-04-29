@@ -484,9 +484,9 @@ var Config = {
             pollution: 0.3,
             smeltInput: { iron: 4, coal: 2 },
             smeltOutput: { steel: 2 },
-            smeltInterval: 120,
+            smeltInterval: 40,
             upgradeTo: null,
-            description: 'Converts 4 iron + 2 coal into 2 steel every 12 seconds. Requires energy.',
+            description: 'Converts 4 iron + 2 coal into 2 steel every 4 seconds. Requires energy.',
             icon: '🔥⚙️'
         },
 
