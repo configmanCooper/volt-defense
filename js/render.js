@@ -126,6 +126,9 @@ var Render = (function () {
     var _tmpScreen = { x: 0, y: 0 };
     var _tmpWorld = { x: 0, y: 0 };
 
+    // Performance: zoom threshold below which shadows are disabled
+    var SHADOW_ZOOM_THRESHOLD = 0.85;
+
     // ------------------------------------------------------------------------
     // Private state
     // ------------------------------------------------------------------------
@@ -174,9 +177,142 @@ var Render = (function () {
     // Shield hit flash timers (buildingId → framesRemaining)
     var _shieldFlashes = {};
 
+    // Spatial index for buildings/cables (grid-based, rebuilt when needed)
+    var SPATIAL_CELL_SIZE = 400; // world pixels per spatial cell
+    var _spatialGrid = {};       // key "cx,cy" → array of building refs
+    var _spatialCableGrid = {};  // key "cx,cy" → array of cable indices
+    var _spatialDirty = true;    // rebuild flag
+
+    // Building layer cache
+    var _buildingCacheCanvas = null;
+    var _buildingCacheCtx = null;
+    var _buildingCacheDirty = true;
+    var _buildingCacheCamX = -1;
+    var _buildingCacheCamY = -1;
+    var _buildingCacheZoom = -1;
+    var _buildingCacheFrame = 0; // track anim frame for periodic refresh
+
     // ------------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------------
+
+    // Returns true if shadow effects should be rendered at current zoom
+    function _shadowsEnabled() {
+        return _zoom >= SHADOW_ZOOM_THRESHOLD;
+    }
+
+    // Rebuild spatial index for buildings and cables
+    function _rebuildSpatialIndex() {
+        _spatialGrid = {};
+        _spatialCableGrid = {};
+        if (typeof Buildings === 'undefined' || !Buildings) return;
+
+        var all = Buildings.getAll();
+        if (all) {
+            var i, b, def, sizeW, sizeH, cs, cx, cy, minCX, minCY, maxCX, maxCY, key;
+            cs = Config.GRID_CELL_SIZE;
+            for (i = 0; i < all.length; i++) {
+                b = all[i];
+                def = Config.BUILDINGS[b.type];
+                sizeW = (def && def.size) ? def.size[0] * cs : cs;
+                sizeH = (def && def.size) ? def.size[1] * cs : cs;
+                minCX = Math.floor(b.worldX / SPATIAL_CELL_SIZE);
+                minCY = Math.floor(b.worldY / SPATIAL_CELL_SIZE);
+                maxCX = Math.floor((b.worldX + sizeW) / SPATIAL_CELL_SIZE);
+                maxCY = Math.floor((b.worldY + sizeH) / SPATIAL_CELL_SIZE);
+                for (cx = minCX; cx <= maxCX; cx++) {
+                    for (cy = minCY; cy <= maxCY; cy++) {
+                        key = cx + ',' + cy;
+                        if (!_spatialGrid[key]) _spatialGrid[key] = [];
+                        _spatialGrid[key].push(b);
+                    }
+                }
+            }
+        }
+
+        var cables = Buildings.getCables ? Buildings.getCables() : null;
+        if (cables) {
+            for (var ci = 0; ci < cables.length; ci++) {
+                var cable = cables[ci];
+                var fromB = Buildings.getById(cable.from);
+                var toB = Buildings.getById(cable.to);
+                if (!fromB || !toB) continue;
+                var fc = Buildings.getBuildingCenter(fromB);
+                var tc = Buildings.getBuildingCenter(toB);
+                var cMinX = Math.floor(Math.min(fc.x, tc.x) / SPATIAL_CELL_SIZE);
+                var cMinY = Math.floor(Math.min(fc.y, tc.y) / SPATIAL_CELL_SIZE);
+                var cMaxX = Math.floor(Math.max(fc.x, tc.x) / SPATIAL_CELL_SIZE);
+                var cMaxY = Math.floor(Math.max(fc.y, tc.y) / SPATIAL_CELL_SIZE);
+                for (cx = cMinX; cx <= cMaxX; cx++) {
+                    for (cy = cMinY; cy <= cMaxY; cy++) {
+                        key = cx + ',' + cy;
+                        if (!_spatialCableGrid[key]) _spatialCableGrid[key] = [];
+                        _spatialCableGrid[key].push(ci);
+                    }
+                }
+            }
+        }
+        _spatialDirty = false;
+    }
+
+    // Get buildings visible in current viewport
+    function _getVisibleBuildings() {
+        if (_spatialDirty) _rebuildSpatialIndex();
+        var vw = Config.VIEWPORT_WIDTH / _zoom;
+        var vh = Config.VIEWPORT_HEIGHT / _zoom;
+        var margin = 100;
+        var minCX = Math.floor((_camera.x - margin) / SPATIAL_CELL_SIZE);
+        var minCY = Math.floor((_camera.y - margin) / SPATIAL_CELL_SIZE);
+        var maxCX = Math.floor((_camera.x + vw + margin) / SPATIAL_CELL_SIZE);
+        var maxCY = Math.floor((_camera.y + vh + margin) / SPATIAL_CELL_SIZE);
+        var result = [];
+        var seen = {};
+        var cx, cy, key, arr, i;
+        for (cx = minCX; cx <= maxCX; cx++) {
+            for (cy = minCY; cy <= maxCY; cy++) {
+                key = cx + ',' + cy;
+                arr = _spatialGrid[key];
+                if (!arr) continue;
+                for (i = 0; i < arr.length; i++) {
+                    if (!seen[arr[i].id]) {
+                        seen[arr[i].id] = true;
+                        result.push(arr[i]);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    // Get cable indices visible in current viewport
+    function _getVisibleCableIndices() {
+        if (_spatialDirty) _rebuildSpatialIndex();
+        var vw = Config.VIEWPORT_WIDTH / _zoom;
+        var vh = Config.VIEWPORT_HEIGHT / _zoom;
+        var margin = 200;
+        var minCX = Math.floor((_camera.x - margin) / SPATIAL_CELL_SIZE);
+        var minCY = Math.floor((_camera.y - margin) / SPATIAL_CELL_SIZE);
+        var maxCX = Math.floor((_camera.x + vw + margin) / SPATIAL_CELL_SIZE);
+        var maxCY = Math.floor((_camera.y + vh + margin) / SPATIAL_CELL_SIZE);
+        var result = [];
+        var seen = {};
+        var cx, cy, key, arr, i;
+        for (cx = minCX; cx <= maxCX; cx++) {
+            for (cy = minCY; cy <= maxCY; cy++) {
+                key = cx + ',' + cy;
+                arr = _spatialCableGrid[key];
+                if (!arr) continue;
+                for (i = 0; i < arr.length; i++) {
+                    if (!seen[arr[i]]) {
+                        seen[arr[i]] = true;
+                        result.push(arr[i]);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     function _cellSize() {
         return Config.GRID_CELL_SIZE;
     }
@@ -494,15 +630,17 @@ var Render = (function () {
     function _ensureStaticTerrainCache() {
         var cs = _cellSize();
         var range = _visibleRange();
-        var margin = 10;
+        // Scale margin with zoom: at zoom 0.5 use ~60 cells, at zoom 1.0 use 30
+        var margin = Math.ceil(45 / Math.max(_zoom, 0.5));
+        var threshold = Math.ceil(margin * 0.25);
         var needsRedraw = false;
 
         if (!_staticTerrainCanvas) {
             needsRedraw = true;
-        } else if (range.startCol < _staticCacheStartCol + 3 ||
-                   range.endCol > _staticCacheEndCol - 3 ||
-                   range.startRow < _staticCacheStartRow + 3 ||
-                   range.endRow > _staticCacheEndRow - 3) {
+        } else if (range.startCol < _staticCacheStartCol + threshold ||
+                   range.endCol > _staticCacheEndCol - threshold ||
+                   range.startRow < _staticCacheStartRow + threshold ||
+                   range.endRow > _staticCacheEndRow - threshold) {
             needsRedraw = true;
         }
 
@@ -793,19 +931,23 @@ var Render = (function () {
         var cables = Buildings.getCables();
         if (!cables || !cables.length) return;
 
-        var i, cable, fromB, toB, fc, tc;
+        var visibleIndices = _getVisibleCableIndices();
+        if (!visibleIndices.length) return;
+
+        var ci, i, cable, fromB, toB, fc, tc;
+        var useShadows = _shadowsEnabled();
 
         ctx.save();
-        for (i = 0; i < cables.length; i++) {
+        for (ci = 0; ci < visibleIndices.length; ci++) {
+            i = visibleIndices[ci];
             cable = cables[i];
+            if (!cable) continue;
             fromB = Buildings.getById(cable.from);
             toB = Buildings.getById(cable.to);
             if (!fromB || !toB) continue;
 
             fc = Buildings.getBuildingCenter(fromB);
             tc = Buildings.getBuildingCenter(toB);
-
-            if (!_isInViewport(fc.x, fc.y, 200) && !_isInViewport(tc.x, tc.y, 200)) continue;
 
             var isHC = cable.type === 'high_capacity';
             var usedShadow = false;
@@ -819,21 +961,25 @@ var Render = (function () {
             if (flowing) {
                 var pulse = 0.5 + Math.sin(_animFrame * 0.15) * 0.5;
                 if (isHC) {
-                    ctx.shadowBlur = 12 + pulse * 12;
-                    ctx.shadowColor = 'rgba(255,180,0,' + (0.5 + pulse * 0.4) + ')';
+                    if (useShadows) {
+                        ctx.shadowBlur = 12 + pulse * 12;
+                        ctx.shadowColor = 'rgba(255,180,0,' + (0.5 + pulse * 0.4) + ')';
+                    }
                     ctx.strokeStyle = 'rgba(255,' + Math.floor(200 + pulse * 55) + ',0,' + (0.8 + pulse * 0.2) + ')';
                     ctx.lineWidth = 4 + pulse * 2;
                 } else {
-                    ctx.shadowBlur = 8 + pulse * 8;
-                    ctx.shadowColor = 'rgba(0,200,255,' + (0.4 + pulse * 0.4) + ')';
+                    if (useShadows) {
+                        ctx.shadowBlur = 8 + pulse * 8;
+                        ctx.shadowColor = 'rgba(0,200,255,' + (0.4 + pulse * 0.4) + ')';
+                    }
                     ctx.strokeStyle = 'rgba(0,' + Math.floor(180 + pulse * 75) + ',' + Math.floor(220 + pulse * 35) + ',' + (0.7 + pulse * 0.3) + ')';
                     ctx.lineWidth = 2 + pulse;
                 }
-                usedShadow = true;
+                usedShadow = useShadows;
             } else {
                 var active = fromB.active && toB.active;
                 if (isHC) {
-                    if (active) {
+                    if (active && useShadows) {
                         ctx.shadowBlur = 6;
                         ctx.shadowColor = 'rgba(255,180,0,0.5)';
                         usedShadow = true;
@@ -841,7 +987,7 @@ var Render = (function () {
                     ctx.strokeStyle = active ? 'rgba(255,180,0,0.7)' : 'rgba(180,120,0,0.4)';
                     ctx.lineWidth = 3;
                 } else {
-                    if (active) {
+                    if (active && useShadows) {
                         ctx.shadowBlur = 4;
                         ctx.shadowColor = COLORS.CABLE.glow;
                         usedShadow = true;
@@ -966,7 +1112,7 @@ var Render = (function () {
 
     function _drawBuildings(ctx) {
         if (typeof Buildings === 'undefined' || !Buildings || typeof Buildings.getAll !== 'function') return;
-        var all = Buildings.getAll();
+        var all = _getVisibleBuildings();
         if (!all || !all.length) return;
 
         var cs = _cellSize();
@@ -991,8 +1137,6 @@ var Render = (function () {
             sizeH = def.size ? def.size[1] : 1;
             pw = sizeW * cs;
             ph = sizeH * cs;
-
-            if (!_isInViewport(b.worldX + pw / 2, b.worldY + ph / 2, pw)) continue;
 
             color = COLORS.BUILDING[def.category] || '#888888';
 
@@ -2233,6 +2377,7 @@ var Render = (function () {
         if (typeof Enemies === 'undefined' || !Enemies.getRangedEffects) return;
         var effects = Enemies.getRangedEffects();
         if (!effects || !effects.length) return;
+        var useShadows = _shadowsEnabled();
 
         for (var i = 0; i < effects.length; i++) {
             var fx = effects[i];
@@ -2240,13 +2385,14 @@ var Render = (function () {
             var alpha = fx.timer / fx.maxTimer;
 
             if (fx.type === 'zapper_beam') {
-                // Electric laser beam from enemy to building
                 ctx.save();
                 ctx.globalAlpha = alpha;
                 ctx.strokeStyle = '#33ff99';
                 ctx.lineWidth = 2;
-                ctx.shadowBlur = 6;
-                ctx.shadowColor = '#33ff99';
+                if (useShadows) {
+                    ctx.shadowBlur = 6;
+                    ctx.shadowColor = '#33ff99';
+                }
                 ctx.beginPath();
                 ctx.moveTo(Math.floor(fx.fromX), Math.floor(fx.fromY));
                 // Jagged beam: add zigzag points
@@ -2292,8 +2438,10 @@ var Render = (function () {
                         var py = fx.fromY + pdy * pt;
                         var pSize = 3 - pt * 2;
                         ctx.fillStyle = '#ff88ff';
-                        ctx.shadowBlur = 4;
-                        ctx.shadowColor = '#ff44ff';
+                        if (useShadows) {
+                            ctx.shadowBlur = 4;
+                            ctx.shadowColor = '#ff44ff';
+                        }
                         ctx.beginPath();
                         ctx.arc(Math.floor(px), Math.floor(py), pSize, 0, Math.PI * 2);
                         ctx.fill();
@@ -2308,8 +2456,10 @@ var Render = (function () {
                 var chargeR = 20 * progress;
                 ctx.strokeStyle = '#ff00ff';
                 ctx.lineWidth = 3;
-                ctx.shadowBlur = 12;
-                ctx.shadowColor = '#ff00ff';
+                if (useShadows) {
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#ff00ff';
+                }
                 ctx.beginPath();
                 ctx.arc(Math.floor(fx.fromX), Math.floor(fx.fromY), chargeR, 0, Math.PI * 2);
                 ctx.stroke();
@@ -2335,8 +2485,10 @@ var Render = (function () {
                 ctx.stroke();
                 // Missile body
                 ctx.fillStyle = '#3399ff';
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = '#66bbff';
+                if (useShadows) {
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#66bbff';
+                }
                 ctx.beginPath();
                 ctx.arc(Math.floor(emX), Math.floor(emY), 4, 0, Math.PI * 2);
                 ctx.fill();
@@ -2463,6 +2615,7 @@ var Render = (function () {
         if (!all || !all.length) return;
 
         var i, e, r, color, hpRatio;
+        var useShadows = _shadowsEnabled();
 
         // Draw nexus shield auras first (behind enemies)
         for (i = 0; i < all.length; i++) {
@@ -2507,8 +2660,10 @@ var Render = (function () {
             var eDef = (typeof Config !== 'undefined' && Config.ENEMIES) ? Config.ENEMIES[e.type] : null;
             if (e.isBoss || (eDef && eDef.isBoss)) {
                 r = Math.floor(r * 1.5);
-                ctx.shadowBlur = 16;
-                ctx.shadowColor = '#ffd700';
+                if (useShadows) {
+                    ctx.shadowBlur = 16;
+                    ctx.shadowColor = '#ffd700';
+                }
             }
 
             // Stunned indicator
@@ -2518,37 +2673,45 @@ var Render = (function () {
 
             // Charged plasma parasite: bright glow
             if (e.charged && e.type === 'plasma_parasite') {
-                ctx.shadowBlur = 14;
-                ctx.shadowColor = '#ff00ff';
+                if (useShadows) {
+                    ctx.shadowBlur = 14;
+                    ctx.shadowColor = '#ff00ff';
+                }
             }
 
             // Flying bomber hovering/bombing: pulsing red glow
             if (e.isBombing && e.type === 'flying_bomber') {
                 var bombGlow = 0.4 + Math.sin(_animFrame * 0.12) * 0.3;
-                ctx.shadowBlur = 12;
-                ctx.shadowColor = 'rgba(255, 80, 20, ' + bombGlow + ')';
+                if (useShadows) {
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = 'rgba(255, 80, 20, ' + bombGlow + ')';
+                }
             }
 
             // Mirror sentinel reflection shield glow
             if (e.isReflecting && e.mechanic === 'reflects') {
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = '#88ddff';
-                e.isReflecting = false; // reset each frame
+                if (useShadows) {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#88ddff';
+                }
+                e.isReflecting = false;
             }
 
             // Overload boss draining/zapping glow
             if (e.mechanic === 'energy_drain') {
-                if (e.drainState === 'draining') {
-                    var drainGlow = 0.5 + Math.sin(_animFrame * 0.15) * 0.3;
-                    ctx.shadowBlur = 18;
-                    ctx.shadowColor = 'rgba(100, 150, 255, ' + drainGlow + ')';
-                } else if (e.drainState === 'zapping') {
-                    ctx.shadowBlur = 24;
-                    ctx.shadowColor = '#aaccff';
-                } else if (e.drainState === 'charged') {
-                    var chargeGlow = 0.6 + Math.sin(_animFrame * 0.2) * 0.4;
-                    ctx.shadowBlur = 22;
-                    ctx.shadowColor = 'rgba(150, 200, 255, ' + chargeGlow + ')';
+                if (useShadows) {
+                    if (e.drainState === 'draining') {
+                        var drainGlow = 0.5 + Math.sin(_animFrame * 0.15) * 0.3;
+                        ctx.shadowBlur = 18;
+                        ctx.shadowColor = 'rgba(100, 150, 255, ' + drainGlow + ')';
+                    } else if (e.drainState === 'zapping') {
+                        ctx.shadowBlur = 24;
+                        ctx.shadowColor = '#aaccff';
+                    } else if (e.drainState === 'charged') {
+                        var chargeGlow = 0.6 + Math.sin(_animFrame * 0.2) * 0.4;
+                        ctx.shadowBlur = 22;
+                        ctx.shadowColor = 'rgba(150, 200, 255, ' + chargeGlow + ')';
+                    }
                 }
             }
 
@@ -2669,12 +2832,16 @@ var Render = (function () {
                         var ppx = dtSX + ddx * particleT;
                         var ppy = dtSY + ddy * particleT;
                         ctx.fillStyle = '#88ccff';
-                        ctx.shadowBlur = 6;
-                        ctx.shadowColor = '#4488ff';
+                        if (useShadows) {
+                            ctx.shadowBlur = 6;
+                            ctx.shadowColor = '#4488ff';
+                        }
                         ctx.beginPath();
                         ctx.arc(Math.floor(ppx), Math.floor(ppy), 3, 0, Math.PI * 2);
                         ctx.fill();
-                        ctx.shadowBlur = 0;
+                        if (useShadows) {
+                            ctx.shadowBlur = 0;
+                        }
                     }
                     ctx.restore();
                 }
@@ -2687,8 +2854,10 @@ var Render = (function () {
                     // Main bolt
                     ctx.strokeStyle = '#aaccff';
                     ctx.lineWidth = 3;
-                    ctx.shadowBlur = 12;
-                    ctx.shadowColor = '#6688ff';
+                    if (useShadows) {
+                        ctx.shadowBlur = 12;
+                        ctx.shadowColor = '#6688ff';
+                    }
                     ctx.beginPath();
                     ctx.moveTo(ex, ey);
                     var zdx = ztSX - ex;
@@ -2888,6 +3057,7 @@ var Render = (function () {
         if (!beams || !beams.length) return;
 
         var i, beam, ramp, lineW, color;
+        var useShadows = _shadowsEnabled();
 
         for (i = 0; i < beams.length; i++) {
             beam = beams[i];
@@ -2913,13 +3083,15 @@ var Render = (function () {
             if (beam.isReflection) {
                 ctx.strokeStyle = '#88ddff';
                 ctx.lineWidth = 1.5;
-                ctx.shadowBlur = 6;
-                ctx.shadowColor = '#88ddff';
+                if (useShadows) {
+                    ctx.shadowBlur = 6;
+                    ctx.shadowColor = '#88ddff';
+                }
                 ctx.setLineDash([4, 4]);
             } else {
                 ctx.strokeStyle = color;
                 ctx.lineWidth = lineW;
-                if (ramp >= 6) {
+                if (useShadows && ramp >= 6) {
                     ctx.shadowBlur = 4 + ramp;
                     ctx.shadowColor = ramp >= 10 ? COLORS.LASER.glow : color;
                 }
@@ -2949,8 +3121,10 @@ var Render = (function () {
             ctx.save();
             ctx.strokeStyle = COLORS.TESLA.chain;
             ctx.lineWidth = 2;
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = COLORS.TESLA.glow;
+            if (_shadowsEnabled()) {
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = COLORS.TESLA.glow;
+            }
 
             for (j = 0; j < points.length - 1; j++) {
                 p1 = points[j];
@@ -2996,8 +3170,10 @@ var Render = (function () {
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = COLORS.RAILGUN.beam;
             ctx.lineWidth = 3;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = COLORS.RAILGUN.glow;
+            if (_shadowsEnabled()) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = COLORS.RAILGUN.glow;
+            }
             ctx.beginPath();
             ctx.moveTo(shot.fromX, shot.fromY);
             ctx.lineTo(shot.toX, shot.toY);
@@ -3032,8 +3208,10 @@ var Render = (function () {
             // Ring
             ctx.strokeStyle = COLORS.EMP.ring;
             ctx.lineWidth = 2;
-            ctx.shadowBlur = 6;
-            ctx.shadowColor = COLORS.EMP.ring;
+            if (_shadowsEnabled()) {
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = COLORS.EMP.ring;
+            }
             ctx.beginPath();
             ctx.arc(blast.x, blast.y, blast.radius, 0, Math.PI * 2);
             ctx.stroke();
@@ -3325,8 +3503,10 @@ var Render = (function () {
             if (!_isInViewport(p.x, p.y, 20)) continue;
 
             ctx.save();
-            ctx.shadowColor = '#cc44ff';
-            ctx.shadowBlur = 12;
+            if (_shadowsEnabled()) {
+                ctx.shadowColor = '#cc44ff';
+                ctx.shadowBlur = 12;
+            }
             ctx.fillStyle = '#bb55ff';
             ctx.beginPath();
             ctx.arc(Math.floor(p.x), Math.floor(p.y), 5, 0, Math.PI * 2);
@@ -3358,8 +3538,10 @@ var Render = (function () {
             // Outer glow
             ctx.strokeStyle = 'rgba(0, 255, 255, ' + (0.2 + intensity * 0.3) + ')';
             ctx.lineWidth = width + 6;
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 15 + intensity * 15;
+            if (_shadowsEnabled()) {
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 15 + intensity * 15;
+            }
             ctx.beginPath();
             ctx.moveTo(Math.floor(beam.fromX), Math.floor(beam.fromY));
             ctx.lineTo(Math.floor(beam.toX), Math.floor(beam.toY));
@@ -3522,7 +3704,7 @@ var Render = (function () {
         var my = Config.VIEWPORT_HEIGHT - size - MINIMAP_PADDING - bottomOff;
 
         _minimapFrameCounter++;
-        if (_minimapFrameCounter < 12 && _minimapCanvas) {
+        if (_minimapFrameCounter < 30 && _minimapCanvas) {
             ctx.drawImage(_minimapCanvas, mx - 5, my - 5);
             return;
         }
@@ -3840,6 +4022,7 @@ var Render = (function () {
             });
 
             _terrainDirty = true;
+            _spatialDirty = true;
             _lastTime = 0;
             _animFrame = 0;
             _damageNumbers = [];
@@ -3853,6 +4036,12 @@ var Render = (function () {
             _staticCacheStartRow = -1;
             _staticCacheEndCol = -1;
             _staticCacheEndRow = -1;
+
+            // Pre-build terrain cache for zoomed-out view to avoid first-zoom jank
+            var savedZoom = _zoom;
+            _zoom = 0.5;
+            _ensureStaticTerrainCache();
+            _zoom = savedZoom;
         },
 
         // --------------------------------------------------------------------
@@ -3861,6 +4050,9 @@ var Render = (function () {
         draw: function (timestamp) {
 
             if (!_ctx) return;
+
+            // Periodically rebuild spatial index (catches building/cable changes)
+            if (_animFrame % 30 === 0) _spatialDirty = true;
 
             // Delta time
             var dt = 0;
@@ -3925,21 +4117,18 @@ var Render = (function () {
             _camera.x = x;
             _camera.y = y;
             _clampCamera();
-            _terrainDirty = true;
         },
 
         moveCamera: function (dx, dy) {
             _camera.x += dx;
             _camera.y += dy;
             _clampCamera();
-            _terrainDirty = true;
         },
 
         centerOn: function (worldX, worldY) {
             _camera.x = worldX - (Config.VIEWPORT_WIDTH / _zoom) / 2;
             _camera.y = worldY - (Config.VIEWPORT_HEIGHT / _zoom) / 2;
             _clampCamera();
-            _terrainDirty = true;
         },
 
         getZoom: function () {
@@ -3956,7 +4145,6 @@ var Render = (function () {
             _camera.x = centerWX - (Config.VIEWPORT_WIDTH / _zoom) / 2;
             _camera.y = centerWY - (Config.VIEWPORT_HEIGHT / _zoom) / 2;
             _clampCamera();
-            _terrainDirty = true;
         },
 
         zoom: function (delta, mouseScreenX, mouseScreenY) {
@@ -3971,7 +4159,6 @@ var Render = (function () {
             _camera.x = worldX - mouseScreenX / _zoom;
             _camera.y = worldY - mouseScreenY / _zoom;
             _clampCamera();
-            _terrainDirty = true;
         },
 
         // --------------------------------------------------------------------
@@ -4011,6 +4198,7 @@ var Render = (function () {
         // --------------------------------------------------------------------
         invalidateTerrain: function () {
             _terrainDirty = true;
+            _spatialDirty = true;
         },
 
         // --------------------------------------------------------------------
