@@ -1930,12 +1930,24 @@ var Enemies = (function () {
             if (enemy.repathTimer == null) enemy.repathTimer = 0;
             enemy.repathTimer--;
             if (enemy.repathTimer <= 0) {
-                enemy.repathTimer = 20;
-                var crPos = _getCorePosition();
+                enemy.repathTimer = 30;
                 var newJPath = _findPath(enemy.x, enemy.y, null);
-                if (newJPath) {
+                if (newJPath && newJPath.length > 1) {
                     enemy.path = newJPath;
-                    enemy.pathIndex = newJPath.length > 1 ? 1 : 0;
+                    // Find the furthest waypoint within reach to avoid backtracking
+                    var bestIdx = 1;
+                    for (var pi = 1; pi < newJPath.length; pi++) {
+                        var pdx = newJPath[pi].x - enemy.x;
+                        var pdy = newJPath[pi].y - enemy.y;
+                        if (pdx * pdx + pdy * pdy < 900) {
+                            bestIdx = pi + 1;
+                        }
+                    }
+                    if (bestIdx >= newJPath.length) bestIdx = newJPath.length - 1;
+                    enemy.pathIndex = bestIdx;
+                } else if (newJPath) {
+                    enemy.path = newJPath;
+                    enemy.pathIndex = 0;
                 }
             }
 
@@ -1965,12 +1977,17 @@ var Enemies = (function () {
                     enemy.distanceTraveled += jumpDist;
                 }
 
-                // Advance path index if close to waypoint
+                // Advance path index past any waypoints we jumped over
                 if (enemy.path && enemy.pathIndex < enemy.path.length) {
-                    var wpDx = enemy.path[enemy.pathIndex].x - enemy.x;
-                    var wpDy = enemy.path[enemy.pathIndex].y - enemy.y;
-                    if (wpDx * wpDx + wpDy * wpDy < 400) {
-                        enemy.pathIndex++;
+                    var advanced = true;
+                    while (advanced && enemy.pathIndex < enemy.path.length) {
+                        var wpDx = enemy.path[enemy.pathIndex].x - enemy.x;
+                        var wpDy = enemy.path[enemy.pathIndex].y - enemy.y;
+                        if (wpDx * wpDx + wpDy * wpDy < 900) {
+                            enemy.pathIndex++;
+                        } else {
+                            advanced = false;
+                        }
                     }
                 }
 
