@@ -201,6 +201,9 @@ var Render = (function () {
         return _zoom >= SHADOW_ZOOM_THRESHOLD;
     }
 
+    var _spatialBuildingCount = 0;
+    var _spatialCableCount = 0;
+
     // Rebuild spatial index for buildings and cables
     function _rebuildSpatialIndex() {
         _spatialGrid = {};
@@ -4051,8 +4054,18 @@ var Render = (function () {
 
             if (!_ctx) return;
 
-            // Periodically rebuild spatial index (catches building/cable changes)
-            if (_animFrame % 30 === 0) _spatialDirty = true;
+            // Check if buildings/cables changed — rebuild spatial index immediately
+            if (typeof Buildings !== 'undefined' && Buildings) {
+                var bAll = Buildings.getAll();
+                var cAll = Buildings.getCables ? Buildings.getCables() : null;
+                var bCount = bAll ? bAll.length : 0;
+                var cCount = cAll ? cAll.length : 0;
+                if (bCount !== _spatialBuildingCount || cCount !== _spatialCableCount) {
+                    _spatialDirty = true;
+                    _spatialBuildingCount = bCount;
+                    _spatialCableCount = cCount;
+                }
+            }
 
             // Delta time
             var dt = 0;
