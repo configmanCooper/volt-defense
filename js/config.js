@@ -195,7 +195,7 @@ var Config = {
             size: [2, 2],
             hp: 200,
             workersRequired: 8,
-            energyGeneration: 240,
+            energyGeneration: 300,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
@@ -204,7 +204,7 @@ var Config = {
             fuelCost: { uranium: 1 },
             fuelInterval: 50,
             upgradeTo: null,
-            description: 'Massive 240 energy output. Requires uranium fuel.',
+            description: 'Massive 300 energy output. Requires uranium fuel.',
             icon: '☢️'
         },
         hydro_plant: {
