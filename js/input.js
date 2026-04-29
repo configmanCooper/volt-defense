@@ -4,7 +4,7 @@
 // ============================================================================
 
 var Input = (function () {
-    var _state = 'idle';         // 'idle', 'placing', 'selecting', 'dragging', 'cable'
+    var _state = 'idle';         // 'idle', 'placing', 'selecting', 'dragging', 'cable', 'dragging_mine'
     var _placingType = null;
     var _selectedBuildingId = null;
     var _cableFromId = null;
@@ -28,6 +28,14 @@ var Input = (function () {
     var _debugKeyBuffer = '';
     var _debugKeyTimer = null;
 
+    // Right-click cable building
+    var _cableStartBuildingId = null;
+
+    // Mine dragging
+    var _draggingMine = null;       // mine object being dragged
+    var _draggingMinePos = null;    // { x, y } current preview position in world coords
+    var _draggingMineValid = false; // whether current position is a valid drop
+
     // Cable target cycling (Alt key during placement)
     var _cableTargetIdx = -1; // -1 = auto (nearest), 0+ = index into eligible list
     var _lastAltTime = 0;
@@ -42,6 +50,14 @@ var Input = (function () {
 
     function _getCellSize() {
         return (typeof Config !== 'undefined' && Config.GRID_CELL_SIZE) ? Config.GRID_CELL_SIZE : 40;
+    }
+
+    function _getBuildingAtWorld(wx, wy) {
+        if (typeof Buildings === 'undefined' || !Buildings.getAt) return null;
+        var cellSize = _getCellSize();
+        var gx = Math.floor(wx / cellSize);
+        var gy = Math.floor(wy / cellSize);
+        return Buildings.getAt(gx, gy);
     }
 
     function _isPaused() {
@@ -163,6 +179,63 @@ var Input = (function () {
             }
         }
         return best;
+    }
+
+    function _getMineAtWorld(wx, wy) {
+        if (typeof Combat === 'undefined' || !Combat.getMines) return null;
+        var mines = Combat.getMines();
+        var bestDist = Infinity;
+        var best = null;
+        for (var i = 0; i < mines.length; i++) {
+            var m = mines[i];
+            var dx = m.x - wx;
+            var dy = m.y - wy;
+            var dist = dx * dx + dy * dy;
+            if (dist <= 15 * 15 && dist < bestDist) {
+                bestDist = dist;
+                best = m;
+            }
+        }
+        return best;
+    }
+
+    function _isMinePlacementValid(wx, wy, mine) {
+        // Must be within 500px of the parent mine layer building
+        var parent = (typeof Buildings !== 'undefined' && Buildings.getById)
+            ? Buildings.getById(mine.buildingId) : null;
+        if (!parent || parent.hp <= 0) return false;
+        var center = Buildings.getBuildingCenter(parent);
+        var dx = wx - center.x;
+        var dy = wy - center.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 500) return false;
+
+        // Must be at least 25px from any building center
+        if (typeof Buildings !== 'undefined' && Buildings.getAll) {
+            var allBuildings = Buildings.getAll();
+            var cellSize = (typeof Config !== 'undefined' && Config.CELL_SIZE) ? Config.CELL_SIZE : 32;
+            for (var bi = 0; bi < allBuildings.length; bi++) {
+                var bld = allBuildings[bi];
+                if (bld.hp <= 0) continue;
+                var bc = Buildings.getBuildingCenter(bld);
+                var bDef = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[bld.type] : null;
+                var bSizeX = (bDef && bDef.size) ? bDef.size[0] : 1;
+                var bSizeY = (bDef && bDef.size) ? bDef.size[1] : 1;
+                var halfW = (bSizeX * cellSize) / 2 + 10;
+                var halfH = (bSizeY * cellSize) / 2 + 10;
+                if (Math.abs(wx - bc.x) < halfW && Math.abs(wy - bc.y) < halfH) return false;
+            }
+        }
+
+        // Must not overlap another mine (min 10px apart)
+        var mines = Combat.getMines();
+        for (var i = 0; i < mines.length; i++) {
+            if (mines[i].id === mine.id) continue;
+            var mdx = wx - mines[i].x;
+            var mdy = wy - mines[i].y;
+            if (Math.sqrt(mdx * mdx + mdy * mdy) < 25) return false;
+        }
+
+        return true;
     }
 
     function _getDepositTooltip() {
@@ -362,6 +435,13 @@ var Input = (function () {
                 var newGridX = Math.floor(_mouseWorld.x / cellSize);
                 var newGridY = Math.floor(_mouseWorld.y / cellSize);
 
+                // Update mine drag position (pixel-based, not grid-based)
+                if (_state === 'dragging_mine' && _draggingMine) {
+                    _draggingMinePos = { x: _mouseWorld.x, y: _mouseWorld.y };
+                    _draggingMineValid = _isMinePlacementValid(_mouseWorld.x, _mouseWorld.y, _draggingMine);
+                    return;
+                }
+
                 // Skip expensive checks if grid cell hasn't changed
                 if (newGridX === _lastMouseGrid.x && newGridY === _lastMouseGrid.y) {
                     return;
@@ -422,9 +502,25 @@ var Input = (function () {
                     } else if (_debugMode && _debugSpawnType) {
                         // Debug: spawn enemy at click position
                         if (typeof Enemies !== 'undefined' && Enemies.debugSpawn) {
-                            Enemies.debugSpawn(_debugSpawnType, _mouseWorld.x, _mouseWorld.y);
-                            if (typeof UI !== 'undefined' && UI.showToast) {
-                                UI.showToast('Spawned: ' + _debugSpawnType, 'info', 1000);
+                            if (_debugSpawnType === 'swarm_block') {
+                                var cols = 10;
+                                var rows = 5;
+                                var spacing = 30;
+                                var startX = _mouseWorld.x - ((cols - 1) * spacing) / 2;
+                                var startY = _mouseWorld.y - ((rows - 1) * spacing) / 2;
+                                for (var sr = 0; sr < rows; sr++) {
+                                    for (var sc = 0; sc < cols; sc++) {
+                                        Enemies.debugSpawn('swarm', startX + sc * spacing, startY + sr * spacing);
+                                    }
+                                }
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast('Spawned 50 swarm in block', 'info', 1000);
+                                }
+                            } else {
+                                Enemies.debugSpawn(_debugSpawnType, _mouseWorld.x, _mouseWorld.y);
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast('Spawned: ' + _debugSpawnType, 'info', 1000);
+                                }
                             }
                         }
                     } else if (_state === 'cable') {
@@ -435,6 +531,38 @@ var Input = (function () {
                         if (clickedBuilding) {
                             _attemptSelection();
                         } else {
+                            // Check for mine click (start drag)
+                            var clickedMine = _getMineAtWorld(_mouseWorld.x, _mouseWorld.y);
+                            if (clickedMine) {
+                                // Check if enemies are within 500px of the parent mine layer
+                                var mineParent = (typeof Buildings !== 'undefined' && Buildings.getById)
+                                    ? Buildings.getById(clickedMine.buildingId) : null;
+                                var enemiesNearby = false;
+                                if (mineParent && typeof Enemies !== 'undefined' && Enemies.getAll) {
+                                    var pc = Buildings.getBuildingCenter(mineParent);
+                                    var allEnemies = Enemies.getAll();
+                                    for (var ei = 0; ei < allEnemies.length; ei++) {
+                                        var en = allEnemies[ei];
+                                        if (!en || en.hp <= 0) continue;
+                                        var edx = en.x - pc.x;
+                                        var edy = en.y - pc.y;
+                                        if (Math.sqrt(edx * edx + edy * edy) <= 500) {
+                                            enemiesNearby = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (enemiesNearby) {
+                                    if (typeof UI !== 'undefined' && UI.showToast) {
+                                        UI.showToast('⚠️ Cannot move mines while enemies are nearby!', 'warning', 2000);
+                                    }
+                                } else {
+                                    _state = 'dragging_mine';
+                                    _draggingMine = clickedMine;
+                                    _draggingMinePos = { x: _mouseWorld.x, y: _mouseWorld.y };
+                                    _draggingMineValid = _isMinePlacementValid(_mouseWorld.x, _mouseWorld.y, clickedMine);
+                                }
+                            } else {
                             // Check for enemy click
                             var clickedEnemy = _getEnemyAtWorld(_mouseWorld.x, _mouseWorld.y);
                             if (clickedEnemy) {
@@ -482,9 +610,36 @@ var Input = (function () {
                             _dragStart.x = e.clientX;
                             _dragStart.y = e.clientY;
                             }
+                            } // close mine else
                         }
                     }
-                } else if (e.button === 1 || e.button === 2) {
+                } else if (e.button === 1) {
+                    // Middle-click: cycle cable target when placing, otherwise drag
+                    if (_state === 'placing' && _placingType) {
+                        e.preventDefault();
+                        var now = Date.now();
+                        if (now - _lastAltTime < 150) return;
+                        _lastAltTime = now;
+                        var cs = _getCellSize();
+                        var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[_placingType] : null;
+                        var sizeW = (def && def.size) ? def.size[0] : 1;
+                        var sizeH = (def && def.size) ? def.size[1] : 1;
+                        var cx = _mouseGrid.x * cs + (sizeW * cs) / 2;
+                        var cy = _mouseGrid.y * cs + (sizeH * cs) / 2;
+                        var eligible = _getEligibleCableTargets(cx, cy, _placingType);
+                        if (eligible.length > 1) {
+                            _cableTargetIdx = (_cableTargetIdx + 1) % eligible.length;
+                            if (typeof UI !== 'undefined' && UI.showToast) {
+                                UI.showToast('Cable target: ' + (Config.BUILDINGS[eligible[_cableTargetIdx].building.type] || {}).name + ' (' + (_cableTargetIdx + 1) + '/' + eligible.length + ')', 'info', 1500);
+                            }
+                        }
+                        return;
+                    }
+                    _isDragging = true;
+                    _dragStart.x = e.clientX;
+                    _dragStart.y = e.clientY;
+                    e.preventDefault();
+                } else if (e.button === 2) {
                     _isDragging = true;
                     _dragStart.x = e.clientX;
                     _dragStart.y = e.clientY;
@@ -509,6 +664,17 @@ var Input = (function () {
 
             // ---- Mouse up (document-level so drag works even if mouse leaves canvas) ----
             document.addEventListener('mouseup', function (e) {
+                if (_state === 'dragging_mine' && _draggingMine) {
+                    if (_draggingMineValid && _draggingMinePos) {
+                        if (typeof Combat !== 'undefined' && Combat.moveMine) {
+                            Combat.moveMine(_draggingMine.id, _draggingMinePos.x, _draggingMinePos.y);
+                        }
+                    }
+                    _state = 'idle';
+                    _draggingMine = null;
+                    _draggingMinePos = null;
+                    _draggingMineValid = false;
+                }
                 _isDragging = false;
             });
             canvas.addEventListener('mouseup', function (e) {
@@ -518,12 +684,15 @@ var Input = (function () {
             // Prevent context menu on canvas
             canvas.addEventListener('contextmenu', function (e) {
                 e.preventDefault();
-                if (!_debugMode) return;
-                // Throttle rapid right-clicks
-                var now = Date.now();
-                if (now - _lastRightClickTime < 100) return;
-                _lastRightClickTime = now;
-                // Debug: right-click to kill enemy
+
+                // Right-click: cancel placement or deselect building
+                if (_state === 'placing') {
+                    Input.cancelPlacement();
+                    _cableStartBuildingId = null;
+                    return;
+                }
+
+                // Get world coords for this right-click
                 var rect = canvas.getBoundingClientRect();
                 var sx = e.clientX - rect.left;
                 var sy = e.clientY - rect.top;
@@ -533,6 +702,82 @@ var Input = (function () {
                     wx = w.x;
                     wy = w.y;
                 }
+
+                // Right-click cable building: click building A, then building B
+                var clickedBld = _getBuildingAtWorld(wx, wy);
+                if (clickedBld) {
+                    if (!_cableStartBuildingId) {
+                        // First right-click on a building — start cable
+                        _cableStartBuildingId = clickedBld.id;
+                        if (_selectedBuildingId) _deselectBuilding();
+                        if (typeof UI !== 'undefined' && UI.showToast) {
+                            UI.showToast('Cable start: ' + (clickedBld.type) + '. Right-click another building to connect.', 'info', 2000);
+                        }
+                        return;
+                    } else if (clickedBld.id !== _cableStartBuildingId) {
+                        // Second right-click on a different building — build cable
+                        if (typeof Buildings !== 'undefined' && Buildings.addCable) {
+                            var result = Buildings.addCable(_cableStartBuildingId, clickedBld.id, 'standard');
+                            if (result.success) {
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast('Cable connected!', 'success', 1500);
+                                }
+                            } else {
+                                if (typeof UI !== 'undefined' && UI.showToast) {
+                                    UI.showToast(result.reason || 'Cannot build cable.', 'error', 2500);
+                                }
+                            }
+                        }
+                        _cableStartBuildingId = null;
+                        return;
+                    } else {
+                        // Right-clicked the same building — cancel cable
+                        _cableStartBuildingId = null;
+                        if (typeof UI !== 'undefined' && UI.showToast) {
+                            UI.showToast('Cable cancelled.', 'info', 1500);
+                        }
+                        return;
+                    }
+                }
+
+                // Right-clicked empty space — cancel cable start or deselect
+                if (_cableStartBuildingId) {
+                    _cableStartBuildingId = null;
+                    if (typeof UI !== 'undefined' && UI.showToast) {
+                        UI.showToast('Cable cancelled.', 'info', 1500);
+                    }
+                    return;
+                }
+                if (_selectedBuildingId) {
+                    _deselectBuilding();
+                    return;
+                }
+
+                // Right-click on enemy: mark as priority target (non-debug)
+                var clickedEnemy = _getEnemyAtWorld(wx, wy);
+                if (clickedEnemy) {
+                    if (typeof Enemies !== 'undefined' && Enemies.setMarkedTarget && Enemies.getMarkedTargetId) {
+                        if (Enemies.getMarkedTargetId() === clickedEnemy.id) {
+                            Enemies.setMarkedTarget(null);
+                            if (typeof UI !== 'undefined' && UI.showToast) {
+                                UI.showToast('Target unmarked.', 'info', 1500);
+                            }
+                        } else {
+                            Enemies.setMarkedTarget(clickedEnemy.id);
+                            if (typeof UI !== 'undefined' && UI.showToast) {
+                                UI.showToast('🎯 Target marked! Weapons will prioritize this enemy.', 'success', 2000);
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                if (!_debugMode) return;
+                // Throttle rapid right-clicks
+                var now = Date.now();
+                if (now - _lastRightClickTime < 100) return;
+                _lastRightClickTime = now;
+                // Debug: right-click to kill enemy
                 var enemy = _getEnemyAtWorld(wx, wy);
                 if (enemy && typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
                     Enemies.damageEnemy(enemy.id, enemy.hp + 1000, 1.0, 'debug');
@@ -801,6 +1046,18 @@ var Input = (function () {
                     return;
                 }
 
+                if (e.key === 'e' || e.key === 'E') {
+                    if (typeof Render !== 'undefined' && Render.toggleEnergyOverlay) {
+                        var eOverlayOn = Render.toggleEnergyOverlay();
+                        var eOverlayBtn = document.getElementById('btn-energy-overlay');
+                        if (eOverlayBtn) eOverlayBtn.style.background = eOverlayOn ? 'rgba(0,180,255,0.3)' : '';
+                        if (typeof UI !== 'undefined' && UI.showToast) {
+                            UI.showToast(eOverlayOn ? '🔌 Energy overlay ON' : '🔌 Energy overlay OFF', 'info', 1500);
+                        }
+                    }
+                    return;
+                }
+
                 // All remaining keys require game to be running
                 if (_isPaused()) return;
 
@@ -920,6 +1177,10 @@ var Input = (function () {
         getEligibleCableTargets: function (cx, cy, typeKey) { return _getEligibleCableTargets(cx, cy, typeKey); },
         getSelectedBuildingId: function () { return _selectedBuildingId; },
         getDepositTooltip: function () { return _getDepositTooltip(); },
+        getDraggingMine: function () {
+            if (_state !== 'dragging_mine' || !_draggingMine) return null;
+            return { mine: _draggingMine, pos: _draggingMinePos, valid: _draggingMineValid };
+        },
 
         // ---- debug mode ----
         isDebugMode: function () { return _debugMode; },
@@ -999,7 +1260,12 @@ var Input = (function () {
 
         // Replicates ESC key cascade for mobile cancel button
         handleEscape: function () {
-            if (_state === 'placing') {
+            if (_state === 'dragging_mine') {
+                _state = 'idle';
+                _draggingMine = null;
+                _draggingMinePos = null;
+                _draggingMineValid = false;
+            } else if (_state === 'placing') {
                 Input.cancelPlacement();
             } else if (_state === 'cable') {
                 _cancelCable();

@@ -302,6 +302,19 @@ var UI = (function () {
 
             case 'close-modal':
                 UI.hideModal();
+                if (UI._glossaryPausedGame) {
+                    UI._glossaryPausedGame = false;
+                    if (typeof Engine !== 'undefined' && Engine.setPaused) {
+                        Engine.setPaused(false);
+                    }
+                }
+                break;
+
+            case 'skip-tutorial':
+                UI.hideModal();
+                if (typeof Tutorial !== 'undefined' && Tutorial.close) {
+                    Tutorial.close();
+                }
                 break;
 
             case 'return-to-menu':
@@ -322,39 +335,67 @@ var UI = (function () {
                 break;
 
             case 'show-shortcuts':
+                if (typeof Engine !== 'undefined' && Engine.isPaused && !Engine.isPaused()) {
+                    UI._glossaryPausedGame = true;
+                    Engine.setPaused(true);
+                }
                 UI.showModal('⌨️ Keyboard Shortcuts',
                     '<div style="line-height:2; font-size:13px;">' +
                     '<b>Building</b><br>' +
                     '&nbsp; <kbd>1</kbd>–<kbd>8</kbd> &nbsp; Select category<br>' +
                     '&nbsp; <kbd>ESC</kbd> &nbsp; Cancel placement / deselect<br>' +
+                    '&nbsp; Right-click &nbsp; Cancel placement / deselect<br>' +
                     '<b>Selected Building</b><br>' +
                     '&nbsp; <kbd>C</kbd> &nbsp; Connect cable<br>' +
                     '&nbsp; <kbd>Shift+C</kbd> &nbsp; HC cable ($50/tile, 500 throughput)<br>' +
                     '&nbsp; <kbd>U</kbd> &nbsp; Upgrade<br>' +
                     '&nbsp; <kbd>Del</kbd> &nbsp; Sell / demolish<br>' +
+                    '<b>Cables</b><br>' +
+                    '&nbsp; Right-click building → Right-click another &nbsp; Quick cable<br>' +
+                    '&nbsp; <kbd>Alt</kbd> / Middle-click &nbsp; Cycle cable target<br>' +
                     '<b>Camera</b><br>' +
                     '&nbsp; <kbd>W A S D</kbd> / Arrows &nbsp; Pan<br>' +
-                    '&nbsp; Right-click drag &nbsp; Pan<br>' +
+                    '&nbsp; Middle-click drag &nbsp; Pan<br>' +
                     '&nbsp; Scroll wheel &nbsp; Zoom<br>' +
                     '<b>Game</b><br>' +
                     '&nbsp; <kbd>P</kbd> &nbsp; Pause / Resume<br>' +
                     '&nbsp; <kbd>+</kbd> / <kbd>=</kbd> &nbsp; Speed up<br>' +
                     '&nbsp; <kbd>-</kbd> &nbsp; Slow down<br>' +
+                    '&nbsp; <kbd>E</kbd> &nbsp; Toggle energy flow overlay<br>' +
                     '</div>',
                     [{ label: 'Got it!', action: 'close-modal', className: 'menu-btn' }]
                 );
                 break;
 
             case 'show-glossary':
+                if (typeof Engine !== 'undefined' && Engine.isPaused && !Engine.isPaused()) {
+                    UI._glossaryPausedGame = true;
+                    Engine.setPaused(true);
+                }
                 UI.showGlossary();
                 break;
 
             case 'show-weapons-glossary':
+                if (typeof Engine !== 'undefined' && Engine.isPaused && !Engine.isPaused()) {
+                    UI._glossaryPausedGame = true;
+                    Engine.setPaused(true);
+                }
                 UI.showWeaponsGlossary();
                 break;
 
             case 'show-priorities':
                 UI.showPrioritySettings();
+                break;
+
+            case 'toggle-energy-overlay':
+                if (typeof Render !== 'undefined' && Render.toggleEnergyOverlay) {
+                    var overlayOn = Render.toggleEnergyOverlay();
+                    var overlayBtn = document.getElementById('btn-energy-overlay');
+                    if (overlayBtn) {
+                        overlayBtn.style.background = overlayOn ? 'rgba(0,180,255,0.3)' : '';
+                    }
+                    UI.showToast(overlayOn ? '🔌 Energy overlay ON' : '🔌 Energy overlay OFF', 'info', 1500);
+                }
                 break;
 
             case 'save-game':
@@ -1346,6 +1387,9 @@ var UI = (function () {
                     { value: 'fastest', label: 'Fastest' },
                     { value: 'slowest', label: 'Slowest' }
                 ];
+                if (building.type === 'mortar') {
+                    prioOptions.unshift({ value: 'max_cluster', label: '💥 Max Cluster (Most Enemies)' });
+                }
                 html += '<div class="info-stat" style="margin:6px 0 2px;">';
                 html += '<label style="font-size:11px;color:#aaa;">🎯 Target Priority:</label><br>';
                 html += '<select class="target-priority-select" data-building-id="' + buildingId + '" style="width:100%;margin-top:2px;padding:3px;background:#222;color:#eee;border:1px solid #555;border-radius:3px;font-size:12px;">';
@@ -1359,6 +1403,14 @@ var UI = (function () {
                 html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">';
                 html += '<input type="checkbox" class="target-lock-cb" data-building-id="' + buildingId + '"' + (lockOn ? ' checked' : '') + '>';
                 html += '<span style="color:#aaa;">🔒 Lock on target until dead/out of range</span>';
+                html += '</label></div>';
+
+                // Weapon on/off toggle
+                var weaponOff = building.manualOff || false;
+                html += '<div class="info-stat" style="margin:2px 0 4px;">';
+                html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">';
+                html += '<input type="checkbox" class="weapon-toggle-cb" data-building-id="' + buildingId + '"' + (weaponOff ? '' : ' checked') + '>';
+                html += '<span style="color:' + (weaponOff ? '#ff6666' : '#66ff66') + ';">' + (weaponOff ? '⛔ Weapon OFF' : '✅ Weapon ON') + '</span>';
                 html += '</label></div>';
             }
 
@@ -1651,6 +1703,20 @@ var UI = (function () {
                     });
                 }
 
+                // Wire up weapon on/off toggle
+                var weaponCbs = _elements.infoPanel.querySelectorAll('.weapon-toggle-cb');
+                for (var wt = 0; wt < weaponCbs.length; wt++) {
+                    weaponCbs[wt].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        if (typeof Buildings !== 'undefined' && Buildings.toggleManualOff) {
+                            Buildings.toggleManualOff(bId);
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(bId);
+                            }
+                        }
+                    });
+                }
+
                 // Force workers button
                 var forceWBtns = _elements.infoPanel.querySelectorAll('.force-workers-btn');
                 for (var fw = 0; fw < forceWBtns.length; fw++) {
@@ -1818,7 +1884,17 @@ var UI = (function () {
             }
             if (_elements.modalContent) {
                 _elements.modalContent.innerHTML = '';
+                if (_elements.modalContent._glossaryClickHandler) {
+                    _elements.modalContent.removeEventListener('click', _elements.modalContent._glossaryClickHandler);
+                    _elements.modalContent._glossaryClickHandler = null;
+                }
+                if (_elements.modalContent._weaponsGlossaryClickHandler) {
+                    _elements.modalContent.removeEventListener('click', _elements.modalContent._weaponsGlossaryClickHandler);
+                    _elements.modalContent._weaponsGlossaryClickHandler = null;
+                }
             }
+            var modalBox = document.getElementById('modal-box');
+            if (modalBox) modalBox.classList.remove('modal-wide');
             var titleEl = document.getElementById('modal-title');
             if (titleEl) titleEl.textContent = '';
             var footerEl = document.getElementById('modal-footer');
@@ -1967,14 +2043,14 @@ var UI = (function () {
             var html = '<div style="max-height:60vh;overflow-y:auto;">';
             html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
             html += '<thead><tr style="border-bottom:2px solid #555;text-align:left;">';
-            html += '<th style="padding:6px;">Icon</th>';
-            html += '<th style="padding:6px;">Name</th>';
-            html += '<th style="padding:6px;">HP</th>';
-            html += '<th style="padding:6px;">Spd</th>';
-            html += '<th style="padding:6px;">Dmg</th>';
-            html += '<th style="padding:6px;">Armor</th>';
-            html += '<th style="padding:6px;">Wave</th>';
-            html += '<th style="padding:6px;">Special</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Icon</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Name</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">HP</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Spd</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Dmg</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Armor</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Wave</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Special</th>';
             html += '</tr></thead><tbody>';
 
             var isDebug = (typeof Input !== 'undefined' && Input.isDebugMode && Input.isDebugMode());
@@ -2023,11 +2099,16 @@ var UI = (function () {
             UI.showModal('📖 Enemy Glossary', html, [
                 { label: 'Close', action: 'close-modal', className: 'menu-btn' }
             ]);
+            var modalBox = document.getElementById('modal-box');
+            if (modalBox) modalBox.classList.add('modal-wide');
 
             // Attach click handlers for toggling descriptions
             var modalBody = document.getElementById('modal-body');
             if (modalBody) {
-                modalBody.addEventListener('click', function (evt) {
+                if (modalBody._glossaryClickHandler) {
+                    modalBody.removeEventListener('click', modalBody._glossaryClickHandler);
+                }
+                modalBody._glossaryClickHandler = function (evt) {
                     var row = evt.target.closest('tr[data-glossary-idx]');
                     if (!row) return;
                     var idx = row.getAttribute('data-glossary-idx');
@@ -2037,7 +2118,8 @@ var UI = (function () {
                         descRow.style.display = isVisible ? 'none' : 'table-row';
                         row.style.background = isVisible ? '' : '#222244';
                     }
-                });
+                };
+                modalBody.addEventListener('click', modalBody._glossaryClickHandler);
             }
         },
 
@@ -2060,7 +2142,7 @@ var UI = (function () {
                 emp_tower: 'A utility weapon that deals zero damage but stuns ALL enemies within 400px for 5 seconds. 10-second cooldown between activations, costs 500 energy per use (stores 1500, can fire 3 times). No accuracy concerns — affects all enemies in range. Invaluable for buying time when defenses are overwhelmed. Pairs perfectly with damage-dealing weapons. Place at critical chokepoints.',
                 mortar: 'An indirect-fire weapon that lobs explosive shells at enemies, dealing 60 splash damage in an 80px radius. 3-second reload, 600px range with a 100px minimum range dead zone. Moderate homing — shells travel at 200 speed and can miss fast enemies. Costs 200 energy and 2 iron per shot. The splash makes it excellent against clustered enemies and Swarms. Cover the dead zone with short-range weapons.',
                 drone_bay: 'Deploys up to 3 autonomous combat drones that seek and engage enemies independently. Each drone has 50 HP, deals 24 DPS, moves at 120 speed, and operates within 500px range for 60 seconds. Spawning a drone costs 500 energy and 20 iron with a 24-second spawn cooldown. Drones have perfect accuracy. Expensive to maintain but provides flexible, mobile defense coverage. Drones die when their lifetime expires.',
-                mine_layer: 'Deploys up to 10 proximity mines in a circle around itself. Each mine takes 24 seconds and 5 steel to generate. When an enemy gets within 30px of a mine, it detonates for 150 splash damage in a 60px radius. Destroyed mines are automatically replaced. Excellent for area denial and softening waves before they reach your weapons.',
+                mine_layer: 'Deploys up to 10 proximity mines in a circle around itself. Each mine takes 24 seconds and 3 steel to generate. When an enemy gets within 30px of a mine, it detonates for 150 splash damage in a 90px radius. Destroyed mines are automatically replaced. Mines can be clicked and dragged up to 500px from the building. Excellent for area denial and softening waves before they reach your weapons.',
                 autocannon: 'A rapid-fire ballistic weapon that fires every 0.3 seconds, dealing 30 damage per shot with good accuracy. Targets the closest enemy. Costs 15 energy per shot and 1 steel every 5 shots. 400px range. A strong mid-to-late game weapon that bridges the gap between basic weapons and uranium tech.',
                 plasma_cannon: 'An advanced uranium-powered weapon firing superheated plasma bolts that completely bypass enemy armor. Deals 500 damage per shot with a 1.5-second reload — the highest single-shot DPS of any projectile weapon at 333/s. Costs 250 energy and 1 uranium per shot. Good homing accuracy. The ultimate answer to heavily armored enemies like Siege Engines and Heavy Tanks.',
                 fusion_beam: 'The most powerful weapon in the game. A continuous beam with 1200px range that starts at 25 DPS and ramps up 32x to a staggering 800 DPS — enough to destroy anything. Energy draw ramps from 60/s to 480/s. Consumes 0.5 uranium per second. Perfect accuracy. The 2x2 size requires careful placement. Demands massive power infrastructure but nothing survives sustained fusion beam fire. Pair with nuclear plants and HC cables.'
@@ -2082,7 +2164,7 @@ var UI = (function () {
                 emp_tower:     { type: 'Stun',        range: '400px',  dps: '0 (utility)',               energy: '500/activation',         special: '5s stun, 10s cooldown' },
                 mortar:        { type: 'Splash',      range: '600px (min 100)', dps: '20/s (60 dmg/3s)', energy: '200/shot',               special: '2 iron/shot, 80px splash' },
                 drone_bay:     { type: 'Autonomous',  range: '500px',  dps: '24/s per drone (3 max)',    energy: '500/drone spawn',        special: '20 iron/drone, 60s lifetime' },
-                mine_layer:    { type: 'Trap',        range: '200px',  dps: '~150 per mine',             energy: '5/s passive',            special: '5 steel/mine, 10 max, 60px splash' },
+                mine_layer:    { type: 'Trap',        range: '200px',  dps: '~150 per mine',             energy: '5/s passive',            special: '3 steel/mine, 10 max, 90px splash' },
                 autocannon:    { type: 'Projectile',  range: '400px',  dps: '100/s (30 dmg/0.3s)',       energy: '15/shot',                special: '1 steel/5 shots, rapid fire' },
                 plasma_cannon: { type: 'Projectile',  range: '500px',  dps: '333/s (500 dmg/1.5s)',      energy: '250/shot',               special: '1 uranium/shot, ignores armor' },
                 fusion_beam:   { type: 'Continuous',  range: '1200px', dps: '25/s (ramps 32x → 800)',    energy: '60/s (ramps 8x → 480)', special: '0.5 uranium/s, 2x2 size' }
@@ -2105,14 +2187,14 @@ var UI = (function () {
             var html = '<div style="max-height:60vh;overflow-y:auto;">';
             html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
             html += '<thead><tr style="border-bottom:2px solid #555;text-align:left;">';
-            html += '<th style="padding:6px;">Icon</th>';
-            html += '<th style="padding:6px;">Name</th>';
-            html += '<th style="padding:6px;">Type</th>';
-            html += '<th style="padding:6px;">Range</th>';
-            html += '<th style="padding:6px;">DPS</th>';
-            html += '<th style="padding:6px;">Energy</th>';
-            html += '<th style="padding:6px;">Cost</th>';
-            html += '<th style="padding:6px;">Special</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Icon</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Name</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Type</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Range</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">DPS</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Energy</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Cost</th>';
+            html += '<th style="padding:6px;position:sticky;top:0;background:#1a1a2e;z-index:1;">Special</th>';
             html += '</tr></thead><tbody>';
 
             for (var j = 0; j < entries.length; j++) {
@@ -2167,11 +2249,16 @@ var UI = (function () {
             UI.showModal('⚔️ Weapons Glossary', html, [
                 { label: 'Close', action: 'close-modal', className: 'menu-btn' }
             ]);
+            var modalBox = document.getElementById('modal-box');
+            if (modalBox) modalBox.classList.add('modal-wide');
 
             // Attach click handlers for toggling descriptions
             var modalBody = document.getElementById('modal-body');
             if (modalBody) {
-                modalBody.addEventListener('click', function (evt) {
+                if (modalBody._weaponsGlossaryClickHandler) {
+                    modalBody.removeEventListener('click', modalBody._weaponsGlossaryClickHandler);
+                }
+                modalBody._weaponsGlossaryClickHandler = function (evt) {
                     var row = evt.target.closest('tr[data-weapons-glossary-idx]');
                     if (!row) return;
                     var idx = row.getAttribute('data-weapons-glossary-idx');
@@ -2181,7 +2268,8 @@ var UI = (function () {
                         descRow.style.display = isVisible ? 'none' : 'table-row';
                         row.style.background = isVisible ? '' : '#222244';
                     }
-                });
+                };
+                modalBody.addEventListener('click', modalBody._weaponsGlossaryClickHandler);
             }
         },
 
@@ -2264,6 +2352,7 @@ var UI = (function () {
                 resEl.innerHTML = '<button class="debug-res-btn" data-res="money">+$5000</button>' +
                     '<button class="debug-res-btn" data-res="iron">+100 ⛏️</button>' +
                     '<button class="debug-res-btn" data-res="coal">+100 🪨</button>' +
+                    '<button class="debug-res-btn" data-res="steel">+50 🔩</button>' +
                     '<button class="debug-res-btn" data-res="oil">+100 🛢️</button>' +
                     '<button class="debug-res-btn" data-res="uranium">+50 ☢️</button>';
                 var resBtns = resEl.querySelectorAll('.debug-res-btn');
@@ -2274,7 +2363,7 @@ var UI = (function () {
                             if (typeof Economy !== 'undefined' && Economy.addMoney) Economy.addMoney(5000, 'debug');
                             UI.showToast('+$5,000', 'success', 1000);
                         } else {
-                            var amt = res === 'uranium' ? 50 : 100;
+                            var amt = (res === 'uranium' || res === 'steel') ? 50 : 100;
                             if (typeof Economy !== 'undefined' && Economy.addResource) Economy.addResource(res, amt);
                             UI.showToast('+' + amt + ' ' + res, 'success', 1000);
                         }
@@ -2325,6 +2414,28 @@ var UI = (function () {
                     html += '</button>';
                 }
                 optsEl.innerHTML = html;
+
+                // Swarm block button — click map to spawn 50 swarm in a grid
+                var swarmBlockBtn = document.createElement('button');
+                swarmBlockBtn.style.cssText = 'background:#553300;color:#ffcc00;border:1px solid #ffcc00;padding:4px 8px;margin:4px;border-radius:4px;cursor:pointer;font-size:12px;';
+                swarmBlockBtn.textContent = '🐝 Swarm Block (50)';
+                swarmBlockBtn.addEventListener('click', function () {
+                    if (typeof Input !== 'undefined' && Input.setDebugSpawnType) {
+                        var current = Input.getDebugSpawnType ? Input.getDebugSpawnType() : null;
+                        var allBtns = optsEl.querySelectorAll('.debug-enemy-btn');
+                        for (var k = 0; k < allBtns.length; k++) allBtns[k].classList.remove('selected');
+                        if (current === 'swarm_block') {
+                            Input.setDebugSpawnType(null);
+                            swarmBlockBtn.style.background = '#553300';
+                            UI.showToast('Swarm block cancelled', 'info', 1000);
+                        } else {
+                            Input.setDebugSpawnType('swarm_block');
+                            swarmBlockBtn.style.background = '#886600';
+                            UI.showToast('Click on map to spawn swarm block', 'info', 2000);
+                        }
+                    }
+                });
+                optsEl.appendChild(swarmBlockBtn);
 
                 var btns = optsEl.querySelectorAll('.debug-enemy-btn');
                 for (var j = 0; j < btns.length; j++) {

@@ -77,6 +77,11 @@ var Main = (function () {
         _startLoops();
         _initialized = true;
 
+        // Start music on game start (user already clicked, so autoplay is allowed)
+        if (typeof Music !== 'undefined' && Music.isEnabled && Music.isEnabled()) {
+            Music.play();
+        }
+
         if (typeof UI !== 'undefined' && typeof UI.showToast === 'function') {
             UI.showToast(
                 'Welcome to Volt Defense! Build your power grid and defend against waves of enemies.',
@@ -86,6 +91,11 @@ var Main = (function () {
                 ? Math.ceil(Engine.getWaveTimer())
                 : '?';
             UI.showToast('First wave arrives in ' + waveDelay + ' seconds!', 'warning', 5000);
+        }
+
+        if ((difficulty === 'watt' || difficulty === 'volt') &&
+            typeof Tutorial !== 'undefined' && typeof Tutorial.init === 'function') {
+            Tutorial.init();
         }
     }
 
@@ -112,6 +122,10 @@ var Main = (function () {
             _updatePauseSlotIndicator();
             _startLoops();
             _initialized = true;
+
+            if (typeof Music !== 'undefined' && Music.isEnabled && Music.isEnabled()) {
+                Music.play();
+            }
         }
     }
 
@@ -158,6 +172,10 @@ var Main = (function () {
             var tickCount = (typeof Engine.getTickCount === 'function') ? Engine.getTickCount() : 0;
             if (tickCount % 5 === 0 && typeof UI !== 'undefined' && typeof UI.update === 'function') {
                 UI.update();
+            }
+
+            if (typeof Tutorial !== 'undefined' && typeof Tutorial.update === 'function') {
+                Tutorial.update();
             }
 
             if (typeof Engine.getCoreHP === 'function' && Engine.getCoreHP() <= 0) {
@@ -672,15 +690,34 @@ var Main = (function () {
                 _initialized = false;
                 _hidePauseLoadPanel();
                 _hidePauseSavePanel();
+                if (typeof Tutorial !== 'undefined' && Tutorial.destroy) Tutorial.destroy();
                 var po = document.getElementById('pause-overlay');
                 if (po) po.style.display = 'none';
                 _showScreen('menu');
+                var tutToggle2 = document.getElementById('menu-tutorial-toggle');
+                if (tutToggle2 && typeof Tutorial !== 'undefined' && Tutorial.isEnabled) {
+                    tutToggle2.checked = Tutorial.isEnabled();
+                }
             }
         });
 
         // Initial screen state
         _hideLoadPanel();
         _initMenuMusic();
+
+        // Tutorial toggle in main menu
+        var tutToggle = document.getElementById('menu-tutorial-toggle');
+        if (tutToggle) {
+            if (typeof Tutorial !== 'undefined' && Tutorial.isEnabled) {
+                tutToggle.checked = Tutorial.isEnabled();
+            }
+            tutToggle.addEventListener('change', function() {
+                if (typeof Tutorial !== 'undefined' && Tutorial.setEnabled) {
+                    Tutorial.setEnabled(tutToggle.checked);
+                }
+            });
+        }
+
         _showScreen('menu');
     });
 

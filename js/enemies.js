@@ -6,6 +6,7 @@
 var Enemies = (function () {
     var _enemies = [];
     var _nextId = 1;
+    var _markedTargetId = null;
 
     // ---- Spatial Grid (performance optimisation) ---------------------------
     var _spatialGrid = {};
@@ -38,10 +39,12 @@ var Enemies = (function () {
     var _totalKills = 0;
     var _totalScore = 0;
     var _totalEscaped = 0;
-    var _rangedEffects = []; // visual effects for ranged attacks {type, fromX, fromY, toX, toY, timer, maxTimer, ...}
+    var _rangedEffects = [];
     var _spawnPoints = [];
-    var _reachableSpawnsCache = null;  // cached list of spawn points that can reach core
-    var _buildingCountAtCache = -1;    // building count when cache was computed
+    var _reachableSpawnsCache = null;
+    var _buildingCountAtCache = -1;
+    var _bossWaveActive = false;
+    var _bossWaveIds = [];
 
     // ---- Path Cache --------------------------------------------------------
     // Caches A* results by grid cell so nearby spawns reuse previous paths.
@@ -962,7 +965,8 @@ var Enemies = (function () {
             wallsDestroyed: 0,
             wallsToDestroyMax: 0,
             jitterX: (Math.random() - 0.5) * 12,
-            jitterY: (Math.random() - 0.5) * 12
+            jitterY: (Math.random() - 0.5) * 12,
+            coreDamage: def.coreDamage || 0
         };
 
         if (def.special && specialToCategory[def.special]) {
@@ -1047,6 +1051,7 @@ var Enemies = (function () {
             enemy.spawnCount = def.spawnCount || 5;
             enemy.nexusLaserRange = def.nexusLaserRange || 500;
             enemy.nexusLaserDPS = def.nexusLaserDPS || 2;
+            enemy.nexusLaserCoreDPS = def.nexusLaserCoreDPS || 1;
             enemy.nexusShieldDPS = def.nexusShieldDPS || 20;
             enemy.nexusDamagePerSpawnKill = def.nexusDamagePerSpawnKill || 10;
             enemy.spawnedIds = [];
@@ -1689,7 +1694,12 @@ var Enemies = (function () {
             var ny = dy / distToWaypoint;
             enemy.x += nx * moveAmount;
             enemy.y += ny * moveAmount;
+            enemy.vx = nx * effectiveSpeed;
+            enemy.vy = ny * effectiveSpeed;
             enemy.distanceTraveled += moveAmount;
+        } else {
+            enemy.vx = 0;
+            enemy.vy = 0;
         }
     }
 
@@ -1706,7 +1716,7 @@ var Enemies = (function () {
         }
 
         if (typeof Engine !== 'undefined' && Engine.damageCoreHP) {
-            Engine.damageCoreHP(enemy.damage * 0.75);
+            Engine.damageCoreHP(enemy.coreDamage || (enemy.damage * 0.75));
         }
         _totalEscaped++;
 
@@ -1716,6 +1726,15 @@ var Enemies = (function () {
                 _enemies.splice(i, 1);
                 break;
             }
+        }
+
+        // Clear marked target if this enemy escaped
+        if (_markedTargetId === enemy.id) {
+            _markedTargetId = null;
+        }
+
+        if (_bossWaveActive && enemy.isBoss) {
+            _checkBossWaveClear();
         }
     }
 
@@ -2095,7 +2114,8 @@ var Enemies = (function () {
                 } else {
                     if (bld.type === 'core') {
                         if (typeof Engine !== 'undefined' && Engine.damageCoreHP) {
-                            Engine.damageCoreHP(dmgPerTick);
+                            var coreDmgPerTick = (enemy.nexusLaserCoreDPS || enemy.nexusLaserDPS) / Config.TICKS_PER_SECOND;
+                            Engine.damageCoreHP(coreDmgPerTick);
                         }
                     } else {
                         bld.hp -= dmgPerTick;
@@ -2230,7 +2250,10 @@ var Enemies = (function () {
             var coreDx = enemy.x - corePos.x;
             var coreDy = enemy.y - corePos.y;
             if (coreDx * coreDx + coreDy * coreDy < 10000) {
-                if (enemy.drainState === 'draining') enemy.drainState = 'idle';
+                if (enemy.drainState === 'draining') {
+                    enemy.drainState = 'cooldown';
+                    enemy.drainTimer = 3 * Config.TICKS_PER_SECOND;
+                }
                 continue;
             }
 
@@ -2261,7 +2284,7 @@ var Enemies = (function () {
                 var capacity = bDef.energyStorageCapacity || 0;
                 if (bld.scaledStorageCapacity) capacity = bld.scaledStorageCapacity;
                 if (capacity <= 0) continue;
-                if ((bld.energy || 0) < capacity * 0.5) continue;
+                if ((bld.energy || 0) < capacity * 0.25) continue;
 
                 // Drain energy
                 var available = bld.energy || 0;
@@ -2276,8 +2299,10 @@ var Enemies = (function () {
             if (foundTarget) {
                 enemy.drainState = 'draining';
             } else if (enemy.drainState === 'draining') {
-                // No targets in range anymore, resume moving
-                enemy.drainState = 'idle';
+                // No targets in range anymore — 3 second cooldown before draining again
+                // Keep drainAbsorbed so charge is not lost
+                enemy.drainState = 'cooldown';
+                enemy.drainTimer = 3 * Config.TICKS_PER_SECOND;
             }
 
             // Check if threshold reached — find closest weapon and zap it
@@ -2312,6 +2337,24 @@ var Enemies = (function () {
                     enemy.drainState = 'charged';
                 }
             }
+        }
+    }
+
+    // Debug spawn path cache — reuse path for rapid spawns at same location
+    var _debugSpawnCache = { path: null, x: 0, y: 0, type: '', time: 0 };
+
+    function _checkBossWaveClear() {
+        if (!_bossWaveActive || _bossWaveIds.length === 0) return;
+        for (var b = 0; b < _bossWaveIds.length; b++) {
+            for (var e = 0; e < _enemies.length; e++) {
+                if (_enemies[e].id === _bossWaveIds[b]) return; // still alive
+            }
+        }
+        // All bosses from this wave are dead
+        _bossWaveActive = false;
+        _bossWaveIds = [];
+        if (typeof Music !== 'undefined' && Music.stopBossMusic) {
+            Music.stopBossMusic();
         }
     }
 
@@ -2382,6 +2425,9 @@ var Enemies = (function () {
 
                     if (enemy) {
                         _enemies.push(enemy);
+                        if (_bossWaveActive && enemy.isBoss) {
+                            _bossWaveIds.push(enemy.id);
+                        }
                     }
                 }
 
@@ -2473,6 +2519,22 @@ var Enemies = (function () {
                     _spawnPoints.push(edgePoints[e]);
                 }
             }
+
+            // Boss music: trigger on boss waves (20, 30, 40, 50 and procedural every 20)
+            if (waveNumber >= 20 && waveNumber % 10 === 0) {
+                _bossWaveActive = true;
+                _bossWaveIds = [];
+                // Mark boss types in spawn queue so we can track them when spawned
+                for (var bq = 0; bq < _spawnQueue.length; bq++) {
+                    var bqDef = Config.ENEMIES[_spawnQueue[bq]];
+                    if (bqDef && bqDef.isBoss) {
+                        _spawnQueue[bq] = _spawnQueue[bq]; // will track on spawn
+                    }
+                }
+                if (typeof Music !== 'undefined' && Music.playBossMusic) {
+                    Music.playBossMusic();
+                }
+            }
         },
 
         // ---- Queries ----------------------------------------------------------
@@ -2494,6 +2556,23 @@ var Enemies = (function () {
                 if (_enemies[i].id === id) return _enemies[i];
             }
             return null;
+        },
+
+        getMarkedTarget: function () {
+            if (_markedTargetId == null) return null;
+            for (var i = 0; i < _enemies.length; i++) {
+                if (_enemies[i].id === _markedTargetId && _enemies[i].hp > 0) return _enemies[i];
+            }
+            _markedTargetId = null;
+            return null;
+        },
+
+        setMarkedTarget: function (id) {
+            _markedTargetId = id;
+        },
+
+        getMarkedTargetId: function () {
+            return _markedTargetId;
         },
 
         getInRange: function (worldX, worldY, range) {
@@ -2550,6 +2629,12 @@ var Enemies = (function () {
             var best = null;
             var bestVal = null;
 
+            // Pre-compute core position for closest_core priority
+            var cp = null;
+            if (priority === 'closest_core') {
+                cp = _getCorePosition();
+            }
+
             for (var i = 0; i < candidates.length; i++) {
                 var c = candidates[i];
                 var d = _distSq(worldX, worldY, c.x, c.y);
@@ -2558,9 +2643,9 @@ var Enemies = (function () {
                 var val;
                 switch (priority) {
                     case 'closest_core':
-                        // Closest to core = most distance traveled
-                        val = c.distanceTraveled;
-                        if (best === null || val > bestVal) { best = c; bestVal = val; }
+                        // Closest to core = smallest distance to core position
+                        val = _distSq(cp.x, cp.y, c.x, c.y);
+                        if (best === null || val < bestVal) { best = c; bestVal = val; }
                         break;
                     case 'closest_weapon':
                         val = d;
@@ -2668,6 +2753,11 @@ var Enemies = (function () {
                     _totalKills++;
                     _totalScore += (def && def.scoreValue) ? def.scoreValue : 1;
 
+                    // Clear marked target if this enemy was marked
+                    if (_markedTargetId === enemy.id) {
+                        _markedTargetId = null;
+                    }
+
                     // Swarm mother: kill all spawned enemies on boss death
                     // Nexus spawns survive after nexus dies
                     if (enemy.mechanic !== 'nexus' && enemy.spawnedIds && enemy.spawnedIds.length > 0) {
@@ -2716,10 +2806,16 @@ var Enemies = (function () {
                                         }
                                     }
                                     _enemies.splice(pi, 1);
+                                    if (_bossWaveActive) { _checkBossWaveClear(); }
                                 }
                                 break;
                             }
                         }
+                    }
+
+                    // Check if all boss enemies from this boss wave are dead
+                    if (_bossWaveActive && enemy.isBoss) {
+                        _checkBossWaveClear();
                     }
 
                     return true;
@@ -2849,7 +2945,9 @@ var Enemies = (function () {
                 totalKills: _totalKills,
                 totalScore: _totalScore,
                 totalEscaped: _totalEscaped,
-                spawnPoints: _spawnPoints
+                spawnPoints: _spawnPoints,
+                bossWaveActive: _bossWaveActive,
+                bossWaveIds: _bossWaveIds
             };
         },
 
@@ -2866,12 +2964,49 @@ var Enemies = (function () {
             _totalEscaped  = data.totalEscaped  || 0;
             _rangedEffects = [];
             _spawnPoints   = data.spawnPoints   || [];
+            _bossWaveActive = data.bossWaveActive || false;
+            _bossWaveIds    = data.bossWaveIds    || [];
+
+            // If loading a save with active boss wave, resume boss music
+            if (_bossWaveActive && _bossWaveIds.length > 0) {
+                if (typeof Music !== 'undefined' && Music.playBossMusic) {
+                    Music.playBossMusic();
+                }
+            }
         },
 
         debugSpawn: function (typeKey, worldX, worldY) {
             var wave = _currentWave || 1;
             var enemy = _createEnemy(typeKey, worldX, worldY, wave);
             if (enemy) {
+                // Reuse cached path if same type, within 50px, within 3 seconds
+                var now = Date.now();
+                var dx = worldX - _debugSpawnCache.x;
+                var dy = worldY - _debugSpawnCache.y;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (_debugSpawnCache.path && _debugSpawnCache.type === typeKey &&
+                    dist <= 50 && (now - _debugSpawnCache.time) < 3000) {
+                    // Clone cached path and assign
+                    var cloned = [];
+                    for (var pi = 0; pi < _debugSpawnCache.path.length; pi++) {
+                        cloned.push({ x: _debugSpawnCache.path[pi].x, y: _debugSpawnCache.path[pi].y });
+                    }
+                    // Prepend current position
+                    cloned[0] = { x: worldX, y: worldY };
+                    enemy.path = cloned;
+                    enemy.pathIndex = cloned.length > 1 ? 1 : 0;
+                } else {
+                    // Calculate path now and cache it
+                    var corePos = _getCorePosition();
+                    var canSwim = enemy.canSwim || false;
+                    var burrows = enemy.special === 'burrows';
+                    var path = _findPathTo(worldX, worldY, corePos.x, corePos.y, canSwim, false, null, burrows);
+                    if (path) {
+                        enemy.path = path;
+                        enemy.pathIndex = path.length > 1 ? 1 : 0;
+                        _debugSpawnCache = { path: path, x: worldX, y: worldY, type: typeKey, time: now };
+                    }
+                }
                 _enemies.push(enemy);
             }
             return enemy;

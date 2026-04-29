@@ -418,6 +418,9 @@ var Engine = (function() {
             if (level === 'moderate') {
                 return 1 + (Config.POLLUTION_ENEMY_SPEED_BOOST_MOD || 0.10);
             }
+            if (level === 'low') {
+                return 1 + (Config.POLLUTION_ENEMY_SPEED_BOOST_LOW || 0.05);
+            }
             return 1;
         },
 

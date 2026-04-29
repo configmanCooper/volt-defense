@@ -446,6 +446,9 @@ body {
     min-width: 320px;
     max-width: 500px;
 }
+#modal-box.modal-wide {
+    max-width: 900px;
+}
 
 #modal-header {
     display: flex;

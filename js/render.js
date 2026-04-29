@@ -166,6 +166,9 @@ var Render = (function () {
 
     // Damage numbers
     var _damageNumbers = [];
+
+    // Player energy overlay toggle
+    var _showEnergyOverlay = false;
     var DAMAGE_NUMBER_DURATION = 60; // frames
 
     // Shield hit flash timers (buildingId → framesRemaining)
@@ -1091,7 +1094,8 @@ var Render = (function () {
     // Layer: Debug Energy Overlay
     // ------------------------------------------------------------------------
     function _drawDebugEnergyOverlay(ctx) {
-        if (typeof Input === 'undefined' || !Input.isDebugMode || !Input.isDebugMode()) return;
+        var isDebug = (typeof Input !== 'undefined' && Input.isDebugMode && Input.isDebugMode());
+        if (!isDebug && !_showEnergyOverlay) return;
         if (typeof Buildings === 'undefined' || !Buildings) return;
 
         var all = Buildings.getAll();
@@ -2737,6 +2741,42 @@ var Render = (function () {
                 }
             }
         }
+
+        // Draw marked target reticle
+        if (typeof Enemies !== 'undefined' && Enemies.getMarkedTarget) {
+            var marked = Enemies.getMarkedTarget();
+            if (marked && marked.hp > 0 && _isInViewport(marked.x, marked.y, 40)) {
+                var mx = Math.floor(marked.x + (marked.jitterX || 0));
+                var my = Math.floor(marked.y + (marked.jitterY || 0));
+                var mr = (ENEMY_RADIUS[marked.type] || ENEMY_RADIUS_DEFAULT) + 6;
+                var pulse = 0.7 + Math.sin(_animFrame * 0.12) * 0.3;
+
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 50, 50, ' + pulse + ')';
+                ctx.lineWidth = 2;
+
+                // Outer circle
+                ctx.beginPath();
+                ctx.arc(mx, my, mr + 4, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Crosshair lines
+                var ch = mr + 8;
+                ctx.beginPath();
+                ctx.moveTo(mx - ch, my); ctx.lineTo(mx - mr, my);
+                ctx.moveTo(mx + mr, my); ctx.lineTo(mx + ch, my);
+                ctx.moveTo(mx, my - ch); ctx.lineTo(mx, my - mr);
+                ctx.moveTo(mx, my + mr); ctx.lineTo(mx, my + ch);
+                ctx.stroke();
+
+                // Target text
+                ctx.fillStyle = 'rgba(255, 80, 80, ' + pulse + ')';
+                ctx.font = 'bold 9px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('TARGET', mx, my - mr - 10);
+                ctx.restore();
+            }
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -3159,8 +3199,14 @@ var Render = (function () {
         var mines = Combat.getMines();
         if (!mines || !mines.length) return;
 
+        // Get drag state
+        var dragInfo = (typeof Input !== 'undefined' && Input.getDraggingMine) ? Input.getDraggingMine() : null;
+        var dragMineId = dragInfo ? dragInfo.mine.id : -1;
+
         for (var i = 0; i < mines.length; i++) {
             var mine = mines[i];
+            // Hide the original mine being dragged
+            if (mine.id === dragMineId) continue;
             if (!_isInViewport(mine.x, mine.y, 15)) continue;
 
             // Mine body - dark red circle
@@ -3173,6 +3219,77 @@ var Render = (function () {
             ctx.beginPath();
             ctx.arc(Math.floor(mine.x), Math.floor(mine.y), 2, 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        // Draw mine being dragged at preview position
+        if (dragInfo && dragInfo.pos) {
+            var px = Math.floor(dragInfo.pos.x);
+            var py = Math.floor(dragInfo.pos.y);
+
+            // Draw 500px range circle from parent building
+            var parent = (typeof Buildings !== 'undefined' && Buildings.getById)
+                ? Buildings.getById(dragInfo.mine.buildingId) : null;
+            if (parent) {
+                var pc = Buildings.getBuildingCenter(parent);
+                ctx.strokeStyle = dragInfo.valid ? 'rgba(0,255,100,0.25)' : 'rgba(255,50,50,0.25)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(Math.floor(pc.x), Math.floor(pc.y), 500, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Ghost mine at cursor
+            ctx.globalAlpha = 0.7;
+            ctx.fillStyle = dragInfo.valid ? '#228822' : '#882222';
+            ctx.beginPath();
+            ctx.arc(px, py, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = dragInfo.valid ? '#44ff44' : '#ff4444';
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Banned symbol when too close to another mine or on a building
+            if (!dragInfo.valid) {
+                var showBanned = false;
+                var allMines = Combat.getMines();
+                for (var mi = 0; mi < allMines.length; mi++) {
+                    if (allMines[mi].id === dragInfo.mine.id) continue;
+                    var mdx = px - allMines[mi].x;
+                    var mdy = py - allMines[mi].y;
+                    if (Math.sqrt(mdx * mdx + mdy * mdy) < 25) { showBanned = true; break; }
+                }
+                if (!showBanned && typeof Buildings !== 'undefined' && Buildings.getAll) {
+                    var cellSize = (typeof Config !== 'undefined' && Config.CELL_SIZE) ? Config.CELL_SIZE : 32;
+                    var allBlds = Buildings.getAll();
+                    for (var bi2 = 0; bi2 < allBlds.length; bi2++) {
+                        var b2 = allBlds[bi2];
+                        if (b2.hp <= 0) continue;
+                        var bc2 = Buildings.getBuildingCenter(b2);
+                        var bDef2 = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[b2.type] : null;
+                        var bsx2 = (bDef2 && bDef2.size) ? bDef2.size[0] : 1;
+                        var bsy2 = (bDef2 && bDef2.size) ? bDef2.size[1] : 1;
+                        var hw2 = (bsx2 * cellSize) / 2 + 10;
+                        var hh2 = (bsy2 * cellSize) / 2 + 10;
+                        if (Math.abs(px - bc2.x) < hw2 && Math.abs(py - bc2.y) < hh2) {
+                            showBanned = true;
+                            break;
+                        }
+                    }
+                }
+                if (showBanned) {
+                    ctx.strokeStyle = '#ff2222';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 10, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(px - 7, py - 7);
+                    ctx.lineTo(px + 7, py + 7);
+                    ctx.stroke();
+                }
+            }
         }
     }
 
@@ -3515,6 +3632,39 @@ var Render = (function () {
                     oy + Math.floor(eList[ei].y * scaleY),
                     2, 2
                 );
+            }
+            // Boss indicators — large pulsing diamond with glow
+            var bossPulse = (Math.sin(Date.now() * 0.006) + 1) * 0.5; // 0-1 pulse
+            for (var bi = 0; bi < eList.length; bi++) {
+                var be = eList[bi];
+                if (be.hp <= 0) continue;
+                var beDef = Config.ENEMIES[be.type];
+                if (!beDef || !beDef.isBoss) continue;
+                var bx = ox + Math.floor(be.x * scaleX);
+                var by = oy + Math.floor(be.y * scaleY);
+                var bossRadius = 4 + bossPulse * 2;
+                // Glow
+                mctx.fillStyle = 'rgba(255,50,50,' + (0.3 + bossPulse * 0.3) + ')';
+                mctx.beginPath();
+                mctx.arc(bx, by, bossRadius + 3, 0, Math.PI * 2);
+                mctx.fill();
+                // Diamond shape
+                mctx.fillStyle = '#ff2222';
+                mctx.strokeStyle = '#ffff00';
+                mctx.lineWidth = 1;
+                mctx.beginPath();
+                mctx.moveTo(bx, by - bossRadius);
+                mctx.lineTo(bx + bossRadius, by);
+                mctx.lineTo(bx, by + bossRadius);
+                mctx.lineTo(bx - bossRadius, by);
+                mctx.closePath();
+                mctx.fill();
+                mctx.stroke();
+                // Skull icon center dot
+                mctx.fillStyle = '#ffff00';
+                mctx.beginPath();
+                mctx.arc(bx, by, 1.5, 0, Math.PI * 2);
+                mctx.fill();
             }
         }
 
@@ -3907,6 +4057,15 @@ var Render = (function () {
         },
 
         // Expose colors for external use
-        COLORS: COLORS
+        COLORS: COLORS,
+
+        toggleEnergyOverlay: function () {
+            _showEnergyOverlay = !_showEnergyOverlay;
+            return _showEnergyOverlay;
+        },
+
+        isEnergyOverlayOn: function () {
+            return _showEnergyOverlay;
+        }
     };
 })();

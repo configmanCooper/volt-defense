@@ -70,11 +70,50 @@ var Combat = (function() {
     }
 
     /**
+     * Calculate a lead angle for projectile aiming.
+     * If the enemy is stationary or very slow, aims directly at them.
+     * Otherwise predicts where the enemy will be when the projectile arrives.
+     */
+    function _getLeadAngle(srcX, srcY, enemy, projSpeed, dx, dy) {
+        // If enemy is effectively stationary, aim directly
+        if (!enemy.vx && !enemy.vy) {
+            return Math.atan2(dy, dx);
+        }
+        var evx = enemy.vx || 0;
+        var evy = enemy.vy || 0;
+        var espeed = Math.sqrt(evx * evx + evy * evy);
+        if (espeed < 1) {
+            return Math.atan2(dy, dx);
+        }
+
+        // Simple linear lead prediction
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 1 || projSpeed < 1) return Math.atan2(dy, dx);
+        var timeToHit = dist / projSpeed;
+        var leadX = enemy.x + evx * timeToHit;
+        var leadY = enemy.y + evy * timeToHit;
+        return Math.atan2(leadY - srcY, leadX - srcX);
+    }
+
+    /**
      * Acquire a target for a weapon building based on its targetPriority and targetLock settings.
      * Returns the enemy to target, or null if none in range.
      */
     function _acquireTarget(b, center, effectiveRange) {
         if (typeof Enemies === 'undefined') return null;
+
+        // Marked target override: if player has marked an enemy, prioritize it
+        if (Enemies.getMarkedTarget) {
+            var marked = Enemies.getMarkedTarget();
+            if (marked && marked.hp > 0) {
+                var mdx = marked.x - center.x;
+                var mdy = marked.y - center.y;
+                if (mdx * mdx + mdy * mdy <= effectiveRange * effectiveRange) {
+                    if (b.targetLock) b.target = marked.id;
+                    return marked;
+                }
+            }
+        }
 
         // Target lock: if locked target is still alive and in range, keep it
         if (b.targetLock && b.target != null) {
@@ -529,10 +568,10 @@ var Combat = (function() {
             b.energy -= energyCost;
             b.resourceShortage = null;
 
-            // Calculate initial angle toward target
+            // Calculate initial angle toward target with lead prediction
             var dx = enemy.x - center.x;
             var dy = enemy.y - center.y;
-            var angle = Math.atan2(dy, dx);
+            var angle = _getLeadAngle(center.x, center.y, enemy, def.missileSpeed || 300, dx, dy);
 
             // Create projectile
             _projectiles.push({
@@ -585,7 +624,7 @@ var Combat = (function() {
 
             var dx = enemy.x - center.x;
             var dy = enemy.y - center.y;
-            var angle = Math.atan2(dy, dx);
+            var angle = _getLeadAngle(center.x, center.y, enemy, def.projectileSpeed || 400, dx, dy);
 
             _projectiles.push({
                 id: _nextProjectileId++,
@@ -633,10 +672,17 @@ var Combat = (function() {
                 var pDiff = pDesired - p.angle;
                 while (pDiff > Math.PI) { pDiff -= 2 * Math.PI; }
                 while (pDiff < -Math.PI) { pDiff += 2 * Math.PI; }
-                var pMaxTurn = homingRad / tps;
-                if (pDiff > pMaxTurn) { pDiff = pMaxTurn; }
-                else if (pDiff < -pMaxTurn) { pDiff = -pMaxTurn; }
-                p.angle += pDiff;
+                // Stationary target: snap directly
+                var ptvx = pTarget.vx || 0;
+                var ptvy = pTarget.vy || 0;
+                if (ptvx * ptvx + ptvy * ptvy < 1) {
+                    p.angle = pDesired;
+                } else {
+                    var pMaxTurn = homingRad / tps;
+                    if (pDiff > pMaxTurn) { pDiff = pMaxTurn; }
+                    else if (pDiff < -pMaxTurn) { pDiff = -pMaxTurn; }
+                    p.angle += pDiff;
+                }
 
                 var pMoveDist = p.speed / tps;
                 p.x += Math.cos(p.angle) * pMoveDist;
@@ -668,12 +714,20 @@ var Combat = (function() {
                 var bDiff = bDesired - p.angle;
                 while (bDiff > Math.PI) { bDiff -= 2 * Math.PI; }
                 while (bDiff < -Math.PI) { bDiff += 2 * Math.PI; }
-                var blasterHomingAngle = (typeof Config !== 'undefined' && Config.BLASTER_HOMING_ANGLE != null)
-                    ? Config.BLASTER_HOMING_ANGLE : 30;
-                var bMaxTurn = (blasterHomingAngle * Math.PI / 180) / tps;
-                if (bDiff > bMaxTurn) { bDiff = bMaxTurn; }
-                else if (bDiff < -bMaxTurn) { bDiff = -bMaxTurn; }
-                p.angle += bDiff;
+
+                // If target is stationary, snap angle directly
+                var btvx = bTarget.vx || 0;
+                var btvy = bTarget.vy || 0;
+                if (btvx * btvx + btvy * btvy < 1) {
+                    p.angle = bDesired;
+                } else {
+                    var blasterHomingAngle = (typeof Config !== 'undefined' && Config.BLASTER_HOMING_ANGLE != null)
+                        ? Config.BLASTER_HOMING_ANGLE : 30;
+                    var bMaxTurn = (blasterHomingAngle * Math.PI / 180) / tps;
+                    if (bDiff > bMaxTurn) { bDiff = bMaxTurn; }
+                    else if (bDiff < -bMaxTurn) { bDiff = -bMaxTurn; }
+                    p.angle += bDiff;
+                }
 
                 var bMoveDist = p.speed / tps;
                 p.x += Math.cos(p.angle) * bMoveDist;
@@ -700,7 +754,8 @@ var Combat = (function() {
                         bTarget.isReflecting = true;
                     } else {
                         if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
-                            Enemies.damageEnemy(p.targetId, p.damage, 0);
+                            var armorBypass = (p.type === 'autocannon') ? 0.25 : 0;
+                            Enemies.damageEnemy(p.targetId, p.damage, armorBypass);
                         }
                     }
                     continue;
@@ -720,17 +775,21 @@ var Combat = (function() {
                 // Check arrival
                 var arrivalDist = _distance(p.x, p.y, p.targetX, p.targetY);
                 if (arrivalDist <= 15 || p.distanceTraveled >= p.maxDistance) {
-                    // Splash damage
+                    // Splash damage — collect targets first to avoid splice issues
                     var allEnemies = _getAllEnemies();
+                    var mortarTargets = [];
                     for (var si = 0; si < allEnemies.length; si++) {
                         var se = allEnemies[si];
                         if (se && se.hp > 0) {
                             var sd = _distance(p.x, p.y, se.x, se.y);
                             if (sd <= p.splashRadius) {
-                                if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
-                                    Enemies.damageEnemy(se.id, p.damage, 0);
-                                }
+                                mortarTargets.push(se.id);
                             }
+                        }
+                    }
+                    for (var mt = 0; mt < mortarTargets.length; mt++) {
+                        if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                            Enemies.damageEnemy(mortarTargets[mt], p.damage, 0.5);
                         }
                     }
                     _mortarImpacts.push({ x: p.x, y: p.y, radius: p.splashRadius, life: 1.0 });
@@ -758,11 +817,18 @@ var Combat = (function() {
             while (angleDiff > Math.PI) { angleDiff -= 2 * Math.PI; }
             while (angleDiff < -Math.PI) { angleDiff += 2 * Math.PI; }
 
-            // Clamp turn rate per tick
-            var maxTurn = homingRad / tps;
-            if (angleDiff > maxTurn) { angleDiff = maxTurn; }
-            else if (angleDiff < -maxTurn) { angleDiff = -maxTurn; }
-            p.angle += angleDiff;
+            // If target is stationary, snap angle directly for perfect accuracy
+            var tvx = target.vx || 0;
+            var tvy = target.vy || 0;
+            if (tvx * tvx + tvy * tvy < 1) {
+                p.angle = desiredAngle;
+            } else {
+                // Clamp turn rate per tick
+                var maxTurn = homingRad / tps;
+                if (angleDiff > maxTurn) { angleDiff = maxTurn; }
+                else if (angleDiff < -maxTurn) { angleDiff = -maxTurn; }
+                p.angle += angleDiff;
+            }
 
             // Move
             var moveDistThisTick = p.speed / tps;
@@ -1105,6 +1171,7 @@ var Combat = (function() {
             var def = _getBuildingDef(b.type);
             if (!def) { continue; }
             if (!b.active || b.hp <= 0) { continue; }
+            if (b.manualOff) { continue; }
 
             if (b.reloadTimer == null) { b.reloadTimer = 0; }
             if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
@@ -1114,30 +1181,86 @@ var Combat = (function() {
             var center = _getBuildingCenter(b);
             var splashRadius = def.splashRadius || 80;
 
-            // Find best cluster position
+            // Mortar targeting: priority-first with cluster optimization
+            var mortarPrio = b.targetPriority || 'closest_core';
             var bestCount = 0;
             var bestX = 0, bestY = 0;
-            for (var j = 0; j < enemies.length; j++) {
-                var e = enemies[j];
-                if (!e || e.hp <= 0) { continue; }
-                var dist = _distance(center.x, center.y, e.x, e.y);
-                if (dist < minRange || dist > effectiveRange) { continue; }
 
-                var count = 0;
-                for (var k = 0; k < enemies.length; k++) {
-                    if (enemies[k] && enemies[k].hp > 0) {
-                        if (_distance(e.x, e.y, enemies[k].x, enemies[k].y) <= splashRadius) {
+            // Build candidate list once (enemies in range, outside min range)
+            var mortarCandidates = [];
+            for (var mc = 0; mc < enemies.length; mc++) {
+                if (!enemies[mc] || enemies[mc].hp <= 0) continue;
+                var mcDist = _distance(center.x, center.y, enemies[mc].x, enemies[mc].y);
+                if (mcDist >= minRange && mcDist <= effectiveRange) {
+                    mortarCandidates.push(enemies[mc]);
+                }
+            }
+            if (mortarCandidates.length === 0) { continue; }
+
+            if (mortarPrio === 'max_cluster') {
+                // Pure cluster mode: aim wherever hits the most enemies
+                for (var j = 0; j < mortarCandidates.length; j++) {
+                    var e = mortarCandidates[j];
+                    var count = 0;
+                    for (var k = 0; k < mortarCandidates.length; k++) {
+                        if (_distance(e.x, e.y, mortarCandidates[k].x, mortarCandidates[k].y) <= splashRadius) {
                             count++;
                         }
                     }
+                    if (count > bestCount) {
+                        bestCount = count;
+                        bestX = e.x;
+                        bestY = e.y;
+                    }
                 }
-                if (count > bestCount) {
-                    bestCount = count;
-                    bestX = e.x;
-                    bestY = e.y;
+                if (bestCount === 0) { continue; }
+            } else {
+                // Step 1: Use priority to pick primary target
+                var primaryTarget = _acquireTarget(b, center, effectiveRange);
+                // Filter out targets too close (mortar min range)
+                if (primaryTarget) {
+                    var ptDist = _distance(center.x, center.y, primaryTarget.x, primaryTarget.y);
+                    if (ptDist < minRange) primaryTarget = null;
                 }
+                if (!primaryTarget) {
+                    // Fallback: any enemy in range outside min range
+                    for (var pf = 0; pf < enemies.length; pf++) {
+                        if (!enemies[pf] || enemies[pf].hp <= 0) continue;
+                        var pfDist = _distance(center.x, center.y, enemies[pf].x, enemies[pf].y);
+                        if (pfDist >= minRange && pfDist <= effectiveRange) { primaryTarget = enemies[pf]; break; }
+                    }
+                }
+                if (!primaryTarget) { continue; }
+
+                // Step 2: Find best cluster near the primary target (within splash range)
+                // Check all enemies in weapon range — pick the one with the best cluster
+                // that also includes the primary target in its splash
+                bestX = primaryTarget.x;
+                bestY = primaryTarget.y;
+                for (var j = 0; j < enemies.length; j++) {
+                    var e = enemies[j];
+                    if (!e || e.hp <= 0) { continue; }
+                    var dist = _distance(center.x, center.y, e.x, e.y);
+                    if (dist < minRange || dist > effectiveRange) { continue; }
+                    // Only consider positions that would still hit the primary target
+                    if (_distance(e.x, e.y, primaryTarget.x, primaryTarget.y) > splashRadius) { continue; }
+
+                    var count = 0;
+                    for (var k = 0; k < enemies.length; k++) {
+                        if (enemies[k] && enemies[k].hp > 0) {
+                            if (_distance(e.x, e.y, enemies[k].x, enemies[k].y) <= splashRadius) {
+                                count++;
+                            }
+                        }
+                    }
+                    if (count > bestCount) {
+                        bestCount = count;
+                        bestX = e.x;
+                        bestY = e.y;
+                    }
+                }
+                if (bestCount === 0) { bestCount = 1; }
             }
-            if (bestCount === 0) { continue; }
 
             // Check iron
             var ironCost = def.ironPerShot || 2;
@@ -1397,15 +1520,20 @@ var Combat = (function() {
                 if (!e || e.hp <= 0) continue;
                 var dist = _distance(mine.x, mine.y, e.x, e.y);
                 if (dist <= 30) {
-                    // Detonate!
+                    // Detonate! Collect all enemies in splash range first
+                    var splashTargets = [];
                     for (var ae = 0; ae < enemies.length; ae++) {
                         var se = enemies[ae];
                         if (!se || se.hp <= 0) continue;
                         var sd = _distance(mine.x, mine.y, se.x, se.y);
                         if (sd <= mine.splashRadius) {
-                            if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
-                                Enemies.damageEnemy(se.id, mine.damage, 0);
-                            }
+                            splashTargets.push(se.id);
+                        }
+                    }
+                    // Apply damage after collecting (avoids array splice issues)
+                    for (var st = 0; st < splashTargets.length; st++) {
+                        if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
+                            Enemies.damageEnemy(splashTargets[st], mine.damage, 0.5);
                         }
                     }
                     _mineExplosions.push({ x: mine.x, y: mine.y, radius: mine.splashRadius, life: 1.0 });
@@ -1470,7 +1598,7 @@ var Combat = (function() {
 
             var dx = enemy.x - center.x;
             var dy = enemy.y - center.y;
-            var angle = Math.atan2(dy, dx);
+            var angle = _getLeadAngle(center.x, center.y, enemy, def.projectileSpeed || 500, dx, dy);
 
             _projectiles.push({
                 id: _nextProjectileId++,
@@ -1538,7 +1666,7 @@ var Combat = (function() {
             // Create plasma projectile
             var dx = enemy.x - center.x;
             var dy = enemy.y - center.y;
-            var angle = Math.atan2(dy, dx);
+            var angle = _getLeadAngle(center.x, center.y, enemy, 350, dx, dy);
             _projectiles.push({
                 id: _nextProjectileId++,
                 x: center.x,
@@ -1882,6 +2010,16 @@ var Combat = (function() {
         getFusionBeams: function() { return _fusionBeams; },
         getMines: function() { return _mines; },
         getMineExplosions: function() { return _mineExplosions; },
+        moveMine: function(mineId, newX, newY) {
+            for (var i = 0; i < _mines.length; i++) {
+                if (_mines[i].id === mineId) {
+                    _mines[i].x = newX;
+                    _mines[i].y = newY;
+                    return true;
+                }
+            }
+            return false;
+        },
 
         getSerializableState: function() {
             var projData = [];
