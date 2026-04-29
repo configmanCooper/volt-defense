@@ -780,7 +780,7 @@ var Combat = (function() {
                     actualDmg *= 0.5;
                 }
                 if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
-                    Enemies.damageEnemy(p.targetId, actualDmg, 0);
+                    Enemies.damageEnemy(p.targetId, actualDmg, 0, p.weaponType);
                 }
                 continue; // Projectile consumed
             }
@@ -1550,7 +1550,8 @@ var Combat = (function() {
                 angle: angle,
                 distanceTraveled: 0,
                 maxDistance: effectiveRange * 1.5,
-                armorBypass: def.armorBypass || 1.0
+                armorBypass: def.armorBypass || 1.0,
+                weaponType: 'plasma_cannon'
             });
         }
     }
@@ -1657,7 +1658,7 @@ var Combat = (function() {
                 ? Config.FUSION_ARMOR_BYPASS : 0.8;
             var killed = false;
             if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
-                killed = Enemies.damageEnemy(enemy.id, damageThisTick, armorBypass);
+                killed = Enemies.damageEnemy(enemy.id, damageThisTick, armorBypass, 'fusion_beam');
             }
 
             // Add beam for rendering

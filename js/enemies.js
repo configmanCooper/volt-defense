@@ -2619,7 +2619,7 @@ var Enemies = (function () {
                 // Nexus: invincible except uranium weapons (10% damage)
                 // Allow debug kills (extremely high damage)
                 if (enemy.mechanic === 'nexus' && damage < enemy.maxHp * 10) {
-                    if (weaponType === 'uranium_cannon' || weaponType === 'uranium_laser') {
+                    if (weaponType === 'plasma_cannon' || weaponType === 'fusion_beam') {
                         damage = damage * 0.1;
                     } else {
                         return false; // no damage from non-uranium
