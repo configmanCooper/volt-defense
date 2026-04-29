@@ -1734,7 +1734,7 @@ var Config = {
         },
         the_nexus: {
             name: 'The Nexus',
-            hp: 1000,
+            hp: 2000,
             speed: 10,
             damage: 0,
             armor: 0,
