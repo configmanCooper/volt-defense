@@ -2115,6 +2115,7 @@ var Enemies = (function () {
             if (enemy.drainState === 'zapping') {
                 enemy.drainTimer--;
                 // Find the weapon target and damage it
+                var zapFound = false;
                 if (enemy._zapTargetId && typeof Buildings !== 'undefined' && Buildings.getAll) {
                     var allB = Buildings.getAll();
                     for (var zi = 0; zi < allB.length; zi++) {
@@ -2126,9 +2127,41 @@ var Enemies = (function () {
                             allB[zi].hp -= dmgPerTick;
                             if (allB[zi].hp < 0) allB[zi].hp = 0;
                             enemy.drainZapTarget = { x: bCX, y: bCY };
+                            zapFound = true;
+                            // If target destroyed, find another weapon in range
+                            if (allB[zi].hp <= 0) {
+                                enemy._zapTargetId = null;
+                                var zRangeSq = enemy.drainRange * enemy.drainRange;
+                                var zClosest = null;
+                                var zClosestDist = Infinity;
+                                for (var zw = 0; zw < allB.length; zw++) {
+                                    if (allB[zw].hp <= 0) continue;
+                                    var zwDef = Config.BUILDINGS[allB[zw].type];
+                                    if (!zwDef || zwDef.category !== 'weapons') continue;
+                                    var zwCX = allB[zw].worldX + (zwDef.size[0] * Config.GRID_CELL_SIZE) / 2;
+                                    var zwCY = allB[zw].worldY + (zwDef.size[1] * Config.GRID_CELL_SIZE) / 2;
+                                    var zwdx = zwCX - enemy.x;
+                                    var zwdy = zwCY - enemy.y;
+                                    var zwDistSq = zwdx * zwdx + zwdy * zwdy;
+                                    if (zwDistSq > zRangeSq) continue;
+                                    if (zwDistSq < zClosestDist) {
+                                        zClosestDist = zwDistSq;
+                                        zClosest = allB[zw];
+                                    }
+                                }
+                                if (zClosest) {
+                                    enemy._zapTargetId = zClosest.id;
+                                }
+                            }
                             break;
                         }
                     }
+                }
+                // If no target found (destroyed and no replacement), end zap early
+                if (!zapFound && !enemy._zapTargetId) {
+                    enemy.drainAbsorbed = 0;
+                    enemy.drainState = 'cooldown';
+                    enemy.drainTimer = enemy.drainCooldown;
                 }
                 if (enemy.drainTimer <= 0) {
                     enemy.drainAbsorbed = 0;
