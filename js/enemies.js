@@ -1361,7 +1361,10 @@ var Enemies = (function () {
                 if (target.hp < 0) target.hp = 0;
                 target.active = false;
                 target.empDisabled = true;
-                target.empTimer = enemy.empDuration || 50;
+                // Register in Combat's EMP tracking for auto re-enable
+                if (typeof Combat !== 'undefined' && Combat.registerEmpDisable) {
+                    Combat.registerEmpDisable(target.id, enemy.empDuration || 50);
+                }
                 // Visual: EMP missile
                 _rangedEffects.push({
                     type: 'emp_missile',

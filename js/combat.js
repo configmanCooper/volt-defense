@@ -1870,6 +1870,10 @@ var Combat = (function() {
 
         getEmpDisabled: function() { return _empDisabled; },
 
+        registerEmpDisable: function(buildingId, ticks) {
+            _empDisabled[String(buildingId)] = ticks;
+        },
+
         getTeslaChains: function() { return _teslaChains; },
         getRailShots: function() { return _railShots; },
         getEmpBlasts: function() { return _empBlasts; },
