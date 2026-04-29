@@ -2172,7 +2172,16 @@ var Enemies = (function () {
                 continue;
             }
 
-            // idle or draining state: look for batteries/capacitors to drain
+            // idle or draining state: skip draining if within 100px of core
+            var corePos = _getCorePosition();
+            var coreDx = enemy.x - corePos.x;
+            var coreDy = enemy.y - corePos.y;
+            if (coreDx * coreDx + coreDy * coreDy < 10000) {
+                if (enemy.drainState === 'draining') enemy.drainState = 'idle';
+                continue;
+            }
+
+            // look for batteries/capacitors to drain
             if (typeof Buildings === 'undefined' || !Buildings.getAll) continue;
             var buildings = Buildings.getAll();
             var rangeSq = enemy.drainRange * enemy.drainRange;
