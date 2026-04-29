@@ -535,7 +535,7 @@ var Input = (function () {
                 }
                 var enemy = _getEnemyAtWorld(wx, wy);
                 if (enemy && typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
-                    Enemies.damageEnemy(enemy.id, enemy.hp + 1000, 1.0);
+                    Enemies.damageEnemy(enemy.id, enemy.hp + 1000, 1.0, 'debug');
                 }
             });
 
