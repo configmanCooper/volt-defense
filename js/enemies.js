@@ -2620,7 +2620,7 @@ var Enemies = (function () {
                 // Allow debug kills (extremely high damage)
                 if (enemy.mechanic === 'nexus' && damage < enemy.maxHp * 10) {
                     if (weaponType === 'plasma_cannon' || weaponType === 'fusion_beam') {
-                        damage = damage * 0.1;
+                        damage = damage * 0.05;
                     } else {
                         return false; // no damage from non-uranium
                     }
