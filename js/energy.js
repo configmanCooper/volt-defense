@@ -220,10 +220,13 @@ var Energy = (function() {
 
             _tickCounter++;
 
-            // NaN energy recovery
+            // NaN energy/HP recovery
             for (i = 0; i < allBuildings.length; i++) {
                 if (allBuildings[i].energy !== allBuildings[i].energy) {
                     allBuildings[i].energy = 0;
+                }
+                if (allBuildings[i].hp !== allBuildings[i].hp) {
+                    allBuildings[i].hp = allBuildings[i].maxHp || 100;
                 }
             }
 
