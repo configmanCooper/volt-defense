@@ -2668,13 +2668,23 @@ var Enemies = (function () {
                     _totalKills++;
                     _totalScore += (def && def.scoreValue) ? def.scoreValue : 1;
 
-                    // Swarm mother / nexus: kill all spawned enemies on boss death
-                    if (enemy.spawnedIds && enemy.spawnedIds.length > 0) {
+                    // Swarm mother: kill all spawned enemies on boss death
+                    // Nexus spawns survive after nexus dies
+                    if (enemy.mechanic !== 'nexus' && enemy.spawnedIds && enemy.spawnedIds.length > 0) {
                         for (var si = _enemies.length - 1; si >= 0; si--) {
                             if (_enemies[si].parentBossId === enemy.id) {
                                 _enemies.splice(si, 1);
                                 // Adjust i if needed
                                 if (si < i) i--;
+                            }
+                        }
+                    }
+
+                    // When nexus dies, clear parentBossId on surviving spawns
+                    if (enemy.mechanic === 'nexus') {
+                        for (var ci = 0; ci < _enemies.length; ci++) {
+                            if (_enemies[ci].parentBossId === enemy.id) {
+                                _enemies[ci].parentBossId = null;
                             }
                         }
                     }
@@ -2698,14 +2708,14 @@ var Enemies = (function () {
                                     }
                                     _totalKills++;
                                     _totalScore += (pDef && pDef.scoreValue) ? pDef.scoreValue : 1;
-                                    // Kill nexus spawns too
+                                    // Clear parentBossId on surviving spawns
                                     var nexusId = _enemies[pi].id;
-                                    _enemies.splice(pi, 1);
                                     for (var ns = _enemies.length - 1; ns >= 0; ns--) {
                                         if (_enemies[ns].parentBossId === nexusId) {
-                                            _enemies.splice(ns, 1);
+                                            _enemies[ns].parentBossId = null;
                                         }
                                     }
+                                    _enemies.splice(pi, 1);
                                 }
                                 break;
                             }
