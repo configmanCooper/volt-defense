@@ -2163,7 +2163,7 @@ var Enemies = (function () {
                 if (dx * dx + dy * dy > rangeSq) continue;
 
                 // Must be at least half full
-                var capacity = bDef.energyStorage || 0;
+                var capacity = bDef.energyStorageCapacity || 0;
                 if (bld.scaledStorageCapacity) capacity = bld.scaledStorageCapacity;
                 if (capacity <= 0) continue;
                 if ((bld.energy || 0) < capacity * 0.5) continue;
