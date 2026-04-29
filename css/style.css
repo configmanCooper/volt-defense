@@ -126,6 +126,17 @@ body {
 }
 .hud-btn:hover { border-color: #ffd700; color: #ffd700; }
 
+.hud-speed-label {
+    color: #ffd700;
+    font-size: 13px;
+    font-weight: bold;
+    min-width: 28px;
+    text-align: center;
+    display: inline-block;
+    vertical-align: middle;
+}
+.hud-speed-btn { font-size: 12px !important; padding: 2px 4px !important; }
+
 /* Pollution severity colors */
 .pollution-clean { color: #4caf50; }
 .pollution-low { color: #cddc39; }

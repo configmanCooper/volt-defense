@@ -862,6 +862,16 @@ var Input = (function () {
                     }
                 }
 
+                // Game speed controls: + (speed up), - (slow down)
+                if (e.key === '+' || e.key === '=') {
+                    if (typeof Main !== 'undefined' && Main.cycleSpeedUp) Main.cycleSpeedUp();
+                    e.preventDefault();
+                }
+                if (e.key === '-' || e.key === '_') {
+                    if (typeof Main !== 'undefined' && Main.cycleSpeedDown) Main.cycleSpeedDown();
+                    e.preventDefault();
+                }
+
                 // Number keys 1–8 for category selection
                 if (e.key >= '1' && e.key <= '9') {
                     var catIndex = parseInt(e.key) - 1;

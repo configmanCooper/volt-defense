@@ -338,6 +338,8 @@ var UI = (function () {
                     '&nbsp; Scroll wheel &nbsp; Zoom<br>' +
                     '<b>Game</b><br>' +
                     '&nbsp; <kbd>P</kbd> &nbsp; Pause / Resume<br>' +
+                    '&nbsp; <kbd>+</kbd> / <kbd>=</kbd> &nbsp; Speed up<br>' +
+                    '&nbsp; <kbd>-</kbd> &nbsp; Slow down<br>' +
                     '</div>',
                     [{ label: 'Got it!', action: 'close-modal', className: 'menu-btn' }]
                 );

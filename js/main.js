@@ -9,17 +9,24 @@ var Main = (function () {
     var _initialized = false;
     var _selectedDifficulty = 'volt';
     var _lastFrameTime = 0;
+    var _gameSpeed = 1;
+    var _speedSteps = [0.5, 1, 2, 3];
 
     // ---- Internal helpers ---------------------------------------------------
 
     function _getTickRate() {
-        return (typeof Config !== 'undefined' && Config.TICK_RATE) ? Config.TICK_RATE : 100;
+        var base = (typeof Config !== 'undefined' && Config.TICK_RATE) ? Config.TICK_RATE : 100;
+        return Math.round(base / _gameSpeed);
     }
 
     /**
      * Start a new game with the chosen difficulty.
      */
     function _startGame(difficulty) {
+        _gameSpeed = 1;
+        var label = document.getElementById('speed-label');
+        if (label) label.textContent = '1x';
+
         var seed = Date.now() % 2147483647;
         if (seed <= 0) seed = 1;
 
@@ -111,6 +118,30 @@ var Main = (function () {
     // ---- Game loops ---------------------------------------------------------
 
     function _startLoops() {
+        _restartTickInterval();
+
+        _lastFrameTime = performance.now();
+
+        function renderFrame(timestamp) {
+            var dt = (timestamp - _lastFrameTime) / 1000;
+            _lastFrameTime = timestamp;
+            if (dt > 0.1) dt = 0.1;
+
+            if (typeof Input !== 'undefined' && typeof Input.update === 'function') {
+                Input.update(dt);
+            }
+
+            if (typeof Render !== 'undefined' && typeof Render.draw === 'function') {
+                Render.draw(timestamp);
+            }
+
+            _renderLoop = requestAnimationFrame(renderFrame);
+        }
+
+        _renderLoop = requestAnimationFrame(renderFrame);
+    }
+
+    function _restartTickInterval() {
         if (_tickInterval) clearInterval(_tickInterval);
         _tickInterval = setInterval(function () {
             if (typeof Engine === 'undefined') return;
@@ -147,26 +178,6 @@ var Main = (function () {
                 }
             }
         }, _getTickRate());
-
-        _lastFrameTime = performance.now();
-
-        function renderFrame(timestamp) {
-            var dt = (timestamp - _lastFrameTime) / 1000;
-            _lastFrameTime = timestamp;
-            if (dt > 0.1) dt = 0.1;
-
-            if (typeof Input !== 'undefined' && typeof Input.update === 'function') {
-                Input.update(dt);
-            }
-
-            if (typeof Render !== 'undefined' && typeof Render.draw === 'function') {
-                Render.draw(timestamp);
-            }
-
-            _renderLoop = requestAnimationFrame(renderFrame);
-        }
-
-        _renderLoop = requestAnimationFrame(renderFrame);
     }
 
     function _stopLoops() {
@@ -413,6 +424,16 @@ var Main = (function () {
                 if (typeof Music === 'undefined') return;
                 Music.setVolume(parseInt(volumeSlider.value, 10) / 100);
             });
+        }
+
+        // Speed control buttons
+        var speedUpBtn = document.getElementById('btn-speed-up');
+        var speedDownBtn = document.getElementById('btn-speed-down');
+        if (speedUpBtn) {
+            speedUpBtn.addEventListener('click', function () { _cycleSpeedUp(); });
+        }
+        if (speedDownBtn) {
+            speedDownBtn.addEventListener('click', function () { _cycleSpeedDown(); });
         }
     }
 
@@ -665,11 +686,39 @@ var Main = (function () {
 
     // ---- Public API ---------------------------------------------------------
 
+    function _setGameSpeed(speed) {
+        _gameSpeed = speed;
+        var label = document.getElementById('speed-label');
+        if (label) label.textContent = speed + 'x';
+        // Restart tick interval with new rate
+        if (_tickInterval) {
+            _restartTickInterval();
+        }
+    }
+
+    function _cycleSpeedUp() {
+        var idx = _speedSteps.indexOf(_gameSpeed);
+        if (idx < _speedSteps.length - 1) {
+            _setGameSpeed(_speedSteps[idx + 1]);
+        }
+    }
+
+    function _cycleSpeedDown() {
+        var idx = _speedSteps.indexOf(_gameSpeed);
+        if (idx > 0) {
+            _setGameSpeed(_speedSteps[idx - 1]);
+        }
+    }
+
     return {
         startGame: _startGame,
         loadGame: _loadGame,
         refreshSlotList: _refreshSlotList,
         showSavePanel: _showPauseSavePanel,
-        isInitialized: function () { return _initialized; }
+        isInitialized: function () { return _initialized; },
+        setGameSpeed: _setGameSpeed,
+        getGameSpeed: function () { return _gameSpeed; },
+        cycleSpeedUp: _cycleSpeedUp,
+        cycleSpeedDown: _cycleSpeedDown
     };
 })();
