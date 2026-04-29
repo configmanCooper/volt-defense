@@ -1053,6 +1053,21 @@ var Enemies = (function () {
             enemy.nexusLaserTargets = [];
         }
 
+        // Energy drain mechanic (overload boss)
+        if (def.mechanic === 'energy_drain') {
+            enemy.drainRange = def.drainRange || 300;
+            enemy.drainRate = def.drainRate || 10;
+            enemy.drainThreshold = def.drainThreshold || 500;
+            enemy.drainZapDuration = (def.drainZapDuration || 2) * Config.TICKS_PER_SECOND;
+            enemy.drainZapDPS = Math.round((def.drainZapDPS || 25) * (difficulty.enemyDamageMult || 1));
+            enemy.drainCooldown = (def.drainCooldown || 15) * Config.TICKS_PER_SECOND;
+            enemy.drainAbsorbed = 0;
+            enemy.drainState = 'idle'; // idle | draining | zapping | cooldown
+            enemy.drainTimer = 0;
+            enemy.drainTargets = [];
+            enemy.drainZapTarget = null;
+        }
+
         // Flying enemies always use direct path (straight line to core)
         if (def.special === 'flying') {
             enemy.path = _directPath(spawnX, spawnY, _getCorePosition().x, _getCorePosition().y);
@@ -1492,6 +1507,11 @@ var Enemies = (function () {
             if (_handleRangedAttack(enemy)) {
                 return; // enemy is attacking from range, don't move
             }
+        }
+
+        // Overload boss: stop while draining or zapping
+        if (enemy.mechanic === 'energy_drain' && (enemy.drainState === 'draining' || enemy.drainState === 'zapping')) {
+            return;
         }
 
         // Flying bomber: check for buildings below and bomb them
@@ -2072,6 +2092,134 @@ var Enemies = (function () {
         }
     }
 
+    // ---- Energy Drain Mechanics (Overload Boss) ----------------------------
+
+    function _handleOverloadDrainMechanics() {
+        for (var i = 0; i < _enemies.length; i++) {
+            var enemy = _enemies[i];
+            if (enemy.mechanic !== 'energy_drain') continue;
+            if (enemy.hp <= 0) continue;
+            if (enemy.stunTimer > 0) continue;
+
+            enemy.drainTargets = [];
+            enemy.drainZapTarget = null;
+
+            if (enemy.drainState === 'cooldown') {
+                enemy.drainTimer--;
+                if (enemy.drainTimer <= 0) {
+                    enemy.drainState = 'idle';
+                }
+                continue;
+            }
+
+            if (enemy.drainState === 'zapping') {
+                enemy.drainTimer--;
+                // Find the weapon target and damage it
+                if (enemy._zapTargetId && typeof Buildings !== 'undefined' && Buildings.getAll) {
+                    var allB = Buildings.getAll();
+                    for (var zi = 0; zi < allB.length; zi++) {
+                        if (allB[zi].id === enemy._zapTargetId && allB[zi].hp > 0) {
+                            var zapDef = Config.BUILDINGS[allB[zi].type];
+                            var bCX = allB[zi].worldX + (zapDef ? (zapDef.size[0] * Config.GRID_CELL_SIZE) / 2 : 0);
+                            var bCY = allB[zi].worldY + (zapDef ? (zapDef.size[1] * Config.GRID_CELL_SIZE) / 2 : 0);
+                            var dmgPerTick = enemy.drainZapDPS / Config.TICKS_PER_SECOND;
+                            allB[zi].hp -= dmgPerTick;
+                            if (allB[zi].hp < 0) allB[zi].hp = 0;
+                            enemy.drainZapTarget = { x: bCX, y: bCY };
+                            break;
+                        }
+                    }
+                }
+                if (enemy.drainTimer <= 0) {
+                    enemy.drainAbsorbed = 0;
+                    enemy.drainState = 'cooldown';
+                    enemy.drainTimer = enemy.drainCooldown;
+                    enemy._zapTargetId = null;
+                }
+                continue;
+            }
+
+            // idle or draining state: look for batteries/capacitors to drain
+            if (typeof Buildings === 'undefined' || !Buildings.getAll) continue;
+            var buildings = Buildings.getAll();
+            var rangeSq = enemy.drainRange * enemy.drainRange;
+            var drainPerTick = enemy.drainRate / Config.TICKS_PER_SECOND;
+            var foundTarget = false;
+
+            for (var b = 0; b < buildings.length; b++) {
+                var bld = buildings[b];
+                if (bld.hp <= 0) continue;
+                var bDef = Config.BUILDINGS[bld.type];
+                if (!bDef) continue;
+                // Only target batteries and capacitors (storage category)
+                if (bDef.category !== 'storage') continue;
+                // Skip consumer batteries
+                if (bld.type === 'consumer_battery') continue;
+
+                var bldCX = bld.worldX + (bDef.size[0] * Config.GRID_CELL_SIZE) / 2;
+                var bldCY = bld.worldY + (bDef.size[1] * Config.GRID_CELL_SIZE) / 2;
+                var dx = bldCX - enemy.x;
+                var dy = bldCY - enemy.y;
+                if (dx * dx + dy * dy > rangeSq) continue;
+
+                // Must be at least half full
+                var capacity = bDef.energyStorage || 0;
+                if (bld.scaledStorageCapacity) capacity = bld.scaledStorageCapacity;
+                if (capacity <= 0) continue;
+                if ((bld.energy || 0) < capacity * 0.5) continue;
+
+                // Drain energy
+                var available = bld.energy || 0;
+                var drained = Math.min(drainPerTick, available);
+                bld.energy -= drained;
+                enemy.drainAbsorbed += drained;
+                foundTarget = true;
+
+                enemy.drainTargets.push({ x: bldCX, y: bldCY });
+            }
+
+            if (foundTarget) {
+                enemy.drainState = 'draining';
+            } else if (enemy.drainState === 'draining') {
+                // No targets in range anymore, resume moving
+                enemy.drainState = 'idle';
+            }
+
+            // Check if threshold reached — find closest weapon and zap it
+            if (enemy.drainAbsorbed >= enemy.drainThreshold) {
+                var closestWeapon = null;
+                var closestDist = Infinity;
+                var allBlds = Buildings.getAll();
+                for (var w = 0; w < allBlds.length; w++) {
+                    var wb = allBlds[w];
+                    if (wb.hp <= 0) continue;
+                    var wDef = Config.BUILDINGS[wb.type];
+                    if (!wDef || wDef.category !== 'weapons') continue;
+                    var wCX = wb.worldX + (wDef.size[0] * Config.GRID_CELL_SIZE) / 2;
+                    var wCY = wb.worldY + (wDef.size[1] * Config.GRID_CELL_SIZE) / 2;
+                    var wdx = wCX - enemy.x;
+                    var wdy = wCY - enemy.y;
+                    var wDistSq = wdx * wdx + wdy * wdy;
+                    if (wDistSq > rangeSq) continue;
+                    if (wDistSq < closestDist) {
+                        closestDist = wDistSq;
+                        closestWeapon = wb;
+                    }
+                }
+                if (closestWeapon) {
+                    enemy.drainState = 'zapping';
+                    enemy.drainTimer = enemy.drainZapDuration;
+                    enemy._zapTargetId = closestWeapon.id;
+                } else {
+                    // No weapon in range, reset and cooldown
+                    enemy.drainAbsorbed = 0;
+                    enemy.drainState = 'cooldown';
+                    enemy.drainTimer = enemy.drainCooldown;
+                }
+            }
+        }
+    }
+
     // ---- Public API --------------------------------------------------------
 
     return {
@@ -2161,6 +2309,9 @@ var Enemies = (function () {
 
             // 2d. Handle nexus laser mechanics
             _handleNexusLaserMechanics();
+
+            // 2e. Handle overload boss energy drain mechanics
+            _handleOverloadDrainMechanics();
 
             // 3. Tick ranged effects (decay timers)
             for (var ri = _rangedEffects.length - 1; ri >= 0; ri--) {

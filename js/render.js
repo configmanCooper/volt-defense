@@ -2532,6 +2532,18 @@ var Render = (function () {
                 e.isReflecting = false; // reset each frame
             }
 
+            // Overload boss draining/zapping glow
+            if (e.mechanic === 'energy_drain') {
+                if (e.drainState === 'draining') {
+                    var drainGlow = 0.5 + Math.sin(_animFrame * 0.15) * 0.3;
+                    ctx.shadowBlur = 18;
+                    ctx.shadowColor = 'rgba(100, 150, 255, ' + drainGlow + ')';
+                } else if (e.drainState === 'zapping') {
+                    ctx.shadowBlur = 24;
+                    ctx.shadowColor = '#aaccff';
+                }
+            }
+
             // Flying enemy: draw shadow underneath, then offset drawing upward
             var flyOffset = 0;
             var ejx = e.jitterX || 0;
@@ -2599,6 +2611,110 @@ var Render = (function () {
             hpRatio = e.hp / e.maxHp;
             if (hpRatio < 1) {
                 _drawHPBar(ctx, ex, ey - r, r * 2, hpRatio);
+            }
+
+            // Overload boss energy drain / zap visuals
+            if (e.mechanic === 'energy_drain') {
+                // Draining: draw energy beams from batteries to boss
+                if (e.drainState === 'draining' && e.drainTargets && e.drainTargets.length > 0) {
+                    ctx.save();
+                    for (var di = 0; di < e.drainTargets.length; di++) {
+                        var dt = e.drainTargets[di];
+                        var dtSX = Math.floor(dt.x);
+                        var dtSY = Math.floor(dt.y);
+                        // Pulsing energy beam from building to boss
+                        var drainPulse = 0.4 + Math.sin(_animFrame * 0.2 + di) * 0.2;
+                        ctx.strokeStyle = 'rgba(100, 150, 255, ' + drainPulse + ')';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(dtSX, dtSY);
+                        // Jagged beam
+                        var ddx = ex - dtSX;
+                        var ddy = ey - dtSY;
+                        for (var ds = 1; ds < 4; ds++) {
+                            var dtt = ds / 4;
+                            ctx.lineTo(
+                                Math.floor(dtSX + ddx * dtt + (Math.random() - 0.5) * 10),
+                                Math.floor(dtSY + ddy * dtt + (Math.random() - 0.5) * 10)
+                            );
+                        }
+                        ctx.lineTo(ex, ey);
+                        ctx.stroke();
+                        // Flowing particles along beam
+                        var particleT = (_animFrame * 0.05 + di * 0.3) % 1;
+                        var ppx = dtSX + ddx * particleT;
+                        var ppy = dtSY + ddy * particleT;
+                        ctx.fillStyle = '#88ccff';
+                        ctx.shadowBlur = 6;
+                        ctx.shadowColor = '#4488ff';
+                        ctx.beginPath();
+                        ctx.arc(Math.floor(ppx), Math.floor(ppy), 3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                    ctx.restore();
+                }
+                // Zapping: draw tesla-like lightning from boss to weapon
+                if (e.drainState === 'zapping' && e.drainZapTarget) {
+                    ctx.save();
+                    var zt = e.drainZapTarget;
+                    var ztSX = Math.floor(zt.x);
+                    var ztSY = Math.floor(zt.y);
+                    // Main bolt
+                    ctx.strokeStyle = '#aaccff';
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#6688ff';
+                    ctx.beginPath();
+                    ctx.moveTo(ex, ey);
+                    var zdx = ztSX - ex;
+                    var zdy = ztSY - ey;
+                    var segs = 6;
+                    for (var zs = 1; zs < segs; zs++) {
+                        var zt2 = zs / segs;
+                        ctx.lineTo(
+                            Math.floor(ex + zdx * zt2 + (Math.random() - 0.5) * 16),
+                            Math.floor(ey + zdy * zt2 + (Math.random() - 0.5) * 16)
+                        );
+                    }
+                    ctx.lineTo(ztSX, ztSY);
+                    ctx.stroke();
+                    // Secondary thinner bolt
+                    ctx.strokeStyle = 'rgba(200, 220, 255, 0.6)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(ex, ey);
+                    for (var zs2 = 1; zs2 < segs; zs2++) {
+                        var zt3 = zs2 / segs;
+                        ctx.lineTo(
+                            Math.floor(ex + zdx * zt3 + (Math.random() - 0.5) * 20),
+                            Math.floor(ey + zdy * zt3 + (Math.random() - 0.5) * 20)
+                        );
+                    }
+                    ctx.lineTo(ztSX, ztSY);
+                    ctx.stroke();
+                    // Impact flash at target
+                    var zapFlash = 0.5 + Math.sin(_animFrame * 0.3) * 0.3;
+                    ctx.fillStyle = 'rgba(150, 200, 255, ' + zapFlash + ')';
+                    ctx.beginPath();
+                    ctx.arc(ztSX, ztSY, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Crackling arcs around impact
+                    ctx.strokeStyle = 'rgba(180, 220, 255, 0.7)';
+                    ctx.lineWidth = 1;
+                    for (var za = 0; za < 4; za++) {
+                        var zAngle = Math.random() * Math.PI * 2;
+                        var zLen = 8 + Math.random() * 10;
+                        ctx.beginPath();
+                        ctx.moveTo(ztSX, ztSY);
+                        ctx.lineTo(
+                            Math.floor(ztSX + Math.cos(zAngle) * zLen),
+                            Math.floor(ztSY + Math.sin(zAngle) * zLen)
+                        );
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
             }
         }
     }

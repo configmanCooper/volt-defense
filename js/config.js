@@ -1557,9 +1557,16 @@ var Config = {
             scoreValue: 50,
             icon: '⚡👑',
             special: 'boss',
+            mechanic: 'energy_drain',
+            drainRange: 300,
+            drainRate: 10,
+            drainThreshold: 500,
+            drainZapDuration: 2,
+            drainZapDPS: 25,
+            drainCooldown: 15,
             firstWave: 20,
             isBoss: true,
-            description: 'The first true boss enemy — a massive, crackling entity of pure overloaded energy. With 3000 HP, 15 armor, and 80 damage, the Overload Boss is a supreme test of your entire defense network. It moves slowly but absorbs enormous punishment, requiring your best weapons at full ramp to take down. The $1000 kill reward is well-earned. Prepare everything you have. Boss enemy — targets the core.'
+            description: 'The first true boss enemy — a massive, crackling entity of pure overloaded energy. With 3000 HP, 15 armor, and 67 damage, the Overload Boss is a supreme test of your entire defense network. It moves slowly but absorbs enormous punishment. When near batteries or capacitors that are at least half full, it stops and drains 10 energy per second. After absorbing 500 energy it targets the closest weapon within 300 pixels and fires a devastating lightning bolt dealing 25 damage per second for 2 seconds, then enters a 15-second cooldown. The $1000 kill reward is well-earned. Boss enemy — drains energy, zaps weapons.'
         },
         scout_drone: {
             name: 'Scout Drone',
