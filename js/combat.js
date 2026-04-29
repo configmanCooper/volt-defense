@@ -614,6 +614,7 @@ var Combat = (function() {
             ? Config.MISSILE_HOMING_ANGLE : 15;
         var homingRad = homingAngle * Math.PI / 180;
         var hitDist = 15;
+        var bossHitDist = 28;
         var surviving = [];
 
         for (var i = 0; i < _projectiles.length; i++) {
@@ -643,7 +644,8 @@ var Combat = (function() {
                 p.distanceTraveled += pMoveDist;
 
                 var pHitDist = _distance(p.x, p.y, pTarget.x, pTarget.y);
-                if (pHitDist <= hitDist) {
+                var pHitThreshold = (pTarget.isBoss) ? bossHitDist : hitDist;
+                if (pHitDist <= pHitThreshold) {
                     if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
                         Enemies.damageEnemy(p.targetId, p.damage, p.armorBypass || 1.0);
                     }
@@ -679,7 +681,8 @@ var Combat = (function() {
                 p.distanceTraveled += bMoveDist;
 
                 var bHitDist = _distance(p.x, p.y, bTarget.x, bTarget.y);
-                if (bHitDist <= hitDist) {
+                var bHitThreshold = (bTarget.isBoss) ? bossHitDist : hitDist;
+                if (bHitDist <= bHitThreshold) {
                     // Reflector check: blaster reflects back to source building
                     var bTargetDef = _getEnemyDef(bTarget.type);
                     if ((bTargetDef && bTargetDef.mechanic === 'reflects') || bTarget.mechanic === 'reflects') {
@@ -769,7 +772,8 @@ var Combat = (function() {
 
             // Hit check
             var distToTarget = _distance(p.x, p.y, target.x, target.y);
-            if (distToTarget <= hitDist) {
+            var mHitThreshold = (target.isBoss) ? bossHitDist : hitDist;
+            if (distToTarget <= mHitThreshold) {
                 var actualDmg = p.damage;
                 var targetDef = _getEnemyDef(target.type);
                 if ((targetDef && targetDef.mechanic === 'missile_resist') || target.mechanic === 'missile_resist') {
