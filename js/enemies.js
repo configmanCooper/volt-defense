@@ -2213,7 +2213,7 @@ var Enemies = (function () {
                 // Drain energy
                 var available = bld.energy || 0;
                 var drained = Math.min(drainPerTick, available);
-                bld.energy -= drained;
+                bld.energy = available - drained;
                 enemy.drainAbsorbed += drained;
                 foundTarget = true;
 

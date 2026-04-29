@@ -220,6 +220,13 @@ var Energy = (function() {
 
             _tickCounter++;
 
+            // NaN energy recovery
+            for (i = 0; i < allBuildings.length; i++) {
+                if (allBuildings[i].energy !== allBuildings[i].energy) {
+                    allBuildings[i].energy = 0;
+                }
+            }
+
             // ============================================================
             // Day/Night cycle update
             // ============================================================
