@@ -197,8 +197,12 @@ var Buildings = (function() {
         var count = _countConsumerBatteries();
         var baseCost = (typeof Config !== 'undefined' && Config.BUILDINGS && Config.BUILDINGS.consumer_battery)
             ? Config.BUILDINGS.consumer_battery.cost.money : 400;
+        // Apply difficulty multiplier first, then scale by count
+        if (typeof Engine !== 'undefined' && typeof Engine.applyDifficultyToCost === 'function') {
+            baseCost = Engine.applyDifficultyToCost({ money: baseCost }).money || baseCost;
+        }
         var scaled = Math.round(baseCost * Math.pow(1.25, count));
-        return Math.min(scaled, 1000);
+        return scaled;
     }
 
     function _getConsumerBatteryScaledStorage() {

@@ -10,7 +10,7 @@ var Main = (function () {
     var _selectedDifficulty = 'volt';
     var _lastFrameTime = 0;
     var _gameSpeed = 1;
-    var _speedSteps = [0.5, 1, 2, 3];
+    var _speedSteps = [1, 2, 3];
 
     // ---- Internal helpers ---------------------------------------------------
 
