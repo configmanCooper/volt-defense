@@ -414,6 +414,21 @@ var UI = (function () {
         }
     }
 
+    function _getScoreTier(score) {
+        if (score >= 50000) return { grade: 'HOW?', title: 'Force of Nature', color: '#ff00ff' };
+        if (score >= 47000) return { grade: 'AAA', title: "Tesla's Heir", color: '#ff4444' };
+        if (score >= 42000) return { grade: 'AA+', title: 'Lightning Rod', color: '#ff8800' };
+        if (score >= 35000) return { grade: 'AA', title: 'Dynamo', color: '#ffcc00' };
+        if (score >= 28000) return { grade: 'A+', title: 'Grid Master', color: '#44ff44' };
+        if (score >= 20000) return { grade: 'A', title: 'Power Surge', color: '#44ddff' };
+        if (score >= 15000) return { grade: 'B+', title: 'High Voltage', color: '#88aaff' };
+        if (score >= 10000) return { grade: 'B', title: 'Charged', color: '#aaaaff' };
+        if (score >= 6000) return { grade: 'C+', title: 'Grounded', color: '#cccccc' };
+        if (score >= 3000) return { grade: 'C', title: 'Wired', color: '#aaaaaa' };
+        if (score >= 1000) return { grade: 'D', title: 'Flickering', color: '#888888' };
+        return { grade: 'F', title: 'Blackout', color: '#666666' };
+    }
+
     function _renderPriorityModal(ordered) {
         var html = '<div style="max-width:420px;margin:0 auto;">';
         html += '<p style="font-size:12px;color:#aaa;margin-bottom:12px;">Drag items to reorder. Drop onto another item to give them equal priority. Drag out of a group to separate.</p>';
@@ -2023,6 +2038,8 @@ var UI = (function () {
             _renderPriorityModal(ordered);
         },
 
+        // ---- Score Tiers ----
+
         // ---- Game over ----
 
         showGameOver: function (stats) {
@@ -2035,12 +2052,14 @@ var UI = (function () {
             var timeStr = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
 
             var score = (stats && stats.score != null) ? stats.score : 0;
+            var tier = _getScoreTier(score);
 
             var content = '';
             content += '<div class="gameover-stat">🌊 Waves Survived: <strong>' + waveReached + '</strong></div>';
             content += '<div class="gameover-stat">💀 Enemies Killed: <strong>' + UI.formatNumber(enemiesKilled) + '</strong></div>';
             content += '<div class="gameover-stat">⏱️ Time Played: <strong>' + timeStr + '</strong></div>';
             content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumber(score) + '</strong></div>';
+            content += '<div class="gameover-stat" style="font-size:1.2em;margin-top:4px;">⚡ Rank: <strong style="color:' + tier.color + ';">' + tier.grade + '</strong> — <em>' + tier.title + '</em></div>';
 
             UI.showModal('⚡ Game Over ⚡', content, [
                 { label: '🏠 Return to Menu', action: 'return-to-menu', className: 'modal-btn modal-btn-primary' }
@@ -2058,6 +2077,7 @@ var UI = (function () {
             var timeStr = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
 
             var score = (stats && stats.score != null) ? stats.score : 0;
+            var tier = _getScoreTier(score);
 
             var diffNames = { watt: 'Watt (Easy)', volt: 'Volt (Normal)', amp: 'Amp (Hard)', lightning: 'Lightning (Extreme)' };
             var diffName = diffNames[diffKey] || diffKey;
@@ -2069,6 +2089,7 @@ var UI = (function () {
             content += '<div class="gameover-stat">💀 Enemies Killed: <strong>' + UI.formatNumber(enemiesKilled) + '</strong></div>';
             content += '<div class="gameover-stat">⏱️ Time Played: <strong>' + timeStr + '</strong></div>';
             content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumber(score) + '</strong></div>';
+            content += '<div class="gameover-stat" style="font-size:1.2em;margin-top:4px;">⚡ Rank: <strong style="color:' + tier.color + ';">' + tier.grade + '</strong> — <em>' + tier.title + '</em></div>';
 
             UI.showModal('🏆 VICTORY! 🏆', content, [
                 { label: '🏠 Return to Menu', action: 'return-to-menu', className: 'modal-btn modal-btn-primary' }

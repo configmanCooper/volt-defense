@@ -231,6 +231,9 @@ var Main = (function () {
         var waveCount = (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
             ? Engine.getWave() : 0;
         var rawScore = (waveCount * 100) + killScore;
+        var energyScore = (typeof Energy !== 'undefined' && typeof Energy.getLifetimeGeneration === 'function')
+            ? Math.floor(Energy.getLifetimeGeneration() / 10000) : 0;
+        rawScore += energyScore;
         var finalScore = Math.round(rawScore * _getScoreMult());
 
         var stats = {
@@ -259,6 +262,9 @@ var Main = (function () {
         var waveCount = (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')
             ? Engine.getWave() : 0;
         var rawScore = (waveCount * 100) + killScore;
+        var energyScore = (typeof Energy !== 'undefined' && typeof Energy.getLifetimeGeneration === 'function')
+            ? Math.floor(Energy.getLifetimeGeneration() / 10000) : 0;
+        rawScore += energyScore;
         var finalScore = Math.round(rawScore * _getScoreMult());
 
         var stats = {

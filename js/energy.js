@@ -8,6 +8,7 @@ var Energy = (function() {
         totalStored: 0,
         totalCapacity: 0
     };
+    var _lifetimeGeneration = 0;
 
     // Energy priority order — lower number = higher priority
     var PRIORITY_SHIELDS_ACTIVE = 1;
@@ -812,6 +813,7 @@ var Energy = (function() {
 
             _stats.totalGeneration = totalGeneration * tps;
             _stats.totalConsumption = totalConsumption * tps;
+            _lifetimeGeneration += totalGeneration;
             _stats.totalStored = totalStored;
             _stats.totalCapacity = totalCapacity;
 
@@ -836,6 +838,10 @@ var Energy = (function() {
         // ================================================================
         // Queries
         // ================================================================
+        getLifetimeGeneration: function() {
+            return _lifetimeGeneration;
+        },
+
         getStats: function() {
             return _stats;
         },
@@ -912,6 +918,7 @@ var Energy = (function() {
                     totalCapacity: _stats.totalCapacity
                 },
                 tickCounter: _tickCounter,
+                lifetimeGeneration: _lifetimeGeneration,
                 isDay: _isDay,
                 dayNightTimer: _dayNightTimer,
                 windSpeed: _windSpeed,
@@ -931,6 +938,9 @@ var Energy = (function() {
             }
             if (data.tickCounter !== undefined) {
                 _tickCounter = data.tickCounter;
+            }
+            if (data.lifetimeGeneration !== undefined) {
+                _lifetimeGeneration = data.lifetimeGeneration;
             }
             if (data.isDay !== undefined) _isDay = data.isDay;
             if (data.dayNightTimer !== undefined) _dayNightTimer = data.dayNightTimer;
