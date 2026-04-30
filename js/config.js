@@ -1549,7 +1549,7 @@ var Config = {
         },
         overload_boss: {
             name: 'Overload Boss',
-            hp: 3000,
+            hp: 4000,
             speed: 25,
             damage: 67,
             armor: 15,
@@ -1567,7 +1567,7 @@ var Config = {
             coreDamage: 50,
             firstWave: 20,
             isBoss: true,
-            description: 'The first true boss enemy — a massive, crackling entity of pure overloaded energy. With 3000 HP, 15 armor, and 67 damage, the Overload Boss is a supreme test of your entire defense network. It moves slowly but absorbs enormous punishment. When near batteries, capacitors, or weapons that are at least 25% full, it stops and drains 100 energy per second. After absorbing 1000 energy it becomes charged and keeps moving until a weapon comes within 500 pixels, then stops and fires a devastating lightning bolt dealing 50 damage per second for 4 seconds. If its target is destroyed, it retargets another weapon in range. Then enters a 15-second cooldown. If interrupted while draining, it keeps its partial charge but must wait 3 seconds before draining again. The $1000 kill reward is well-earned. Boss enemy — drains energy, zaps weapons.'
+            description: 'The first true boss enemy — a massive, crackling entity of pure overloaded energy. With 4000 HP, 15 armor, and 67 damage, the Overload Boss is a supreme test of your entire defense network. It moves slowly but absorbs enormous punishment. When near batteries, capacitors, or weapons that are at least 25% full, it stops and drains 100 energy per second. After absorbing 1000 energy it becomes charged and keeps moving until a weapon comes within 500 pixels, then stops and fires a devastating lightning bolt dealing 50 damage per second for 4 seconds. If its target is destroyed, it retargets another weapon in range. Then enters a 15-second cooldown. If interrupted while draining, it keeps its partial charge but must wait 3 seconds before draining again. The $1000 kill reward is well-earned. Boss enemy — drains energy, zaps weapons.'
         },
         scout_drone: {
             name: 'Scout Drone',
@@ -1697,7 +1697,7 @@ var Config = {
         },
         swarm_mother: {
             name: 'Swarm Mother',
-            hp: 5000,
+            hp: 6000,
             speed: 20,
             damage: 50,
             armor: 10,
@@ -1711,13 +1711,14 @@ var Config = {
             spawnCount: 9,
             spawnCooldown: 10,
             spawnDoubleThreshold: 0.5,
+            carapaceMaxBonus: 10,
             coreDamage: 60,
             firstWave: 30,
-            description: 'A terrifying flying brood queen that continuously spawns 3 swarm enemies every 5 seconds as she drifts toward your core. Below 50% HP, her spawning rate doubles to every 2.5 seconds. All spawned swarms die when she is killed. With 5000 HP and 10 armor, she demands focused firepower — but ignoring her spawns will overwhelm your defenses. Flying boss — spawns swarm enemies.'
+            description: 'A terrifying flying brood queen that continuously spawns 3 swarm enemies every 5 seconds as she drifts toward your core. Below 50% HP, her spawning rate doubles to every 2.5 seconds. All spawned swarms die when she is killed. Adaptive Carapace: gains +1 armor for each living swarm she has spawned, up to +10 bonus armor. With 6000 base HP and 10 base armor, she demands focused firepower — but ignoring her spawns will make her even tougher. Flying boss — spawns swarm enemies.'
         },
         quake_titan: {
             name: 'Quake Titan',
-            hp: 6000,
+            hp: 8000,
             speed: 0,
             damage: 30,
             armor: 12,
@@ -1733,11 +1734,11 @@ var Config = {
             jumpCoreDamage: 5,
             coreDamage: 60,
             firstWave: 40,
-            description: 'A massive earth-shaking colossus that does not walk — it leaps. Every 2 seconds, the Quake Titan jumps 50 pixels along its path, sending a devastating shockwave that deals 10 damage to ALL buildings within 300 pixels and 5 damage to the core if in range. With 6000 HP and 12 armor, it is extremely durable. Traditional walls are useless — spread your buildings wide. Boss enemy — AoE shockwave jumper.'
+            description: 'A massive earth-shaking colossus that does not walk — it leaps. Every 2 seconds, the Quake Titan jumps 50 pixels along its path, sending a devastating shockwave that deals 10 damage to ALL buildings within 300 pixels and 5 damage to the core if in range. With 8000 HP and 12 armor, it is extremely durable. Traditional walls are useless — spread your buildings wide. Boss enemy — AoE shockwave jumper.'
         },
         the_nexus: {
             name: 'The Nexus',
-            hp: 2000,
+            hp: 3000,
             speed: 10,
             damage: 0,
             armor: 0,
@@ -1755,7 +1756,7 @@ var Config = {
             nexusDamagePerSpawnKill: 10,
             coreDamage: 100,
             firstWave: 50,
-            description: 'The ultimate boss — a reality-warping nexus that generates 5 random enemies around it every 5 seconds. The Nexus is invulnerable to all direct weapon damage except uranium-based weapons, which deal only 10% damage. It projects a 300-pixel protective shield that reduces all damage to nearby enemies by 75%. The only reliable way to damage it: kill its spawns — each spawn killed deals 10 damage to the Nexus. It fires lasers at ALL buildings within 500 pixels (2 dmg/s each, 20 dmg/s to active shields). With 1000 HP, you must survive its onslaught while systematically destroying its minions. Final boss.'
+            description: 'The ultimate boss — a reality-warping nexus that generates 5 random enemies around it every 5 seconds. The Nexus is invulnerable to all direct weapon damage except uranium-based weapons, which deal only 10% damage. It projects a 300-pixel protective shield that reduces all damage to nearby enemies by 75%. The only reliable way to damage it: kill its spawns — each spawn killed deals 10 damage to the Nexus. It fires lasers at ALL buildings within 500 pixels (2 dmg/s each, 20 dmg/s to active shields). With 3000 HP, you must survive its onslaught while systematically destroying its minions. Final boss.'
         }
     },
 

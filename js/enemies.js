@@ -1030,6 +1030,8 @@ var Enemies = (function () {
             enemy.spawnTimer = enemy.spawnCooldown;
             enemy.spawnDoubleThreshold = def.spawnDoubleThreshold || 0.5;
             enemy.spawnedIds = [];
+            enemy.carapaceMaxBonus = def.carapaceMaxBonus || 0;
+            enemy.baseArmor = enemy.armor;
         }
 
         // Jumper mechanic (quake titan)
@@ -2444,6 +2446,20 @@ var Enemies = (function () {
 
             // 2b. Handle boss spawn mechanics (swarm mother, nexus)
             _handleBossSpawnMechanics();
+
+            // 2b2. Adaptive Carapace — swarm mother gains armor per living swarm
+            for (var ac = 0; ac < _enemies.length; ac++) {
+                var ace = _enemies[ac];
+                if (ace.carapaceMaxBonus && ace.hp > 0) {
+                    var livingSwarms = 0;
+                    for (var ls = 0; ls < _enemies.length; ls++) {
+                        if (_enemies[ls].parentBossId === ace.id && _enemies[ls].hp > 0) {
+                            livingSwarms++;
+                        }
+                    }
+                    ace.armor = ace.baseArmor + Math.min(livingSwarms, ace.carapaceMaxBonus);
+                }
+            }
 
             // 2c. Handle jumper mechanics (quake titan)
             _handleJumperMechanics();
