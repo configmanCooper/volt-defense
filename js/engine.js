@@ -315,9 +315,16 @@ var Engine = (function() {
 
             // Award wave completion bonus
             if (typeof Economy !== 'undefined' && Economy.addMoney) {
-                var base = (typeof Config !== 'undefined' && Config.WAVE_COMPLETION_BASE) ? Config.WAVE_COMPLETION_BASE : 500;
-                var scale = (typeof Config !== 'undefined' && Config.WAVE_COMPLETION_SCALE) ? Config.WAVE_COMPLETION_SCALE : 100;
-                var bonus = base + (_state.wave - 1) * scale;
+                var bonus;
+                if (_state.wave >= 20) {
+                    bonus = 500;
+                } else if (_state.wave >= 10) {
+                    bonus = 750;
+                } else {
+                    var base = (typeof Config !== 'undefined' && Config.WAVE_COMPLETION_BASE) ? Config.WAVE_COMPLETION_BASE : 500;
+                    var scale = (typeof Config !== 'undefined' && Config.WAVE_COMPLETION_SCALE) ? Config.WAVE_COMPLETION_SCALE : 100;
+                    bonus = base + (_state.wave - 1) * scale;
+                }
                 var diff = _getDiff();
                 if (diff && diff.waveBonusMult) bonus = Math.floor(bonus * diff.waveBonusMult);
                 Economy.addMoney(bonus, 'wave_bonus');

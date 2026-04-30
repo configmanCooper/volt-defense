@@ -730,9 +730,12 @@ var Energy = (function() {
                 def = _getDef(building.type);
                 if (!def) continue;
 
-                // Stats accumulation (was Step 4)
-                totalStored += building.energy || 0;
-                totalCapacity += _getBuildingCapacity(building, def);
+                // Stats accumulation — exclude consumer batteries from grid totals
+                var isConsumer = (def.sellPrice && def.maxDischargeRate === 0);
+                if (!isConsumer) {
+                    totalStored += building.energy || 0;
+                    totalCapacity += _getBuildingCapacity(building, def);
+                }
 
                 // Consumer battery sell check
                 if (def.sellPrice && def.maxDischargeRate === 0) {

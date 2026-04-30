@@ -942,7 +942,8 @@ var Buildings = (function() {
                     burstCounter: b.burstCounter || 0,
                     workerShortage: b.workerShortage || false,
                     targetPriority: b.targetPriority || 'closest_core',
-                    targetLock: b.targetLock !== false
+                    targetLock: b.targetLock !== false,
+                    minCluster: b.minCluster != null ? b.minCluster : 2
                 });
             }
             var cableData = [];
@@ -1006,7 +1007,8 @@ var Buildings = (function() {
                         burstCounter: saved.burstCounter || 0,
                         workerShortage: saved.workerShortage || false,
                         targetPriority: saved.targetPriority || 'closest_core',
-                        targetLock: saved.targetLock !== false
+                        targetLock: saved.targetLock !== false,
+                        minCluster: saved.minCluster != null ? saved.minCluster : 2
                     };
 
                     // Re-link miner deposits

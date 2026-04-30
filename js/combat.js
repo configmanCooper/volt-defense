@@ -1262,6 +1262,10 @@ var Combat = (function() {
                 if (bestCount === 0) { bestCount = 1; }
             }
 
+            // Check minimum cluster requirement
+            var minCluster = b.minCluster != null ? b.minCluster : 2;
+            if (bestCount < minCluster) { continue; }
+
             // Check iron
             var ironCost = def.ironPerShot || 2;
             if (typeof Economy !== 'undefined' && Economy.getResource) {

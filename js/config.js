@@ -713,11 +713,11 @@ var Config = {
             baseDamage: 11,
             range: 250,
             energyDraw: 50,
-            chainCount: 3,
+            chainCount: 2,
             chainRange: 150,
             chainDecay: 0.7,
             upgradeTo: null,
-            description: 'Chain lightning hits closest enemy and jumps to up to 3 more within 150px, dealing 70% damage per jump.',
+            description: 'Chain lightning hits closest enemy and jumps to up to 2 more within 150px, dealing 70% damage per jump.',
             icon: '⚡'
         },
 

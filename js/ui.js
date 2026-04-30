@@ -813,10 +813,18 @@ var UI = (function () {
             hpText.textContent = Math.floor(building.hp) + '/' + building.maxHp + ' HP';
         }
 
-        // Update stored energy
+        // Update stored energy and capacity
         var energyText = document.getElementById('info-energy-text');
+        var energyCapEl = document.getElementById('info-energy-cap');
         if (energyText) {
             energyText.textContent = Math.floor(building.energy);
+        }
+        if (energyCapEl) {
+            var bDef = Config.BUILDINGS[building.type];
+            if (bDef) {
+                var cap = (building.scaledStorageCapacity && building.scaledStorageCapacity > 0) ? building.scaledStorageCapacity : (bDef.energyStorageCapacity || 0);
+                energyCapEl.textContent = cap;
+            }
         }
 
         // Update shield HP
@@ -960,8 +968,21 @@ var UI = (function () {
             }
             if (_elements.energy && typeof Energy !== 'undefined' && Energy.getStats) {
                 var eStats = Energy.getStats();
+                var netEnergy = Math.floor(eStats.totalGeneration - eStats.totalConsumption);
+                var netSign = netEnergy >= 0 ? '+' : '';
                 _elements.energy.textContent = Math.floor(eStats.totalStored) + '/' +
-                    eStats.totalCapacity + ' (+' + Math.floor(eStats.totalGeneration) + ')';
+                    eStats.totalCapacity + ' (' + netSign + netEnergy + ')';
+                // Color based on fill ratio
+                var fillRatio = eStats.totalCapacity > 0 ? eStats.totalStored / eStats.totalCapacity : 0;
+                if (fillRatio >= 0.8) {
+                    _elements.energy.style.color = '#d4ffd4';
+                } else if (fillRatio >= 0.5) {
+                    _elements.energy.style.color = '#ffffff';
+                } else if (fillRatio >= 0.25) {
+                    _elements.energy.style.color = '#fff5d4';
+                } else {
+                    _elements.energy.style.color = '#ffd4d4';
+                }
             }
             if (_elements.pollution && Engine.getPollution && Engine.getPollutionLevel) {
                 var poll = Engine.getPollution();
@@ -1325,7 +1346,7 @@ var UI = (function () {
             }
             if (def.energyStorageCapacity > 0) {
                 var displayCap = (building.scaledStorageCapacity && building.scaledStorageCapacity > 0) ? building.scaledStorageCapacity : def.energyStorageCapacity;
-                html += '<div class="info-stat">🔋 Stored: <span id="info-energy-text">' + Math.floor(building.energy) + '</span>/' + displayCap + '</div>';
+                html += '<div class="info-stat">🔋 Stored: <span id="info-energy-text">' + Math.floor(building.energy) + '</span>/<span id="info-energy-cap">' + displayCap + '</span></div>';
             }
 
             // Workers
@@ -1397,6 +1418,20 @@ var UI = (function () {
                     html += '<option value="' + prioOptions[po].value + '"' + (curPrio === prioOptions[po].value ? ' selected' : '') + '>' + prioOptions[po].label + '</option>';
                 }
                 html += '</select></div>';
+
+                // Mortar minimum cluster setting
+                if (building.type === 'mortar') {
+                    var curCluster = building.minCluster != null ? building.minCluster : 2;
+                    var clusterOptions = [1, 2, 4, 6, 8, 10];
+                    html += '<div class="info-stat" style="margin:4px 0 2px;">';
+                    html += '<label style="font-size:11px;color:#aaa;">💥 Min Cluster Size:</label><br>';
+                    html += '<select class="mortar-cluster-select" data-building-id="' + buildingId + '" style="width:100%;margin-top:2px;padding:3px;background:#222;color:#eee;border:1px solid #555;border-radius:3px;font-size:12px;">';
+                    for (var mc = 0; mc < clusterOptions.length; mc++) {
+                        html += '<option value="' + clusterOptions[mc] + '"' + (curCluster === clusterOptions[mc] ? ' selected' : '') + '>' + clusterOptions[mc] + ' enem' + (clusterOptions[mc] === 1 ? 'y' : 'ies') + '</option>';
+                    }
+                    html += '</select></div>';
+                }
+
                 // Target lock checkbox
                 var lockOn = building.targetLock !== false;
                 html += '<div class="info-stat" style="margin:2px 0 4px;">';
@@ -1692,6 +1727,19 @@ var UI = (function () {
 
                 // Wire up target lock checkbox
                 var targetLockCbs = _elements.infoPanel.querySelectorAll('.target-lock-cb');
+
+                // Wire up mortar cluster select
+                var clusterSelects = _elements.infoPanel.querySelectorAll('.mortar-cluster-select');
+                for (var cs = 0; cs < clusterSelects.length; cs++) {
+                    clusterSelects[cs].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        var bld = (typeof Buildings !== 'undefined' && Buildings.getById) ? Buildings.getById(bId) : null;
+                        if (bld) {
+                            bld.minCluster = parseInt(this.value, 10);
+                        }
+                    });
+                }
+
                 for (var tl = 0; tl < targetLockCbs.length; tl++) {
                     targetLockCbs[tl].addEventListener('change', function () {
                         var bId = parseInt(this.getAttribute('data-building-id'), 10);
@@ -1788,8 +1836,37 @@ var UI = (function () {
             if (enemy.special && specialNames[enemy.special]) {
                 html += '<div class="info-stat" style="color:#ffaa00;">' + specialNames[enemy.special] + '</div>';
             }
+            if (def.contactDamage) {
+                html += '<div class="info-stat" style="color:#ffcc00;">⚡ Contact Damage: ' + def.contactDamage + '/s</div>';
+            }
+            if (def.special === 'flying') {
+                html += '<div class="info-stat" style="color:#aaddff;">✈️ Flying — ignores terrain</div>';
+            }
+            if (def.special === 'burrows') {
+                html += '<div class="info-stat" style="color:#c89664;">🕳️ Burrows — bypasses walls</div>';
+            }
+            if (def.mechanic === 'reflects') {
+                html += '<div class="info-stat" style="color:#88ddff;">🪞 Reflects projectiles</div>';
+            }
+            if (def.mechanic === 'energy_drain') {
+                html += '<div class="info-stat" style="color:#88aaff;">🔋 Drains building energy</div>';
+            }
+            if (def.mechanic === 'nexus') {
+                html += '<div class="info-stat" style="color:#aa77ff;">🛡️ Nexus shield aura</div>';
+            }
+            if (def.mechanic === 'spawns') {
+                html += '<div class="info-stat" style="color:#ffcc44;">🥚 Spawns smaller enemies</div>';
+            }
+            if (def.mechanic === 'quake') {
+                html += '<div class="info-stat" style="color:#cc6633;">💥 Quake — damages nearby buildings</div>';
+            }
             if (enemy.wallsToDestroyMax > 0) {
                 html += '<div class="info-stat" style="color:#ff8855;">🔨 Walls: ' + (enemy.wallsDestroyed || 0) + '/' + enemy.wallsToDestroyMax + ' destroyed</div>';
+            }
+
+            // Description from glossary
+            if (def.description) {
+                html += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #444;font-size:11px;line-height:1.4;color:#aaa;">' + def.description + '</div>';
             }
 
             // Status effects
