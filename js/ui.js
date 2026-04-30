@@ -1482,6 +1482,13 @@ var UI = (function () {
                 var smeltTimer = building.smeltTimer || 0;
                 var smeltPct = Math.floor((smeltTimer / smeltInterval) * 100);
                 html += '<div class="info-stat">🔥 Smelting: ' + smeltPct + '% (4⛏️+2🪨 → 2🔩)</div>';
+                // Smelter on/off toggle
+                var smelterOff = building.manualOff || false;
+                html += '<div class="info-stat" style="margin:2px 0 4px;">';
+                html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">';
+                html += '<input type="checkbox" class="smelter-toggle-cb" data-building-id="' + buildingId + '"' + (smelterOff ? '' : ' checked') + '>';
+                html += '<span style="color:' + (smelterOff ? '#ff6666' : '#66ff66') + ';">' + (smelterOff ? '⛔ Smelter OFF' : '✅ Smelter ON') + '</span>';
+                html += '</label></div>';
             }
 
             // Description
@@ -1766,6 +1773,22 @@ var UI = (function () {
                 }
 
                 // Force workers button
+
+                // Wire up smelter on/off toggle
+                var smelterCbs = _elements.infoPanel.querySelectorAll('.smelter-toggle-cb');
+                for (var st = 0; st < smelterCbs.length; st++) {
+                    smelterCbs[st].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        if (typeof Buildings !== 'undefined' && Buildings.toggleManualOff) {
+                            Buildings.toggleManualOff(bId);
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(bId);
+                            }
+                        }
+                    });
+                }
+
+
                 var forceWBtns = _elements.infoPanel.querySelectorAll('.force-workers-btn');
                 for (var fw = 0; fw < forceWBtns.length; fw++) {
                     forceWBtns[fw].addEventListener('click', function () {

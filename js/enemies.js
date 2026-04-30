@@ -2269,8 +2269,8 @@ var Enemies = (function () {
                 if (bld.hp <= 0) continue;
                 var bDef = Config.BUILDINGS[bld.type];
                 if (!bDef) continue;
-                // Only target batteries and capacitors (storage category)
-                if (bDef.category !== 'storage') continue;
+                // Target batteries, capacitors (storage), and weapons
+                if (bDef.category !== 'storage' && bDef.category !== 'weapons') continue;
                 // Skip consumer batteries
                 if (bld.type === 'consumer_battery') continue;
 

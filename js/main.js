@@ -221,6 +221,11 @@ var Main = (function () {
     function _gameOver() {
         _stopLoops();
 
+        // Switch back to normal music if boss music is playing
+        if (typeof Music !== 'undefined' && Music.stopBossMusic) {
+            Music.stopBossMusic();
+        }
+
         var killScore = (typeof Enemies !== 'undefined' && typeof Enemies.getTotalScore === 'function')
             ? Enemies.getTotalScore() : 0;
         var waveCount = (typeof Engine !== 'undefined' && typeof Engine.getWave === 'function')

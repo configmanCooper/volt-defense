@@ -2620,23 +2620,28 @@ var Render = (function () {
         var i, e, r, color, hpRatio;
         var useShadows = _shadowsEnabled();
 
+        // Precompute viewport bounds once
+        var vw = Config.VIEWPORT_WIDTH / _zoom;
+        var vh = Config.VIEWPORT_HEIGHT / _zoom;
+        var vpLeft = _camera.x;
+        var vpRight = _camera.x + vw;
+        var vpTop = _camera.y;
+        var vpBottom = _camera.y + vh;
+
         // Draw nexus shield auras first (behind enemies)
         for (i = 0; i < all.length; i++) {
             e = all[i];
             if (e.mechanic !== 'nexus' || e.hp <= 0) continue;
-            if (!_isInViewport(e.x, e.y, 320)) continue;
+            if (e.x + 320 < vpLeft || e.x - 320 > vpRight || e.y + 320 < vpTop || e.y - 320 > vpBottom) continue;
             var shieldRadius = 300;
             var shimmer = 0.12 + Math.sin(_animFrame * 0.06) * 0.05;
-            // Fill
             ctx.beginPath();
             ctx.arc(Math.floor(e.x), Math.floor(e.y), shieldRadius, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(140, 60, 255, ' + shimmer + ')';
             ctx.fill();
-            // Border
             ctx.strokeStyle = 'rgba(170, 100, 255, 0.5)';
             ctx.lineWidth = 2;
             ctx.stroke();
-            // Inner glow ring
             ctx.strokeStyle = 'rgba(200, 150, 255, 0.2)';
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -2644,34 +2649,37 @@ var Render = (function () {
             ctx.stroke();
         }
 
+        var needsRestore;
         for (i = 0; i < all.length; i++) {
             e = all[i];
             if (e.hp <= 0) continue;
-            if (!_isInViewport(e.x, e.y, 30)) continue;
+            if (e.x + 30 < vpLeft || e.x - 30 > vpRight || e.y + 30 < vpTop || e.y - 30 > vpBottom) continue;
 
             r = ENEMY_RADIUS[e.type] || ENEMY_RADIUS_DEFAULT;
             color = COLORS.ENEMY[e.type] || '#cc3333';
 
-            ctx.save();
+            needsRestore = false;
 
             // Phase walker: semi-transparent
             if (e.special === 'ignores_shields' || e.type === 'phase_walker') {
                 ctx.globalAlpha = 0.5 + Math.sin(_animFrame * 0.15) * 0.2;
+                needsRestore = true;
             }
 
             // Boss: larger size + golden glow
-            var eDef = (typeof Config !== 'undefined' && Config.ENEMIES) ? Config.ENEMIES[e.type] : null;
-            if (e.isBoss || (eDef && eDef.isBoss)) {
+            if (e.isBoss) {
                 r = Math.floor(r * 1.5);
                 if (useShadows) {
                     ctx.shadowBlur = 16;
                     ctx.shadowColor = '#ffd700';
+                    needsRestore = true;
                 }
             }
 
             // Stunned indicator
             if (e.stunTimer && e.stunTimer > 0) {
                 ctx.globalAlpha = 0.6;
+                needsRestore = true;
             }
 
             // Charged plasma parasite: bright glow
@@ -2679,6 +2687,7 @@ var Render = (function () {
                 if (useShadows) {
                     ctx.shadowBlur = 14;
                     ctx.shadowColor = '#ff00ff';
+                    needsRestore = true;
                 }
             }
 
@@ -2688,6 +2697,7 @@ var Render = (function () {
                 if (useShadows) {
                     ctx.shadowBlur = 12;
                     ctx.shadowColor = 'rgba(255, 80, 20, ' + bombGlow + ')';
+                    needsRestore = true;
                 }
             }
 
@@ -2696,6 +2706,7 @@ var Render = (function () {
                 if (useShadows) {
                     ctx.shadowBlur = 10;
                     ctx.shadowColor = '#88ddff';
+                    needsRestore = true;
                 }
                 e.isReflecting = false;
             }
@@ -2707,13 +2718,16 @@ var Render = (function () {
                         var drainGlow = 0.5 + Math.sin(_animFrame * 0.15) * 0.3;
                         ctx.shadowBlur = 18;
                         ctx.shadowColor = 'rgba(100, 150, 255, ' + drainGlow + ')';
+                        needsRestore = true;
                     } else if (e.drainState === 'zapping') {
                         ctx.shadowBlur = 24;
                         ctx.shadowColor = '#aaccff';
+                        needsRestore = true;
                     } else if (e.drainState === 'charged') {
                         var chargeGlow = 0.6 + Math.sin(_animFrame * 0.2) * 0.4;
                         ctx.shadowBlur = 22;
                         ctx.shadowColor = 'rgba(150, 200, 255, ' + chargeGlow + ')';
+                        needsRestore = true;
                     }
                 }
             }
@@ -2779,7 +2793,11 @@ var Render = (function () {
                 }
             }
 
-            ctx.restore();
+            // Reset modified state instead of save/restore
+            if (needsRestore) {
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
 
             // HP bar (only when damaged)
             hpRatio = e.hp / e.maxHp;

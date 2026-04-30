@@ -36,6 +36,24 @@ var Save = (function () {
         }
     }
 
+    // ---- Compression helpers ------------------------------------------------
+
+    function _compress(jsonStr) {
+        if (typeof LZString !== 'undefined' && LZString.compressToUTF16) {
+            return 'LZ:' + LZString.compressToUTF16(jsonStr);
+        }
+        return jsonStr;
+    }
+
+    function _decompress(raw) {
+        if (raw && raw.substring(0, 3) === 'LZ:') {
+            if (typeof LZString !== 'undefined' && LZString.decompressFromUTF16) {
+                return LZString.decompressFromUTF16(raw.substring(3));
+            }
+        }
+        return raw;
+    }
+
     // ---- Serialization helpers ----------------------------------------------
 
     function _getModuleState(moduleName, module) {
@@ -86,7 +104,7 @@ var Save = (function () {
             }
             // Save current state to autosave 1
             var state = _buildState();
-            localStorage.setItem(_getAutosaveKey(1), JSON.stringify(state));
+            localStorage.setItem(_getAutosaveKey(1), _compress(JSON.stringify(state)));
         } catch (e) {
             console.error('Autosave failed:', e);
         }
@@ -117,7 +135,7 @@ var Save = (function () {
             try {
                 var raw = localStorage.getItem(_getSlotKey(n));
                 if (!raw) return null;
-                var data = JSON.parse(raw);
+                var data = JSON.parse(_decompress(raw));
                 var info = {
                     timestamp: data.timestamp || 0,
                     wave: 0,
@@ -145,7 +163,7 @@ var Save = (function () {
             try {
                 var raw = localStorage.getItem(_getAutosaveKey(n));
                 if (!raw) return null;
-                var data = JSON.parse(raw);
+                var data = JSON.parse(_decompress(raw));
                 var info = {
                     timestamp: data.timestamp || 0,
                     wave: 0,
@@ -165,7 +183,7 @@ var Save = (function () {
             try {
                 var raw = localStorage.getItem(_getAutosaveKey(n));
                 if (!raw) return false;
-                var data = JSON.parse(raw);
+                var data = JSON.parse(_decompress(raw));
                 if (!data.version) return false;
                 if (data.version < SAVE_VERSION) {
                     data = _migrate(data);
@@ -207,7 +225,7 @@ var Save = (function () {
             var state = _buildState();
 
             try {
-                localStorage.setItem(_getSlotKey(_currentSlot), JSON.stringify(state));
+                localStorage.setItem(_getSlotKey(_currentSlot), _compress(JSON.stringify(state)));
                 if (typeof UI !== 'undefined' && typeof UI.showToast === 'function') {
                     UI.showToast('Game saved (Slot ' + _currentSlot + ')', 'success', 2000);
                 }
@@ -230,7 +248,7 @@ var Save = (function () {
                 var raw = localStorage.getItem(_getSlotKey(_currentSlot));
                 if (!raw) return false;
 
-                var data = JSON.parse(raw);
+                var data = JSON.parse(_decompress(raw));
                 if (!data.version) return false;
                 if (data.version < SAVE_VERSION) {
                     data = _migrate(data);

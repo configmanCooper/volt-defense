@@ -685,13 +685,28 @@ var Combat = (function() {
                 }
 
                 var pMoveDist = p.speed / tps;
+                var pPrevX = p.x;
+                var pPrevY = p.y;
                 p.x += Math.cos(p.angle) * pMoveDist;
                 p.y += Math.sin(p.angle) * pMoveDist;
                 p.distanceTraveled += pMoveDist;
 
-                var pHitDist = _distance(p.x, p.y, pTarget.x, pTarget.y);
                 var pHitThreshold = (pTarget.isBoss) ? bossHitDist : hitDist;
-                if (pHitDist <= pHitThreshold) {
+                var pSegDx = p.x - pPrevX;
+                var pSegDy = p.y - pPrevY;
+                var pSegLenSq = pSegDx * pSegDx + pSegDy * pSegDy;
+                var pClosestDist;
+                if (pSegLenSq < 0.01) {
+                    pClosestDist = _distance(p.x, p.y, pTarget.x, pTarget.y);
+                } else {
+                    var pt = ((pTarget.x - pPrevX) * pSegDx + (pTarget.y - pPrevY) * pSegDy) / pSegLenSq;
+                    if (pt < 0) pt = 0;
+                    if (pt > 1) pt = 1;
+                    var pcx = pPrevX + pt * pSegDx;
+                    var pcy = pPrevY + pt * pSegDy;
+                    pClosestDist = _distance(pcx, pcy, pTarget.x, pTarget.y);
+                }
+                if (pClosestDist <= pHitThreshold) {
                     if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
                         Enemies.damageEnemy(p.targetId, p.damage, p.armorBypass || 1.0);
                     }
@@ -730,13 +745,29 @@ var Combat = (function() {
                 }
 
                 var bMoveDist = p.speed / tps;
+                var bPrevX = p.x;
+                var bPrevY = p.y;
                 p.x += Math.cos(p.angle) * bMoveDist;
                 p.y += Math.sin(p.angle) * bMoveDist;
                 p.distanceTraveled += bMoveDist;
 
-                var bHitDist = _distance(p.x, p.y, bTarget.x, bTarget.y);
+                // Hit check — use closest point on travel segment to catch overshoot
                 var bHitThreshold = (bTarget.isBoss) ? bossHitDist : hitDist;
-                if (bHitDist <= bHitThreshold) {
+                var bSegDx = p.x - bPrevX;
+                var bSegDy = p.y - bPrevY;
+                var bSegLenSq = bSegDx * bSegDx + bSegDy * bSegDy;
+                var bClosestDist;
+                if (bSegLenSq < 0.01) {
+                    bClosestDist = _distance(p.x, p.y, bTarget.x, bTarget.y);
+                } else {
+                    var bt = ((bTarget.x - bPrevX) * bSegDx + (bTarget.y - bPrevY) * bSegDy) / bSegLenSq;
+                    if (bt < 0) bt = 0;
+                    if (bt > 1) bt = 1;
+                    var bcx = bPrevX + bt * bSegDx;
+                    var bcy = bPrevY + bt * bSegDy;
+                    bClosestDist = _distance(bcx, bcy, bTarget.x, bTarget.y);
+                }
+                if (bClosestDist <= bHitThreshold) {
                     // Reflector check: blaster reflects back to source building
                     var bTargetDef = _getEnemyDef(bTarget.type);
                     if ((bTargetDef && bTargetDef.mechanic === 'reflects') || bTarget.mechanic === 'reflects') {
@@ -832,14 +863,29 @@ var Combat = (function() {
 
             // Move
             var moveDistThisTick = p.speed / tps;
+            var prevX = p.x;
+            var prevY = p.y;
             p.x += Math.cos(p.angle) * moveDistThisTick;
             p.y += Math.sin(p.angle) * moveDistThisTick;
             p.distanceTraveled += moveDistThisTick;
 
-            // Hit check
-            var distToTarget = _distance(p.x, p.y, target.x, target.y);
+            // Hit check — use closest point on travel segment to catch overshoot
             var mHitThreshold = (target.isBoss) ? bossHitDist : hitDist;
-            if (distToTarget <= mHitThreshold) {
+            var segDx = p.x - prevX;
+            var segDy = p.y - prevY;
+            var segLenSq = segDx * segDx + segDy * segDy;
+            var closestDist;
+            if (segLenSq < 0.01) {
+                closestDist = _distance(p.x, p.y, target.x, target.y);
+            } else {
+                var t = ((target.x - prevX) * segDx + (target.y - prevY) * segDy) / segLenSq;
+                if (t < 0) t = 0;
+                if (t > 1) t = 1;
+                var cx = prevX + t * segDx;
+                var cy = prevY + t * segDy;
+                closestDist = _distance(cx, cy, target.x, target.y);
+            }
+            if (closestDist <= mHitThreshold) {
                 var actualDmg = p.damage;
                 var targetDef = _getEnemyDef(target.type);
                 if ((targetDef && targetDef.mechanic === 'missile_resist') || target.mechanic === 'missile_resist') {

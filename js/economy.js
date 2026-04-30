@@ -66,6 +66,7 @@ var Economy = (function () {
             var b = allBldgs[i];
             if (b.type !== 'smelter') { continue; }
             if (!b.active || b.hp <= 0) { continue; }
+            if (b.manualOff) { continue; }
 
             var def = Config.BUILDINGS.smelter;
             if (!def) { continue; }
