@@ -406,9 +406,10 @@ var Enemies = (function () {
      * A* pathfinding to an arbitrary world coordinate.
      * If canSwim is true, water tiles are walkable (but not deep_water).
      * If waterOnly is true, ONLY water tiles are walkable (for river serpents).
+     * If preferWater is true, water tiles cost 1 but non-water tiles cost 8 (serpents stay in rivers).
      * targetBuildingId is optional — buildings are blocked unless they match.
      */
-    function _findPathTo(startX, startY, endX, endY, canSwim, waterOnly, targetBuildingId, ignoreWalls) {
+    function _findPathTo(startX, startY, endX, endY, canSwim, waterOnly, targetBuildingId, ignoreWalls, preferWater) {
         var startGrid = _worldToGrid(startX, startY);
         var endGrid   = _worldToGrid(endX, endY);
 
@@ -480,7 +481,12 @@ var Enemies = (function () {
                 var nk = key(nx, ny);
                 if (closedSet[nk]) continue;
                 if (!isValid(nx, ny)) continue;
-                var tentativeG = current.g + 1;
+                var moveCost = 1;
+                if (preferWater) {
+                    var nTerrain = Map.getTerrain(nx, ny);
+                    if (nTerrain !== Config.TERRAIN_TYPES.water) moveCost = 8;
+                }
+                var tentativeG = current.g + moveCost;
                 var existing = openHeap.get(nk);
                 if (!existing) {
                     var newNode = _getNode();
@@ -693,9 +699,25 @@ var Enemies = (function () {
 
             var matches = false;
             if (enemy.targetCategory === 'water_buildings') {
-                // River serpents target buildings on water tiles (e.g. hydro plants)
+                // River serpents target buildings on or adjacent to water tiles
                 if (def.requiresTerrain === 'water') {
                     matches = true;
+                } else if (typeof Map !== 'undefined' && Map.getTerrain) {
+                    // Check if building is on or adjacent to a river tile
+                    var bGx = b.gridX;
+                    var bGy = b.gridY;
+                    if (Map.getTerrain(bGx, bGy) === Config.TERRAIN_TYPES.water) {
+                        matches = true;
+                    } else {
+                        // Check adjacent tiles for water
+                        var adjDirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+                        for (var ad = 0; ad < adjDirs.length; ad++) {
+                            if (Map.getTerrain(bGx + adjDirs[ad].dx, bGy + adjDirs[ad].dy) === Config.TERRAIN_TYPES.water) {
+                                matches = true;
+                                break;
+                            }
+                        }
+                    }
                 }
             } else if (enemy.targetCategory === 'grid') {
                 // Saboteurs target grid AND storage buildings
@@ -821,23 +843,50 @@ var Enemies = (function () {
     }
 
     /**
-     * Get spawn points from river tiles at map edges.
+     * Get spawn points from river tiles, weighted toward rivers with player buildings.
+     * Returns all river tiles as candidates, with rivers containing nearby buildings duplicated for higher probability.
      */
     function _getRiverSpawnPoints() {
         if (typeof Map === 'undefined' || !Map.getRivers) return [];
         var rivers = Map.getRivers();
         if (!rivers || rivers.length === 0) return [];
         var cellSz = Config.GRID_CELL_SIZE;
-        var gridW = Math.floor(Config.MAP_WIDTH / cellSz);
-        var gridH = Math.floor(Config.MAP_HEIGHT / cellSz);
-        var edgePoints = [];
+        var points = [];
+
+        // Gather all river tiles as potential spawn points
         for (var i = 0; i < rivers.length; i++) {
             var r = rivers[i];
-            if (r.gridX <= 1 || r.gridX >= gridW - 2 || r.gridY <= 1 || r.gridY >= gridH - 2) {
-                edgePoints.push({ x: r.gridX * cellSz + cellSz / 2, y: r.gridY * cellSz + cellSz / 2 });
+            points.push({ x: r.gridX * cellSz + cellSz / 2, y: r.gridY * cellSz + cellSz / 2, hasBuilding: false });
+        }
+
+        if (points.length === 0) return [];
+
+        // Check which river tiles have player buildings nearby (within 3 cells)
+        if (typeof Buildings !== 'undefined' && Buildings.getAll) {
+            var buildings = Buildings.getAll();
+            for (var p = 0; p < points.length; p++) {
+                for (var b = 0; b < buildings.length; b++) {
+                    if (buildings[b].hp <= 0 || buildings[b].type === 'core') continue;
+                    var dx = points[p].x - (buildings[b].worldX || 0);
+                    var dy = points[p].y - (buildings[b].worldY || 0);
+                    if (dx * dx + dy * dy < (cellSz * 3) * (cellSz * 3)) {
+                        points[p].hasBuilding = true;
+                        break;
+                    }
+                }
             }
         }
-        return edgePoints;
+
+        // Build weighted list: river tiles near buildings appear 5x more
+        var weighted = [];
+        for (var w = 0; w < points.length; w++) {
+            var pt = { x: points[w].x, y: points[w].y };
+            weighted.push(pt);
+            if (points[w].hasBuilding) {
+                for (var dup = 0; dup < 4; dup++) weighted.push(pt);
+            }
+        }
+        return weighted;
     }
 
     // ---- Spawning ----------------------------------------------------------
@@ -1574,11 +1623,12 @@ var Enemies = (function () {
                     var targetPos = currentTarget || _findTargetBuilding(enemy);
                     if (targetPos) {
                         var useWaterOnly = false;
-                        if (enemy.special === 'river_spawn' && enemy.targetCategory === 'water_buildings') {
-                            useWaterOnly = true;
+                        var usePreferWater = false;
+                        if (enemy.special === 'river_spawn') {
+                            usePreferWater = true;
                         }
                         var burrows = enemy.special === 'burrows';
-                        var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId, burrows);
+                        var newPath = _findPathTo(enemy.x, enemy.y, targetPos.x, targetPos.y, enemy.canSwim || false, useWaterOnly, targetPos.buildingId, burrows, usePreferWater);
                         if (newPath) {
                             enemy.path = newPath;
                             enemy.pathIndex = newPath.length > 1 ? 1 : 0;
@@ -1598,7 +1648,8 @@ var Enemies = (function () {
                 if (!enemy.targetBuildingId) {
                     var corePos = _getCorePosition();
                     var coreBurrows = enemy.special === 'burrows';
-                    var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null, coreBurrows);
+                    var corePreferWater = (enemy.special === 'river_spawn');
+                    var corePath = _findPathTo(enemy.x, enemy.y, corePos.x, corePos.y, enemy.canSwim || false, false, null, coreBurrows, corePreferWater);
                     if (corePath) {
                         enemy.path = corePath;
                         enemy.pathIndex = corePath.length > 1 ? 1 : 0;
@@ -1792,9 +1843,23 @@ var Enemies = (function () {
         var types = entry.formationGroup;
         var count = types.length;
 
-        var spawnPts = _spawnPoints.length > 0
-            ? _spawnPoints
-            : [{ x: 0, y: Config.MAP_HEIGHT / 2 }];
+        // Check if this formation is all river_spawn types
+        var allRiver = true;
+        for (var rc = 0; rc < types.length; rc++) {
+            var rDef = Config.ENEMIES[types[rc]];
+            if (!rDef || rDef.special !== 'river_spawn') { allRiver = false; break; }
+        }
+
+        var spawnPts;
+        if (allRiver) {
+            spawnPts = _getRiverSpawnPoints();
+            if (!spawnPts || spawnPts.length === 0) spawnPts = _spawnPoints;
+        } else {
+            spawnPts = _spawnPoints;
+        }
+        if (!spawnPts || spawnPts.length === 0) {
+            spawnPts = [{ x: 0, y: Config.MAP_HEIGHT / 2 }];
+        }
 
         var rng = _getRng();
 

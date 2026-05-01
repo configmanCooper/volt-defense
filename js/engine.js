@@ -340,8 +340,13 @@ var Engine = (function() {
                 _state.waveTimer = 0;
                 _state.finalWaveReached = true;
             } else {
-                _state.waveTimer = diff ? diff.waveInterval :
+                var baseInterval = diff ? diff.waveInterval :
                     ((typeof Config !== 'undefined' && Config.WAVE_INTERVAL) ? Config.WAVE_INTERVAL : 60);
+                var nextWave = _state.wave + 1;
+                if ((nextWave === 21 || nextWave === 31 || nextWave === 41) && nextWave <= maxWaves) {
+                    baseInterval += 30;
+                }
+                _state.waveTimer = baseInterval;
             }
         },
 
@@ -355,8 +360,13 @@ var Engine = (function() {
                 _state.waveTimer = 0;
                 _state.finalWaveReached = true;
             } else {
-                _state.waveTimer = diff ? diff.waveInterval :
+                var baseInterval = diff ? diff.waveInterval :
                     ((typeof Config !== 'undefined' && Config.WAVE_INTERVAL) ? Config.WAVE_INTERVAL : 60);
+                var nextWave = _state.wave + 1;
+                if ((nextWave === 21 || nextWave === 31 || nextWave === 41) && nextWave <= maxWaves) {
+                    baseInterval += 30;
+                }
+                _state.waveTimer = baseInterval;
             }
             if (typeof UI !== 'undefined' && UI.showToast) {
                 UI.showToast('⏭️ Skipped to wave ' + _state.wave + ' (no enemies)', 'info', 2000);

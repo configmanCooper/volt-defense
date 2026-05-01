@@ -1267,7 +1267,7 @@ var Render = (function () {
 
             if (!_isInViewport(cx, cy, pw)) continue;
 
-            var cap = def.energyStorageCapacity || 0;
+            var cap = (b.scaledStorageCapacity && b.scaledStorageCapacity > 0) ? b.scaledStorageCapacity : (def.energyStorageCapacity || 0);
             var stored = Math.floor(b.energy || 0);
             if (cap <= 0 && stored <= 0) continue;
 
