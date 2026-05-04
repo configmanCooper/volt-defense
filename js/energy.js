@@ -222,12 +222,14 @@ var Energy = (function() {
             _tickCounter++;
 
             // NaN/null energy/HP recovery
-            for (i = 0; i < allBuildings.length; i++) {
-                if (allBuildings[i].energy == null || allBuildings[i].energy !== allBuildings[i].energy) {
-                    allBuildings[i].energy = 0;
-                }
-                if (allBuildings[i].hp == null || allBuildings[i].hp !== allBuildings[i].hp) {
-                    allBuildings[i].hp = allBuildings[i].maxHp || 100;
+            if (_tickCounter % 10 === 0) {
+                for (i = 0; i < allBuildings.length; i++) {
+                    if (allBuildings[i].energy == null || allBuildings[i].energy !== allBuildings[i].energy) {
+                        allBuildings[i].energy = 0;
+                    }
+                    if (allBuildings[i].hp == null || allBuildings[i].hp !== allBuildings[i].hp) {
+                        allBuildings[i].hp = allBuildings[i].maxHp || 100;
+                    }
                 }
             }
 

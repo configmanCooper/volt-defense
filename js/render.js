@@ -160,6 +160,7 @@ var Render = (function () {
     var MINIMAP_PADDING = 10;
     var MINIMAP_BOTTOM_OFFSET = 150; // Above the build bar
     var _minimapFrameCounter = 0;
+    var _reduceShadows = true;
     var _minimapCanvas = null;
     var _minimapCtx = null;
 
@@ -2670,7 +2671,7 @@ var Render = (function () {
             if (e.isBoss) {
                 r = Math.floor(r * 1.5);
                 if (useShadows) {
-                    ctx.shadowBlur = 16;
+                    ctx.shadowBlur = _reduceShadows ? 8 : 16;
                     ctx.shadowColor = '#ffd700';
                     needsRestore = true;
                 }
@@ -2685,7 +2686,7 @@ var Render = (function () {
             // Charged plasma parasite: bright glow
             if (e.charged && e.type === 'plasma_parasite') {
                 if (useShadows) {
-                    ctx.shadowBlur = 14;
+                    ctx.shadowBlur = _reduceShadows ? 7 : 14;
                     ctx.shadowColor = '#ff00ff';
                     needsRestore = true;
                 }
@@ -2695,7 +2696,7 @@ var Render = (function () {
             if (e.isBombing && e.type === 'flying_bomber') {
                 var bombGlow = 0.4 + Math.sin(_animFrame * 0.12) * 0.3;
                 if (useShadows) {
-                    ctx.shadowBlur = 12;
+                    ctx.shadowBlur = _reduceShadows ? 6 : 12;
                     ctx.shadowColor = 'rgba(255, 80, 20, ' + bombGlow + ')';
                     needsRestore = true;
                 }
@@ -2704,7 +2705,7 @@ var Render = (function () {
             // Mirror sentinel reflection shield glow
             if (e.isReflecting && e.mechanic === 'reflects') {
                 if (useShadows) {
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = _reduceShadows ? 5 : 10;
                     ctx.shadowColor = '#88ddff';
                     needsRestore = true;
                 }
@@ -2716,16 +2717,16 @@ var Render = (function () {
                 if (useShadows) {
                     if (e.drainState === 'draining') {
                         var drainGlow = 0.5 + Math.sin(_animFrame * 0.15) * 0.3;
-                        ctx.shadowBlur = 18;
+                        ctx.shadowBlur = _reduceShadows ? 9 : 18;
                         ctx.shadowColor = 'rgba(100, 150, 255, ' + drainGlow + ')';
                         needsRestore = true;
                     } else if (e.drainState === 'zapping') {
-                        ctx.shadowBlur = 24;
+                        ctx.shadowBlur = _reduceShadows ? 12 : 24;
                         ctx.shadowColor = '#aaccff';
                         needsRestore = true;
                     } else if (e.drainState === 'charged') {
                         var chargeGlow = 0.6 + Math.sin(_animFrame * 0.2) * 0.4;
-                        ctx.shadowBlur = 22;
+                        ctx.shadowBlur = _reduceShadows ? 11 : 22;
                         ctx.shadowColor = 'rgba(150, 200, 255, ' + chargeGlow + ')';
                         needsRestore = true;
                     }
@@ -3105,7 +3106,7 @@ var Render = (function () {
                 ctx.strokeStyle = '#88ddff';
                 ctx.lineWidth = 1.5;
                 if (useShadows) {
-                    ctx.shadowBlur = 6;
+                    ctx.shadowBlur = _reduceShadows ? 3 : 6;
                     ctx.shadowColor = '#88ddff';
                 }
                 ctx.setLineDash([4, 4]);
@@ -3143,7 +3144,7 @@ var Render = (function () {
             ctx.strokeStyle = COLORS.TESLA.chain;
             ctx.lineWidth = 2;
             if (_shadowsEnabled()) {
-                ctx.shadowBlur = 8;
+                ctx.shadowBlur = _reduceShadows ? 4 : 8;
                 ctx.shadowColor = COLORS.TESLA.glow;
             }
 
@@ -3192,7 +3193,7 @@ var Render = (function () {
             ctx.strokeStyle = COLORS.RAILGUN.beam;
             ctx.lineWidth = 3;
             if (_shadowsEnabled()) {
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = _reduceShadows ? 5 : 10;
                 ctx.shadowColor = COLORS.RAILGUN.glow;
             }
             ctx.beginPath();
@@ -3725,7 +3726,7 @@ var Render = (function () {
         var my = Config.VIEWPORT_HEIGHT - size - MINIMAP_PADDING - bottomOff;
 
         _minimapFrameCounter++;
-        if (_minimapFrameCounter < 30 && _minimapCanvas) {
+        if (_minimapFrameCounter < 60 && _minimapCanvas) {
             ctx.drawImage(_minimapCanvas, mx - 5, my - 5);
             return;
         }

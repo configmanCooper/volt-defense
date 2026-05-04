@@ -52,7 +52,8 @@ var Enemies = (function () {
     var _pathCache = {};               // key: 'gx,gy,targetKey' -> { path: [...] | null }
     var _pathCacheRadius = 3;          // grid-cell search radius for cache hits
     var _deferredPathQueue = [];       // enemies needing real A* (have direct path for now)
-    var _maxPathfindsPerTick = 1;      // limit expensive A* calls per game tick
+    var _maxPathfindsPerTick = 2;      // limit expensive A* calls per game tick
+    var _placementValidation = false;  // flag to use lower A* iteration limit during wall placement
     var _pathBudgetThisTick = 0;       // tracks A* calls this tick across all sources
 
     // ---- Helpers -----------------------------------------------------------
@@ -325,7 +326,7 @@ var Enemies = (function () {
         startNode.key = startKey;
         openHeap.push(startNode);
 
-        var maxIterations = 50000;
+        var maxIterations = _placementValidation ? 15000 : 50000;
         var iterations = 0;
 
         // Directions: 4-directional movement
@@ -1590,7 +1591,7 @@ var Enemies = (function () {
         enemy.repathTimer--;
 
         if (enemy.repathTimer <= 0) {
-            enemy.repathTimer = 20; // repath every 2 seconds
+            enemy.repathTimer = 30; // repath every 3 seconds
 
             // Flying enemies always use direct path — no A* needed
             if (enemy.special === 'flying') {
@@ -2928,6 +2929,7 @@ var Enemies = (function () {
          * Returns true if all spawn points can reach the core.
          */
         canReachCoreWith: function (blockedCells) {
+            _placementValidation = true;
             var spawnPts = (typeof Map !== 'undefined' && Map.getSpawnPoints)
                 ? Map.getSpawnPoints() : [];
 
@@ -2962,6 +2964,7 @@ var Enemies = (function () {
             // If no spawn points can currently reach, allow placement
             if (_reachableSpawnsCache.length === 0) {
                 _tempBlockedCells = {};
+                _placementValidation = false;
                 return true;
             }
 
@@ -2981,6 +2984,7 @@ var Enemies = (function () {
             }
 
             _tempBlockedCells = {};
+            _placementValidation = false;
             return allStillReachable;
         },
 
