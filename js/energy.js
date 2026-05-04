@@ -571,10 +571,10 @@ var Energy = (function() {
                         }
 
                         // Continue BFS through non-storage nodes that have energy.
-                        // Storage buildings (batteries/capacitors) are endpoints only:
-                        // they receive energy (charge) or send energy (discharge) but
-                        // don't allow pass-through, acting as proper bottlenecks.
-                        if (nDef.category !== 'storage') {
+                        // Storage and consumer buildings (batteries/capacitors/consumer batteries)
+                        // are endpoints only: they receive energy (charge) or send energy
+                        // (discharge) but don't allow pass-through, acting as proper bottlenecks.
+                        if (nDef.category !== 'storage' && nDef.category !== 'consumer') {
                             if (nBuilding.energy > 0 || nCapacity <= 0) {
                                 queue.push(nId);
                             }
@@ -751,7 +751,7 @@ var Energy = (function() {
                 }
 
                 // Carbon collectors (was Step 3b)
-                if (building.active && building.hp > 0 && def.pollutionReduction && def.pollutionReduction > 0) {
+                if (building.active && building.hp > 0 && !building.manualOff && def.pollutionReduction && def.pollutionReduction > 0) {
                     if (typeof Engine !== 'undefined' && typeof Engine.reducePollution === 'function') {
                         Engine.reducePollution(def.pollutionReduction / tps);
                     }

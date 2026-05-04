@@ -24,6 +24,7 @@ var Economy = (function () {
         for (var i = 0; i < miners.length; i++) {
             var b = miners[i];
             if (!b.active || b.hp <= 0) { continue; }
+            if (b.manualOff) { continue; }
 
             var def = Config.BUILDINGS[b.type];
             if (!def || !def.extractionRate) { continue; }

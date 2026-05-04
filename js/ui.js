@@ -1484,11 +1484,25 @@ var UI = (function () {
             }
             if (def.pollutionReduction > 0) {
                 html += '<div class="info-stat">🌿 Cleans: -' + def.pollutionReduction + '/tick</div>';
+                // Carbon collector on/off toggle
+                var carbonOff = building.manualOff || false;
+                html += '<div class="info-stat" style="margin:2px 0 4px;">';
+                html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">';
+                html += '<input type="checkbox" class="carbon-toggle-cb" data-building-id="' + buildingId + '"' + (carbonOff ? '' : ' checked') + '>';
+                html += '<span style="color:' + (carbonOff ? '#ff6666' : '#66ff66') + ';">' + (carbonOff ? '⛔ Collector OFF' : '✅ Collector ON') + '</span>';
+                html += '</label></div>';
             }
 
             // Mining
             if (def.extractionRate) {
                 html += '<div class="info-stat">⛏️ Extraction: ' + def.extractionRate + '/s</div>';
+                // Miner on/off toggle
+                var minerOff = building.manualOff || false;
+                html += '<div class="info-stat" style="margin:2px 0 4px;">';
+                html += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">';
+                html += '<input type="checkbox" class="miner-toggle-cb" data-building-id="' + buildingId + '"' + (minerOff ? '' : ' checked') + '>';
+                html += '<span style="color:' + (minerOff ? '#ff6666' : '#66ff66') + ';">' + (minerOff ? '⛔ Miner OFF' : '✅ Miner ON') + '</span>';
+                html += '</label></div>';
             }
 
             // Smelter status
@@ -1793,6 +1807,34 @@ var UI = (function () {
                 var smelterCbs = _elements.infoPanel.querySelectorAll('.smelter-toggle-cb');
                 for (var st = 0; st < smelterCbs.length; st++) {
                     smelterCbs[st].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        if (typeof Buildings !== 'undefined' && Buildings.toggleManualOff) {
+                            Buildings.toggleManualOff(bId);
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(bId);
+                            }
+                        }
+                    });
+                }
+
+                // Wire up miner on/off toggle
+                var minerCbs = _elements.infoPanel.querySelectorAll('.miner-toggle-cb');
+                for (var mt = 0; mt < minerCbs.length; mt++) {
+                    minerCbs[mt].addEventListener('change', function () {
+                        var bId = parseInt(this.getAttribute('data-building-id'), 10);
+                        if (typeof Buildings !== 'undefined' && Buildings.toggleManualOff) {
+                            Buildings.toggleManualOff(bId);
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(bId);
+                            }
+                        }
+                    });
+                }
+
+                // Wire up carbon collector on/off toggle
+                var carbonCbs = _elements.infoPanel.querySelectorAll('.carbon-toggle-cb');
+                for (var ct = 0; ct < carbonCbs.length; ct++) {
+                    carbonCbs[ct].addEventListener('change', function () {
                         var bId = parseInt(this.getAttribute('data-building-id'), 10);
                         if (typeof Buildings !== 'undefined' && Buildings.toggleManualOff) {
                             Buildings.toggleManualOff(bId);

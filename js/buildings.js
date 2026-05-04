@@ -863,6 +863,15 @@ var Buildings = (function() {
             var b = _getById(buildingId);
             if (!b) return false;
             b.manualOff = !b.manualOff;
+            var def = _getDef(b.type);
+            var workersNeeded = (def && def.workersRequired) ? def.workersRequired : 0;
+            if (workersNeeded > 0 && typeof Workers !== 'undefined') {
+                if (b.manualOff && typeof Workers.freeWorkers === 'function') {
+                    Workers.freeWorkers(workersNeeded);
+                } else if (!b.manualOff && typeof Workers.allocateWorkers === 'function') {
+                    Workers.allocateWorkers(workersNeeded);
+                }
+            }
             return b.manualOff;
         },
 

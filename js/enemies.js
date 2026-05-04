@@ -326,7 +326,7 @@ var Enemies = (function () {
         startNode.key = startKey;
         openHeap.push(startNode);
 
-        var maxIterations = _placementValidation ? 15000 : 50000;
+        var maxIterations = _placementValidation ? 35000 : 50000;
         var iterations = 0;
 
         // Directions: 4-directional movement
