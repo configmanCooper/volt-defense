@@ -982,6 +982,13 @@ var Input = (function () {
             // ---- Keyboard down ----
             document.addEventListener('keydown', function (e) {
                 _keysDown[e.key.toLowerCase()] = true;
+                if (e.code) _keysDown[e.code.toLowerCase()] = true;
+
+                // Blur focused buttons/elements so WASD keys aren't eaten
+                var tag = document.activeElement ? document.activeElement.tagName : '';
+                if (tag === 'BUTTON' || tag === 'A' || tag === 'DIV' || tag === 'SPAN') {
+                    document.activeElement.blur();
+                }
 
                 // Debug mode activation: type "volt"
                 if (e.key.length === 1 && /[a-z]/i.test(e.key)) {
@@ -1143,6 +1150,7 @@ var Input = (function () {
             // ---- Keyboard up ----
             document.addEventListener('keyup', function (e) {
                 _keysDown[e.key.toLowerCase()] = false;
+                if (e.code) _keysDown[e.code.toLowerCase()] = false;
             });
 
             // Clear keys on window blur to avoid stuck keys
@@ -1154,15 +1162,14 @@ var Input = (function () {
 
         update: function (dt) {
             if (!dt) return;
-            if (_isPaused()) return;
 
-            // WASD / arrow camera movement
+            // WASD / arrow camera movement (always active, even when paused)
             var speed = _cameraMoveSpeed * dt;
             if (typeof Render !== 'undefined' && Render.moveCamera) {
-                if (_keysDown['w'] || _keysDown['arrowup']) Render.moveCamera(0, -speed);
-                if (_keysDown['s'] || _keysDown['arrowdown']) Render.moveCamera(0, speed);
-                if (_keysDown['a'] || _keysDown['arrowleft']) Render.moveCamera(-speed, 0);
-                if (_keysDown['d'] || _keysDown['arrowright']) Render.moveCamera(speed, 0);
+                if (_keysDown['w'] || _keysDown['arrowup'] || _keysDown['keyw']) Render.moveCamera(0, -speed);
+                if (_keysDown['s'] || _keysDown['arrowdown'] || _keysDown['keys']) Render.moveCamera(0, speed);
+                if (_keysDown['a'] || _keysDown['arrowleft'] || _keysDown['keya']) Render.moveCamera(-speed, 0);
+                if (_keysDown['d'] || _keysDown['arrowright'] || _keysDown['keyd']) Render.moveCamera(speed, 0);
             }
         },
 
