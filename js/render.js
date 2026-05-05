@@ -1554,43 +1554,175 @@ var Render = (function () {
         ctx.restore();
     }
 
-    // --- MINERS ---
+    // --- RESOURCE ICON HELPERS ---
 
-    function _drawMiner(ctx, x, y, w, h, building, t, bodyColor, accentColor) {
-        var cx = x + w / 2;
+    // Iron ingot icon (silver/gray bar shape)
+    function _drawIronIcon(ctx, cx, cy, size) {
+        var s = size;
         ctx.save();
-        // Ground/base
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(x, y, w, h);
-        // Machine body
-        ctx.fillStyle = bodyColor;
-        ctx.fillRect(x + w * 0.15, y + h * 0.4, w * 0.7, h * 0.55);
-        // Drill arm (bobbing)
-        var bob = Math.sin(t * 4) * h * 0.08;
-        ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 3;
+        ctx.fillStyle = '#b0b0b8';
         ctx.beginPath();
-        ctx.moveTo(cx, y + h * 0.4);
-        ctx.lineTo(cx, y + h * 0.15 + bob);
-        ctx.stroke();
-        // Drill head
-        ctx.fillStyle = accentColor;
-        ctx.beginPath();
-        ctx.moveTo(cx - w * 0.08, y + h * 0.18 + bob);
-        ctx.lineTo(cx, y + h * 0.05 + bob);
-        ctx.lineTo(cx + w * 0.08, y + h * 0.18 + bob);
+        // 3D ingot: top face
+        ctx.moveTo(cx - s * 0.35, cy - s * 0.05);
+        ctx.lineTo(cx - s * 0.2, cy - s * 0.35);
+        ctx.lineTo(cx + s * 0.35, cy - s * 0.35);
+        ctx.lineTo(cx + s * 0.5, cy - s * 0.05);
         ctx.closePath();
         ctx.fill();
-        // Debris particles
+        // Front face
+        ctx.fillStyle = '#8a8a92';
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.35, cy - s * 0.05);
+        ctx.lineTo(cx + s * 0.5, cy - s * 0.05);
+        ctx.lineTo(cx + s * 0.5, cy + s * 0.2);
+        ctx.lineTo(cx - s * 0.35, cy + s * 0.2);
+        ctx.closePath();
+        ctx.fill();
+        // Right side face
+        ctx.fillStyle = '#707078';
+        ctx.beginPath();
+        ctx.moveTo(cx + s * 0.5, cy - s * 0.05);
+        ctx.lineTo(cx + s * 0.35, cy - s * 0.35);
+        ctx.lineTo(cx + s * 0.35, cy - s * 0.1);
+        ctx.lineTo(cx + s * 0.5, cy + s * 0.2);
+        ctx.closePath();
+        ctx.fill();
+        // Highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.15, cy - s * 0.3);
+        ctx.lineTo(cx + s * 0.05, cy - s * 0.3);
+        ctx.lineTo(cx + s * 0.15, cy - s * 0.1);
+        ctx.lineTo(cx - s * 0.05, cy - s * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Coal lumps icon (dark irregular chunks)
+    function _drawCoalIcon(ctx, cx, cy, size) {
+        var s = size;
+        ctx.save();
+        var lumps = [
+            { x: -0.15, y: 0.1, r: 0.22 },
+            { x: 0.15, y: 0.05, r: 0.2 },
+            { x: 0, y: -0.1, r: 0.18 },
+            { x: -0.25, y: -0.05, r: 0.14 },
+            { x: 0.25, y: -0.12, r: 0.13 },
+            { x: 0.05, y: 0.2, r: 0.15 }
+        ];
+        for (var li = 0; li < lumps.length; li++) {
+            var lump = lumps[li];
+            ctx.fillStyle = li % 2 === 0 ? '#2a2a2a' : '#3a3a3a';
+            ctx.beginPath();
+            ctx.arc(cx + lump.x * s, cy + lump.y * s, lump.r * s, 0, Math.PI * 2);
+            ctx.fill();
+            // Subtle highlight
+            ctx.fillStyle = 'rgba(100,100,100,0.3)';
+            ctx.beginPath();
+            ctx.arc(cx + lump.x * s - lump.r * s * 0.2, cy + lump.y * s - lump.r * s * 0.3, lump.r * s * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    // Oil droplet icon (black teardrop)
+    function _drawOilIcon(ctx, cx, cy, size) {
+        var s = size;
+        ctx.save();
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        // Teardrop: pointed top, round bottom
+        ctx.moveTo(cx, cy - s * 0.4);
+        ctx.bezierCurveTo(cx - s * 0.35, cy, cx - s * 0.35, cy + s * 0.25, cx, cy + s * 0.35);
+        ctx.bezierCurveTo(cx + s * 0.35, cy + s * 0.25, cx + s * 0.35, cy, cx, cy - s * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        // Glossy highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(cx - s * 0.08, cy + s * 0.05, s * 0.08, s * 0.15, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Uranium trefoil radiation icon (yellow circle + black blades)
+    function _drawUraniumIcon(ctx, cx, cy, size) {
+        var s = size;
+        ctx.save();
+        // Yellow circle
+        ctx.fillStyle = '#ddaa20';
+        ctx.beginPath();
+        ctx.arc(cx, cy, s * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+        // Three black blades
+        ctx.fillStyle = '#1a1a1a';
+        for (var bi = 0; bi < 3; bi++) {
+            var angle = bi * (Math.PI * 2 / 3) - Math.PI / 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, s * 0.35, angle - 0.4, angle + 0.4);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Center dot
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, s * 0.09, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // --- MINERS ---
+
+    function _drawMiner(ctx, x, y, w, h, building, t, bodyColor, accentColor, iconFn) {
+        var cx = x + w / 2;
+        ctx.save();
+        // Ground pad
+        ctx.fillStyle = '#2a2a1a';
+        ctx.fillRect(x, y + h * 0.82, w, h * 0.18);
+        // Main facility building
+        ctx.fillStyle = bodyColor;
+        ctx.fillRect(x + w * 0.08, y + h * 0.3, w * 0.84, h * 0.55);
+        // Darker lower section
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(x + w * 0.08, y + h * 0.65, w * 0.84, h * 0.2);
+        // Roof
+        ctx.fillStyle = accentColor;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.05, y + h * 0.3);
+        ctx.lineTo(cx, y + h * 0.12);
+        ctx.lineTo(x + w * 0.95, y + h * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        // Conveyor belt (animated when active)
+        ctx.fillStyle = '#555';
+        ctx.fillRect(x + w * 0.7, y + h * 0.7, w * 0.25, h * 0.05);
         if (building.active && !building.manualOff) {
-            for (var d = 0; d < 2; d++) {
-                var dx = cx + (Math.sin(t * 5 + d * 4) * w * 0.2);
-                var dy = y + h * 0.12 + bob + ((t * 20 + d * 7) % 10);
-                var da = Math.max(0, 0.5 - ((t * 20 + d * 7) % 10) / 20);
-                ctx.fillStyle = 'rgba(150,130,100,' + da.toFixed(2) + ')';
-                ctx.fillRect(dx - 1, dy - 1, 2, 2);
+            var beltOff = (t * 30) % 8;
+            ctx.fillStyle = '#666';
+            for (var bi = 0; bi < 4; bi++) {
+                var bx = x + w * 0.72 + ((bi * 8 + beltOff) % (w * 0.22));
+                ctx.fillRect(bx, y + h * 0.7, 3, h * 0.05);
             }
         }
+        // Resource icon in center of building
+        if (iconFn) {
+            iconFn(ctx, cx, y + h * 0.52, Math.min(w, h) * 0.35);
+        }
+        // Smoke/dust when active
+        if (building.active && !building.manualOff) {
+            for (var d = 0; d < 3; d++) {
+                var dx = x + w * 0.85 + Math.sin(t * 2.5 + d * 3) * 3;
+                var dy = y + h * 0.12 - ((t * 10 + d * 8) % 15);
+                var da = Math.max(0, 0.3 - ((t * 10 + d * 8) % 15) / 30);
+                ctx.fillStyle = 'rgba(150,140,130,' + da.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(dx, dy, 2 + d * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Border
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
@@ -1600,34 +1732,53 @@ var Render = (function () {
     function _drawOilDrill(ctx, x, y, w, h, building, t) {
         var cx = x + w / 2;
         ctx.save();
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(x, y, w, h);
-        // Pumpjack base
-        ctx.fillStyle = '#2a2a2a';
-        ctx.fillRect(x + w * 0.2, y + h * 0.6, w * 0.6, h * 0.35);
-        // Rocker arm
-        var rock = Math.sin(t * 2) * 0.3;
-        ctx.save();
-        ctx.translate(cx, y + h * 0.5);
-        ctx.rotate(rock);
-        ctx.fillStyle = '#555';
-        ctx.fillRect(-w * 0.35, -3, w * 0.7, 5);
-        // Horse head
-        ctx.fillStyle = '#666';
-        ctx.fillRect(w * 0.2, -8, w * 0.15, 12);
-        ctx.restore();
-        // Support tower
-        ctx.strokeStyle = '#444';
+        // Ground pad
+        ctx.fillStyle = '#2a2a1a';
+        ctx.fillRect(x, y + h * 0.82, w, h * 0.18);
+        // Main facility building
+        ctx.fillStyle = '#2a2a3a';
+        ctx.fillRect(x + w * 0.08, y + h * 0.4, w * 0.55, h * 0.45);
+        // Darker lower section
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(x + w * 0.08, y + h * 0.7, w * 0.55, h * 0.15);
+        // Derrick tower (triangular)
+        ctx.strokeStyle = '#555';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(cx - w * 0.05, y + h * 0.6);
-        ctx.lineTo(cx, y + h * 0.2);
-        ctx.lineTo(cx + w * 0.05, y + h * 0.6);
+        ctx.moveTo(x + w * 0.72, y + h * 0.85);
+        ctx.lineTo(x + w * 0.78, y + h * 0.08);
+        ctx.lineTo(x + w * 0.84, y + h * 0.85);
         ctx.stroke();
-        // Oil sheen
-        var sheen = 'rgba(40,30,80,' + (0.2 + 0.1 * Math.sin(t * 3)).toFixed(2) + ')';
+        // Cross braces on derrick
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#444';
+        for (var br = 0; br < 4; br++) {
+            var by = y + h * (0.25 + br * 0.15);
+            var bwL = cx + w * 0.22 + (0.78 - 0.72) * w * (1 - (by - y) / h) * 0.3;
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.73, by);
+            ctx.lineTo(x + w * 0.83, by);
+            ctx.stroke();
+        }
+        // Pumpjack arm (animated rocking)
+        var rock = Math.sin(t * 2) * 0.2;
+        ctx.save();
+        ctx.translate(x + w * 0.78, y + h * 0.2);
+        ctx.rotate(rock);
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.12, 0);
+        ctx.lineTo(w * 0.12, 0);
+        ctx.stroke();
+        ctx.restore();
+        // Oil droplet icon on building
+        _drawOilIcon(ctx, x + w * 0.35, y + h * 0.58, Math.min(w, h) * 0.3);
+        // Oil sheen at base
+        var sheen = 'rgba(30,20,60,' + (0.2 + 0.1 * Math.sin(t * 3)).toFixed(2) + ')';
         ctx.fillStyle = sheen;
-        ctx.fillRect(x + w * 0.3, y + h * 0.85, w * 0.4, h * 0.1);
+        ctx.fillRect(x + w * 0.15, y + h * 0.88, w * 0.35, h * 0.06);
+        // Border
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
@@ -2638,9 +2789,9 @@ var Render = (function () {
             case 'advanced_capacitor': _drawCapacitor(ctx, x, y, w, h, building, t, true); return true;
             case 'consumer_battery': _drawConsumerBattery(ctx, x, y, w, h, building, t); return true;
             // Mining
-            case 'iron_miner': case 'iron_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#8a5a2a', '#aa7744'); return true;
-            case 'coal_miner': case 'coal_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#3a3a3a', '#666'); return true;
-            case 'uranium_miner': case 'uranium_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#2a4a2a', '#4a8a4a'); return true;
+            case 'iron_miner': case 'iron_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#8a5a2a', '#aa7744', _drawIronIcon); return true;
+            case 'coal_miner': case 'coal_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#3a3a3a', '#555', _drawCoalIcon); return true;
+            case 'uranium_miner': case 'uranium_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#2a4a2a', '#4a8a4a', _drawUraniumIcon); return true;
             case 'oil_drill': case 'oil_drill_t2': _drawOilDrill(ctx, x, y, w, h, building, t); return true;
             case 'smelter': _drawSmelter(ctx, x, y, w, h, building, t); return true;
             // Weapons
