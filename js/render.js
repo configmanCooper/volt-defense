@@ -2434,62 +2434,66 @@ var Render = (function () {
 
     function _drawSmallHouse(ctx, x, y, w, h, building, t) {
         ctx.save();
-        // Ground
+        // Inset the house to make it smaller within the tile
+        var pad = w * 0.1;
+        var hx = x + pad, hy = y + pad * 0.6;
+        var hw = w - pad * 2, hh = h - pad * 1.2;
+        // Ground / yard
         ctx.fillStyle = '#3a5a2a';
         ctx.fillRect(x, y + h * 0.85, w, h * 0.15);
         // House body with gradient
-        var wallGrad = ctx.createLinearGradient(x, y + h * 0.4, x, y + h * 0.85);
+        var wallGrad = ctx.createLinearGradient(hx, hy + hh * 0.4, hx, hy + hh * 0.85);
         wallGrad.addColorStop(0, '#6a7a5a');
         wallGrad.addColorStop(1, '#5a6a4a');
         ctx.fillStyle = wallGrad;
-        ctx.fillRect(x + w * 0.1, y + h * 0.4, w * 0.8, h * 0.45);
+        ctx.fillRect(hx + hw * 0.1, hy + hh * 0.4, hw * 0.8, hh * 0.45);
         // Side shadow
         ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.fillRect(x + w * 0.7, y + h * 0.4, w * 0.2, h * 0.45);
+        ctx.fillRect(hx + hw * 0.7, hy + hh * 0.4, hw * 0.2, hh * 0.45);
         // Roof with overhang
         ctx.fillStyle = '#8a5a3a';
         ctx.beginPath();
-        ctx.moveTo(x + w * 0.02, y + h * 0.42);
-        ctx.lineTo(x + w * 0.5, y + h * 0.1);
-        ctx.lineTo(x + w * 0.98, y + h * 0.42);
+        ctx.moveTo(hx + hw * 0.02, hy + hh * 0.42);
+        ctx.lineTo(hx + hw * 0.5, hy + hh * 0.1);
+        ctx.lineTo(hx + hw * 0.98, hy + hh * 0.42);
         ctx.closePath();
         ctx.fill();
         // Roof ridge highlight
         ctx.strokeStyle = '#9a6a4a';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(x + w * 0.25, y + h * 0.27);
-        ctx.lineTo(x + w * 0.5, y + h * 0.12);
-        ctx.lineTo(x + w * 0.75, y + h * 0.27);
+        ctx.moveTo(hx + hw * 0.25, hy + hh * 0.27);
+        ctx.lineTo(hx + hw * 0.5, hy + hh * 0.12);
+        ctx.lineTo(hx + hw * 0.75, hy + hh * 0.27);
         ctx.stroke();
-        // Window with curtains and cross frame
+        // Window - narrower and shorter
         var glow = 0.5 + 0.2 * Math.sin(t * 1.5);
         ctx.fillStyle = 'rgba(255,220,100,' + glow.toFixed(2) + ')';
-        ctx.fillRect(x + w * 0.3, y + h * 0.5, w * 0.35, h * 0.18);
+        ctx.fillRect(hx + hw * 0.32, hy + hh * 0.5, hw * 0.25, hh * 0.14);
         ctx.strokeStyle = '#4a3a2a';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x + w * 0.3, y + h * 0.5, w * 0.35, h * 0.18);
+        ctx.strokeRect(hx + hw * 0.32, hy + hh * 0.5, hw * 0.25, hh * 0.14);
         // Window cross
         ctx.beginPath();
-        ctx.moveTo(x + w * 0.475, y + h * 0.5);
-        ctx.lineTo(x + w * 0.475, y + h * 0.68);
-        ctx.moveTo(x + w * 0.3, y + h * 0.59);
-        ctx.lineTo(x + w * 0.65, y + h * 0.59);
+        ctx.moveTo(hx + hw * 0.445, hy + hh * 0.5);
+        ctx.lineTo(hx + hw * 0.445, hy + hh * 0.64);
+        ctx.moveTo(hx + hw * 0.32, hy + hh * 0.57);
+        ctx.lineTo(hx + hw * 0.57, hy + hh * 0.57);
         ctx.stroke();
-        // Door with frame and knob
+        // Door - narrower and shorter
         ctx.fillStyle = '#5a3a1a';
-        ctx.fillRect(x + w * 0.38, y + h * 0.72, w * 0.22, h * 0.13);
+        ctx.fillRect(hx + hw * 0.42, hy + hh * 0.74, hw * 0.15, hh * 0.11);
         ctx.strokeStyle = '#4a2a0a';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x + w * 0.38, y + h * 0.72, w * 0.22, h * 0.13);
+        ctx.strokeRect(hx + hw * 0.42, hy + hh * 0.74, hw * 0.15, hh * 0.11);
         // Door knob
         ctx.fillStyle = '#cc9944';
         ctx.beginPath();
-        ctx.arc(x + w * 0.55, y + h * 0.79, 1.2, 0, Math.PI * 2);
+        ctx.arc(hx + hw * 0.53, hy + hh * 0.8, 1, 0, Math.PI * 2);
         ctx.fill();
         // Chimney
         ctx.fillStyle = '#6a5040';
-        ctx.fillRect(x + w * 0.7, y + h * 0.12, w * 0.1, h * 0.2);
+        ctx.fillRect(hx + hw * 0.7, hy + hh * 0.12, hw * 0.1, hh * 0.2);
         // Border
         ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 1;
@@ -2543,13 +2547,13 @@ var Render = (function () {
                 ctx.stroke();
             }
         }
-        // Entrance door at bottom center
+        // Entrance door at bottom center - narrower and shorter
         ctx.fillStyle = '#3a3a2a';
-        ctx.fillRect(x + w * 0.4, y + h * 0.72, w * 0.2, h * 0.16);
+        ctx.fillRect(x + w * 0.43, y + h * 0.75, w * 0.14, h * 0.13);
         // Door frame
         ctx.strokeStyle = '#5a5a4a';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x + w * 0.4, y + h * 0.72, w * 0.2, h * 0.16);
+        ctx.strokeRect(x + w * 0.43, y + h * 0.75, w * 0.14, h * 0.13);
         // Entrance light
         var lightGlow = 0.4 + 0.2 * Math.sin(t * 2);
         ctx.fillStyle = 'rgba(255,200,100,' + lightGlow.toFixed(2) + ')';
