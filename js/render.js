@@ -1016,6 +1016,1476 @@ var Render = (function () {
     // ------------------------------------------------------------------------
     // Layer: Buildings
     // ------------------------------------------------------------------------
+
+    // ========================================================================
+    // Custom procedural building graphics — one per building type
+    // All share signature: (ctx, x, y, w, h, building, t)
+    //   ctx = canvas context, x/y/w/h = world rect, building = data, t = time in seconds
+    // ========================================================================
+
+    // --- POWER PLANTS ---
+
+    function _drawSolarPanel(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        // Dark base
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(x, y, w, h);
+        // Panel grid (3x2 cells)
+        var cols = 3, rows = 2;
+        var pad = w * 0.08;
+        var cw = (w - pad * 2) / cols, ch = (h - pad * 2) / rows;
+        for (var r = 0; r < rows; r++) {
+            for (var c = 0; c < cols; c++) {
+                var px = x + pad + c * cw + 1;
+                var py = y + pad + r * ch + 1;
+                var shimmer = 0.3 + 0.2 * Math.sin(t * 2 + c * 1.5 + r * 2);
+                ctx.fillStyle = 'rgba(60,80,180,' + shimmer.toFixed(2) + ')';
+                ctx.fillRect(px, py, cw - 2, ch - 2);
+                // Grid lines
+                ctx.fillStyle = 'rgba(100,140,220,0.15)';
+                ctx.fillRect(px, py + ch / 2 - 0.5, cw - 2, 1);
+                ctx.fillRect(px + cw / 2 - 0.5, py, 1, ch - 2);
+            }
+        }
+        // Glint sweep
+        var glintX = x + (((t * 0.5) % 1.4 - 0.2)) * w;
+        if (glintX > x && glintX < x + w) {
+            var grad = ctx.createLinearGradient(glintX - 4, y, glintX + 4, y);
+            grad.addColorStop(0, 'rgba(255,255,255,0)');
+            grad.addColorStop(0.5, 'rgba(255,255,255,0.4)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(glintX - 4, y + pad, 8, h - pad * 2);
+        }
+        // Border
+        ctx.strokeStyle = '#3344aa';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawWindTurbine(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.38;
+        ctx.save();
+        // Base plate
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Pole
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + r * 0.8);
+        ctx.lineTo(cx, cy - r * 0.1);
+        ctx.stroke();
+        // Hub
+        ctx.fillStyle = '#ccc';
+        ctx.beginPath();
+        ctx.arc(cx, cy - r * 0.1, r * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        // Blades (3)
+        var speed = 2 + Math.sin(t * 0.3) * 0.5;
+        for (var i = 0; i < 3; i++) {
+            var angle = t * speed + i * Math.PI * 2 / 3;
+            var bx = cx + Math.cos(angle) * r * 0.85;
+            var by = (cy - r * 0.1) + Math.sin(angle) * r * 0.85;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - r * 0.1);
+            ctx.lineTo(bx, by);
+            ctx.strokeStyle = 'rgba(220,230,240,0.9)';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+        }
+        // Border
+        ctx.strokeStyle = 'rgba(100,100,100,0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawCoalPlant(ctx, x, y, w, h, building, t) {
+        ctx.save();
+        // Factory body
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(x, y + h * 0.3, w, h * 0.7);
+        // Roof
+        ctx.fillStyle = '#3a3a3a';
+        ctx.beginPath();
+        ctx.moveTo(x, y + h * 0.3);
+        ctx.lineTo(x + w * 0.5, y + h * 0.1);
+        ctx.lineTo(x + w, y + h * 0.3);
+        ctx.closePath();
+        ctx.fill();
+        // Chimney
+        ctx.fillStyle = '#444';
+        ctx.fillRect(x + w * 0.7, y, w * 0.15, h * 0.35);
+        // Furnace glow
+        var glow = 0.4 + 0.3 * Math.sin(t * 3);
+        ctx.fillStyle = 'rgba(255,120,20,' + glow.toFixed(2) + ')';
+        ctx.fillRect(x + w * 0.15, y + h * 0.55, w * 0.3, h * 0.2);
+        // Smoke particles
+        for (var s = 0; s < 3; s++) {
+            var sy = y - ((t * 15 + s * 8) % 20);
+            var sx = x + w * 0.77 + Math.sin(t * 2 + s * 3) * 3;
+            var sr = 2 + s;
+            var sa = Math.max(0, 0.4 - ((t * 15 + s * 8) % 20) / 50);
+            ctx.fillStyle = 'rgba(80,80,80,' + sa.toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y + h * 0.3, w, h * 0.7);
+        ctx.restore();
+    }
+
+    function _drawGasPlant(ctx, x, y, w, h, building, t) {
+        ctx.save();
+        // Sleek body
+        ctx.fillStyle = '#1e2d3d';
+        ctx.fillRect(x, y + h * 0.25, w, h * 0.75);
+        // Vent stack
+        ctx.fillStyle = '#2a3a4a';
+        ctx.fillRect(x + w * 0.65, y, w * 0.12, h * 0.3);
+        // Blue flame
+        var flicker = 0.6 + 0.3 * Math.sin(t * 8);
+        ctx.fillStyle = 'rgba(30,120,255,' + flicker.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.2, y + h * 0.75);
+        ctx.quadraticCurveTo(x + w * 0.35, y + h * 0.45 - Math.sin(t * 5) * 3, x + w * 0.5, y + h * 0.75);
+        ctx.fill();
+        // Turbine circle
+        ctx.strokeStyle = 'rgba(100,160,220,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x + w * 0.35, y + h * 0.55, w * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#3a4a5a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y + h * 0.25, w, h * 0.75);
+        ctx.restore();
+    }
+
+    function _drawNuclearPlant(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        // Base
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Cooling tower (trapezoid)
+        ctx.fillStyle = '#3a3a4a';
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.3, y + h * 0.9);
+        ctx.lineTo(cx - w * 0.2, y + h * 0.15);
+        ctx.lineTo(cx + w * 0.2, y + h * 0.15);
+        ctx.lineTo(cx + w * 0.3, y + h * 0.9);
+        ctx.closePath();
+        ctx.fill();
+        // Green glow at base
+        var pulse = 0.3 + 0.2 * Math.sin(t * 2);
+        var grad = ctx.createRadialGradient(cx, y + h * 0.8, 0, cx, y + h * 0.8, w * 0.3);
+        grad.addColorStop(0, 'rgba(30,255,60,' + pulse.toFixed(2) + ')');
+        grad.addColorStop(1, 'rgba(30,255,60,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, y + h * 0.8, w * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Steam puffs
+        for (var s = 0; s < 2; s++) {
+            var sy = y + h * 0.1 - ((t * 10 + s * 12) % 15);
+            var sx = cx + Math.sin(t + s * 4) * 2;
+            var sa = Math.max(0, 0.3 - ((t * 10 + s * 12) % 15) / 30);
+            ctx.fillStyle = 'rgba(200,200,220,' + sa.toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(sx, sy, 3 + s, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Radiation symbol hint
+        ctx.strokeStyle = 'rgba(50,200,70,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy + h * 0.1, w * 0.12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#2a2a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawHydroPlant(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        // Water base
+        ctx.fillStyle = '#0a2a5a';
+        ctx.fillRect(x, y, w, h);
+        // Dam body
+        ctx.fillStyle = '#4a4a5a';
+        ctx.fillRect(x + w * 0.1, y + h * 0.2, w * 0.8, h * 0.6);
+        // Turbine wheel
+        var tr = Math.min(w, h) * 0.2;
+        ctx.strokeStyle = '#6ac';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, tr, 0, Math.PI * 2);
+        ctx.stroke();
+        // Spinning spokes
+        for (var i = 0; i < 6; i++) {
+            var angle = t * 3 + i * Math.PI / 3;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(angle) * tr, cy + Math.sin(angle) * tr);
+            ctx.strokeStyle = 'rgba(100,180,220,0.8)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+        // Water flow particles
+        for (var p = 0; p < 4; p++) {
+            var px = x + ((t * 30 + p * 10) % w);
+            var py = y + h * 0.85 + Math.sin(t * 3 + p) * 2;
+            ctx.fillStyle = 'rgba(100,180,255,0.5)';
+            ctx.fillRect(px, py, 3, 1.5);
+        }
+        ctx.strokeStyle = '#2a3a5a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- STORAGE ---
+
+    function _drawBattery(ctx, x, y, w, h, building, t, color, accent) {
+        var cx = x + w / 2;
+        ctx.save();
+        // Base
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Battery casing
+        var bx = x + w * 0.2, by = y + h * 0.15, bw = w * 0.6, bh = h * 0.75;
+        ctx.fillStyle = '#2a2a3a';
+        ctx.fillRect(bx, by, bw, bh);
+        // Terminal nub
+        ctx.fillStyle = '#555';
+        ctx.fillRect(cx - w * 0.1, y + h * 0.07, w * 0.2, h * 0.1);
+        // Fill level
+        var cap = building.scaledStorageCapacity || (Config.BUILDINGS[building.type] && Config.BUILDINGS[building.type].energyStorageCapacity) || 1;
+        var fill = Math.min(1, (building.energy || 0) / cap);
+        var fillH = bh * 0.85 * fill;
+        if (fillH > 0) {
+            var fillY = by + bh * 0.9 - fillH;
+            ctx.fillStyle = color || '#40cc40';
+            ctx.fillRect(bx + 2, fillY, bw - 4, fillH);
+            // Shimmer
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.fillRect(bx + 2, fillY, (bw - 4) * 0.3, fillH);
+        }
+        // Lightning bolt icon
+        ctx.fillStyle = accent || '#ffdd00';
+        ctx.font = Math.floor(Math.min(w, h) * 0.3) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⚡', cx, y + h * 0.5);
+        // Border
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawSmallBattery(ctx, x, y, w, h, building, t) {
+        _drawBattery(ctx, x, y, w, h, building, t, '#40cc40', '#ffdd00');
+    }
+
+    function _drawLargeBattery(ctx, x, y, w, h, building, t) {
+        ctx.save();
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Two cells side by side
+        var cap = building.scaledStorageCapacity || (Config.BUILDINGS[building.type] && Config.BUILDINGS[building.type].energyStorageCapacity) || 1;
+        var fill = Math.min(1, (building.energy || 0) / cap);
+        for (var c = 0; c < 2; c++) {
+            var bx = x + w * 0.1 + c * w * 0.4;
+            var by = y + h * 0.2, bw = w * 0.35, bh = h * 0.65;
+            ctx.fillStyle = '#2a2a3a';
+            ctx.fillRect(bx, by, bw, bh);
+            var fillH = bh * 0.85 * fill;
+            if (fillH > 0) {
+                ctx.fillStyle = '#30bb50';
+                ctx.fillRect(bx + 1, by + bh * 0.9 - fillH, bw - 2, fillH);
+            }
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(bx, by, bw, bh);
+        }
+        // Terminal
+        ctx.fillStyle = '#555';
+        ctx.fillRect(x + w * 0.4, y + h * 0.08, w * 0.2, h * 0.12);
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawCapacitor(ctx, x, y, w, h, building, t, adv) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Cylindrical body
+        var cr = Math.min(w, h) * 0.3;
+        ctx.fillStyle = adv ? '#2a3a5a' : '#2a2a4a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = adv ? '#4a6a9a' : '#4a4a7a';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Arc effect between two plates
+        var arcAngle = t * 6;
+        var arcLen = 0.3 + 0.2 * Math.sin(t * 8);
+        ctx.strokeStyle = adv ? 'rgba(100,180,255,0.9)' : 'rgba(80,140,255,0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr * 0.6, arcAngle, arcAngle + arcLen);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr * 0.6, arcAngle + Math.PI, arcAngle + Math.PI + arcLen);
+        ctx.stroke();
+        // Flash
+        if (Math.sin(t * 12) > 0.8) {
+            ctx.fillStyle = 'rgba(150,200,255,0.3)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, cr * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawConsumerBattery(ctx, x, y, w, h, building, t) {
+        _drawBattery(ctx, x, y, w, h, building, t, '#cc9920', '#ffd700');
+        // Dollar symbol overlay
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,215,0,0.7)';
+        ctx.font = 'bold ' + Math.floor(Math.min(w, h) * 0.35) + 'px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('$', cx, cy + h * 0.15);
+        // Sparkle when near full
+        var cap = building.scaledStorageCapacity || (Config.BUILDINGS[building.type] && Config.BUILDINGS[building.type].energyStorageCapacity) || 1;
+        var fill = (building.energy || 0) / cap;
+        if (fill > 0.9) {
+            var sparkle = 0.3 + 0.4 * Math.sin(t * 6);
+            ctx.fillStyle = 'rgba(255,255,200,' + sparkle.toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(cx + w * 0.25, y + h * 0.25, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    // --- MINERS ---
+
+    function _drawMiner(ctx, x, y, w, h, building, t, bodyColor, accentColor) {
+        var cx = x + w / 2;
+        ctx.save();
+        // Ground/base
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x, y, w, h);
+        // Machine body
+        ctx.fillStyle = bodyColor;
+        ctx.fillRect(x + w * 0.15, y + h * 0.4, w * 0.7, h * 0.55);
+        // Drill arm (bobbing)
+        var bob = Math.sin(t * 4) * h * 0.08;
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, y + h * 0.4);
+        ctx.lineTo(cx, y + h * 0.15 + bob);
+        ctx.stroke();
+        // Drill head
+        ctx.fillStyle = accentColor;
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.08, y + h * 0.18 + bob);
+        ctx.lineTo(cx, y + h * 0.05 + bob);
+        ctx.lineTo(cx + w * 0.08, y + h * 0.18 + bob);
+        ctx.closePath();
+        ctx.fill();
+        // Debris particles
+        if (building.active && !building.manualOff) {
+            for (var d = 0; d < 2; d++) {
+                var dx = cx + (Math.sin(t * 5 + d * 4) * w * 0.2);
+                var dy = y + h * 0.12 + bob + ((t * 20 + d * 7) % 10);
+                var da = Math.max(0, 0.5 - ((t * 20 + d * 7) % 10) / 20);
+                ctx.fillStyle = 'rgba(150,130,100,' + da.toFixed(2) + ')';
+                ctx.fillRect(dx - 1, dy - 1, 2, 2);
+            }
+        }
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawOilDrill(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x, y, w, h);
+        // Pumpjack base
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(x + w * 0.2, y + h * 0.6, w * 0.6, h * 0.35);
+        // Rocker arm
+        var rock = Math.sin(t * 2) * 0.3;
+        ctx.save();
+        ctx.translate(cx, y + h * 0.5);
+        ctx.rotate(rock);
+        ctx.fillStyle = '#555';
+        ctx.fillRect(-w * 0.35, -3, w * 0.7, 5);
+        // Horse head
+        ctx.fillStyle = '#666';
+        ctx.fillRect(w * 0.2, -8, w * 0.15, 12);
+        ctx.restore();
+        // Support tower
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - w * 0.05, y + h * 0.6);
+        ctx.lineTo(cx, y + h * 0.2);
+        ctx.lineTo(cx + w * 0.05, y + h * 0.6);
+        ctx.stroke();
+        // Oil sheen
+        var sheen = 'rgba(40,30,80,' + (0.2 + 0.1 * Math.sin(t * 3)).toFixed(2) + ')';
+        ctx.fillStyle = sheen;
+        ctx.fillRect(x + w * 0.3, y + h * 0.85, w * 0.4, h * 0.1);
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawSmelter(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2;
+        ctx.save();
+        // Base
+        ctx.fillStyle = '#2a1a1a';
+        ctx.fillRect(x, y, w, h);
+        // Furnace body
+        ctx.fillStyle = '#3a2a2a';
+        ctx.fillRect(x + w * 0.1, y + h * 0.2, w * 0.8, h * 0.75);
+        // Molten glow
+        var glow = 0.4 + 0.3 * Math.sin(t * 2.5);
+        var grad = ctx.createRadialGradient(cx, y + h * 0.7, 0, cx, y + h * 0.7, w * 0.35);
+        grad.addColorStop(0, 'rgba(255,140,20,' + glow.toFixed(2) + ')');
+        grad.addColorStop(0.6, 'rgba(255,60,10,' + (glow * 0.5).toFixed(2) + ')');
+        grad.addColorStop(1, 'rgba(200,30,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x + w * 0.15, y + h * 0.5, w * 0.7, h * 0.4);
+        // Chimney
+        ctx.fillStyle = '#444';
+        ctx.fillRect(x + w * 0.7, y + h * 0.05, w * 0.12, h * 0.2);
+        // Heat shimmer
+        if (building.active && !building.manualOff) {
+            for (var s = 0; s < 2; s++) {
+                var sy = y + h * 0.02 - ((t * 12 + s * 10) % 12);
+                var sx = x + w * 0.76 + Math.sin(t * 3 + s) * 2;
+                var sa = Math.max(0, 0.25 - ((t * 12 + s * 10) % 12) / 30);
+                ctx.fillStyle = 'rgba(255,200,100,' + sa.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.strokeStyle = '#3a2020';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- WEAPONS ---
+
+    function _drawBlaster(ctx, x, y, w, h, building, t, tier) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.35;
+        ctx.save();
+        // Base plate
+        ctx.fillStyle = '#1a0a0a';
+        ctx.fillRect(x, y, w, h);
+        // Turret base circle
+        ctx.fillStyle = tier >= 3 ? '#5a2020' : (tier >= 2 ? '#4a1a1a' : '#3a1515');
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        // Barrel(s) — rotate toward target or spin slowly
+        var angle = building.turretAngle || (t * 0.5);
+        var barrels = tier >= 3 ? 3 : (tier >= 2 ? 2 : 1);
+        var barrelLen = r * 1.2;
+        var barrelW = 2;
+        ctx.strokeStyle = tier >= 3 ? '#ff6644' : (tier >= 2 ? '#dd5533' : '#cc4422');
+        ctx.lineWidth = barrelW + tier;
+        for (var b = 0; b < barrels; b++) {
+            var bAngle = angle + (b - (barrels - 1) / 2) * 0.25;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(bAngle) * barrelLen, cy + Math.sin(bAngle) * barrelLen);
+            ctx.stroke();
+        }
+        // Center dot
+        ctx.fillStyle = '#ff4422';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Glow when firing
+        if (building.firing) {
+            ctx.fillStyle = 'rgba(255,100,50,0.3)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#441111';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawLaserTurret(ctx, x, y, w, h, building, t, tier) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.3;
+        ctx.save();
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(x, y, w, h);
+        // Swivel base
+        ctx.fillStyle = '#2a2a4a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.1, 0, Math.PI * 2);
+        ctx.fill();
+        // Dish/lens
+        var angle = building.turretAngle || (t * 0.3);
+        var dishR = r * (0.6 + tier * 0.15);
+        var dx = cx + Math.cos(angle) * r * 0.5;
+        var dy = cy + Math.sin(angle) * r * 0.5;
+        ctx.fillStyle = tier >= 3 ? '#8060cc' : (tier >= 2 ? '#6050aa' : '#4040aa');
+        ctx.beginPath();
+        ctx.arc(dx, dy, dishR, angle - 1, angle + 1);
+        ctx.lineTo(cx, cy);
+        ctx.closePath();
+        ctx.fill();
+        // Charging glow
+        var charge = 0.2 + 0.3 * Math.sin(t * 4);
+        ctx.fillStyle = 'rgba(150,100,255,' + charge.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(dx, dy, dishR * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#222244';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawMissileLauncher(ctx, x, y, w, h, building, t, tier) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a0a0a';
+        ctx.fillRect(x, y, w, h);
+        // Launcher rack
+        ctx.fillStyle = '#3a2a2a';
+        ctx.fillRect(x + w * 0.15, y + h * 0.2, w * 0.7, h * 0.6);
+        // Missile slots
+        var slots = tier >= 3 ? 4 : (tier >= 2 ? 3 : 2);
+        var slotH = (h * 0.5) / slots;
+        for (var s = 0; s < slots; s++) {
+            var sy = y + h * 0.25 + s * slotH;
+            // Tube
+            ctx.fillStyle = '#555';
+            ctx.fillRect(x + w * 0.25, sy, w * 0.5, slotH * 0.7);
+            // Missile tip
+            ctx.fillStyle = '#cc3333';
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.75, sy + slotH * 0.1);
+            ctx.lineTo(x + w * 0.82, sy + slotH * 0.35);
+            ctx.lineTo(x + w * 0.75, sy + slotH * 0.6);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Smoke puff if recently fired
+        if (building.firing) {
+            ctx.fillStyle = 'rgba(180,180,180,0.4)';
+            ctx.beginPath();
+            ctx.arc(x + w * 0.85, cy, w * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#331111';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawTeslaCoil(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.35;
+        ctx.save();
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(x, y, w, h);
+        // Coil tower
+        ctx.fillStyle = '#3a3a5a';
+        ctx.fillRect(cx - w * 0.08, y + h * 0.25, w * 0.16, h * 0.65);
+        // Top sphere
+        ctx.fillStyle = '#5a5a8a';
+        ctx.beginPath();
+        ctx.arc(cx, y + h * 0.22, r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Bottom sphere
+        ctx.beginPath();
+        ctx.arc(cx, y + h * 0.78, r * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Electric arcs
+        var arcCount = building.active ? 3 : 1;
+        for (var a = 0; a < arcCount; a++) {
+            var arcAngle = t * 5 + a * 2.1;
+            var ax = cx + Math.cos(arcAngle) * r * 0.8;
+            var ay = y + h * 0.22 + Math.sin(arcAngle) * r * 0.6;
+            ctx.strokeStyle = 'rgba(130,100,255,' + (0.5 + 0.3 * Math.sin(t * 8 + a)).toFixed(2) + ')';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx, y + h * 0.22);
+            // Zigzag
+            var mx = (cx + ax) / 2 + Math.sin(t * 10 + a) * 4;
+            var my = (y + h * 0.22 + ay) / 2 + Math.cos(t * 10 + a) * 3;
+            ctx.quadraticCurveTo(mx, my, ax, ay);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = '#222244';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawFlamethrower(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a0a0a';
+        ctx.fillRect(x, y, w, h);
+        // Base
+        ctx.fillStyle = '#3a2a1a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.min(w, h) * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+        // Nozzle
+        var angle = building.turretAngle || (t * 0.4);
+        var nx = cx + Math.cos(angle) * w * 0.35;
+        var ny = cy + Math.sin(angle) * h * 0.35;
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(nx, ny);
+        ctx.stroke();
+        // Flame cone (when active)
+        if (building.active && !building.manualOff) {
+            for (var f = 0; f < 4; f++) {
+                var fd = 0.6 + f * 0.15;
+                var fx = cx + Math.cos(angle) * w * fd;
+                var fy = cy + Math.sin(angle) * h * fd;
+                var fr = 3 + f * 1.5;
+                var fa = Math.max(0, 0.6 - f * 0.15 + Math.sin(t * 10 + f) * 0.1);
+                var fhue = f < 2 ? '255,200,50' : '255,100,20';
+                ctx.fillStyle = 'rgba(' + fhue + ',' + fa.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.strokeStyle = '#331a0a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawRailgun(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(x, y, w, h);
+        // Base
+        ctx.fillStyle = '#2a2a3a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.min(w, h) * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        // Long barrel
+        var angle = building.turretAngle || (t * 0.2);
+        var barrelLen = Math.min(w, h) * 0.55;
+        ctx.strokeStyle = '#6a6a8a';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(angle) * barrelLen, cy + Math.sin(angle) * barrelLen);
+        ctx.stroke();
+        // EM rings along barrel
+        for (var r = 0; r < 3; r++) {
+            var rd = 0.3 + r * 0.2;
+            var rx = cx + Math.cos(angle) * barrelLen * rd;
+            var ry = cy + Math.sin(angle) * barrelLen * rd;
+            var pulse = 0.3 + 0.4 * Math.sin(t * 4 - r * 1.5);
+            ctx.strokeStyle = 'rgba(80,120,255,' + pulse.toFixed(2) + ')';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(rx, ry, 3, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = '#1a1a2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawEMPTower(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.3;
+        ctx.save();
+        ctx.fillStyle = '#0a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Dome
+        ctx.fillStyle = '#2a3a5a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        // Pulse rings
+        for (var p = 0; p < 2; p++) {
+            var pr = ((t * 1.5 + p * 0.5) % 1) * r * 2;
+            var pa = Math.max(0, 0.6 - pr / (r * 2));
+            ctx.strokeStyle = 'rgba(50,200,255,' + pa.toFixed(2) + ')';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, pr, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        // Center glow
+        ctx.fillStyle = 'rgba(100,200,255,0.4)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1a2a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawMortar(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a1a0a';
+        ctx.fillRect(x, y, w, h);
+        // Base platform
+        ctx.fillStyle = '#3a3a2a';
+        ctx.fillRect(x + w * 0.15, y + h * 0.5, w * 0.7, h * 0.45);
+        // Tube
+        var tilt = 0.3 + Math.sin(t * 0.5) * 0.1;
+        ctx.save();
+        ctx.translate(cx, y + h * 0.55);
+        ctx.rotate(-tilt);
+        ctx.fillStyle = '#5a5a4a';
+        ctx.fillRect(-w * 0.08, -h * 0.4, w * 0.16, h * 0.4);
+        // Opening
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(0, -h * 0.4, w * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.strokeStyle = '#2a2a1a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawDroneBay(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Hangar
+        ctx.fillStyle = '#2a2a3a';
+        ctx.fillRect(x + w * 0.1, y + h * 0.3, w * 0.8, h * 0.65);
+        // Hangar door opening
+        ctx.fillStyle = '#111';
+        ctx.fillRect(x + w * 0.2, y + h * 0.35, w * 0.6, h * 0.25);
+        // Mini drone hovering above
+        var hover = Math.sin(t * 3) * 3;
+        var droneY = y + h * 0.2 + hover;
+        ctx.fillStyle = '#8888aa';
+        ctx.fillRect(cx - 4, droneY - 2, 8, 4);
+        // Rotor blur
+        ctx.strokeStyle = 'rgba(150,150,200,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx - 6, droneY - 3);
+        ctx.lineTo(cx + 6, droneY - 3);
+        ctx.stroke();
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawMineLayer(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a1a0a';
+        ctx.fillRect(x, y, w, h);
+        // Armored box
+        ctx.fillStyle = '#3a3a2a';
+        ctx.fillRect(x + w * 0.1, y + h * 0.2, w * 0.8, h * 0.6);
+        // Warning stripes
+        ctx.fillStyle = '#cc9900';
+        ctx.fillRect(x + w * 0.1, y + h * 0.2, w * 0.8, h * 0.08);
+        ctx.fillStyle = '#222';
+        ctx.fillRect(x + w * 0.1, y + h * 0.24, w * 0.2, h * 0.04);
+        ctx.fillRect(x + w * 0.5, y + h * 0.24, w * 0.2, h * 0.04);
+        // Blinking mine dots
+        for (var m = 0; m < 3; m++) {
+            var mx = cx - w * 0.2 + m * w * 0.2;
+            var my = cy + h * 0.1;
+            var blink = Math.sin(t * 3 + m * 2) > 0;
+            ctx.fillStyle = blink ? '#ff3333' : '#661111';
+            ctx.beginPath();
+            ctx.arc(mx, my, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#2a2a1a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawAutocannon(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.3;
+        ctx.save();
+        ctx.fillStyle = '#1a0a0a';
+        ctx.fillRect(x, y, w, h);
+        // Rotating multi-barrel base
+        ctx.fillStyle = '#4a2a2a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        // 4 barrels (gatling style)
+        var angle = building.turretAngle || (t * 4);
+        for (var b = 0; b < 4; b++) {
+            var ba = angle + b * Math.PI / 2;
+            var bLen = r * 1.1;
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(ba) * r * 0.3, cy + Math.sin(ba) * r * 0.3);
+            ctx.lineTo(cx + Math.cos(ba) * bLen, cy + Math.sin(ba) * bLen);
+            ctx.stroke();
+        }
+        // Center
+        ctx.fillStyle = '#cc4444';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#330a0a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawPlasmaCannon(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.3;
+        ctx.save();
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(x, y, w, h);
+        // Base
+        ctx.fillStyle = '#2a1a3a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        // Wide barrel
+        var angle = building.turretAngle || (t * 0.3);
+        ctx.fillStyle = '#4a2a5a';
+        ctx.beginPath();
+        var nx = cx + Math.cos(angle) * r * 1.3;
+        var ny = cy + Math.sin(angle) * r * 1.3;
+        var perpX = -Math.sin(angle) * r * 0.4;
+        var perpY = Math.cos(angle) * r * 0.4;
+        ctx.moveTo(cx + perpX, cy + perpY);
+        ctx.lineTo(nx + perpX * 0.5, ny + perpY * 0.5);
+        ctx.lineTo(nx - perpX * 0.5, ny - perpY * 0.5);
+        ctx.lineTo(cx - perpX, cy - perpY);
+        ctx.closePath();
+        ctx.fill();
+        // Plasma glow at muzzle
+        var pulse = 0.3 + 0.3 * Math.sin(t * 5);
+        ctx.fillStyle = 'rgba(200,50,255,' + pulse.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(nx, ny, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1a0a2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawFusionBeam(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.35;
+        ctx.save();
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(x, y, w, h);
+        // Large dish
+        var angle = building.turretAngle || (t * 0.2);
+        ctx.fillStyle = '#3a3a5a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, angle - 1.2, angle + 1.2);
+        ctx.lineTo(cx, cy);
+        ctx.closePath();
+        ctx.fill();
+        // Inner rings (charging)
+        for (var ri = 0; ri < 3; ri++) {
+            var rr = r * (0.3 + ri * 0.15);
+            var pulse = 0.3 + 0.3 * Math.sin(t * 3 + ri * 1.5);
+            ctx.strokeStyle = 'rgba(100,200,255,' + pulse.toFixed(2) + ')';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rr, angle - 0.8, angle + 0.8);
+            ctx.stroke();
+        }
+        // Core glow
+        ctx.fillStyle = 'rgba(150,220,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1a1a2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- DEFENSE ---
+
+    function _drawShieldGenerator(ctx, x, y, w, h, building, t, tier) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.35;
+        ctx.save();
+        ctx.fillStyle = '#0a0a2a';
+        ctx.fillRect(x, y, w, h);
+        // Hex base
+        ctx.fillStyle = '#2a2a5a';
+        ctx.beginPath();
+        for (var i = 0; i < 6; i++) {
+            var a = i * Math.PI / 3 - Math.PI / 6;
+            var px = cx + Math.cos(a) * r;
+            var py = cy + Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = tier >= 2 ? '#6688ff' : '#4466cc';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Projector dome
+        var pulse = 0.3 + 0.3 * Math.sin(t * 2);
+        var domColor = tier >= 2 ? 'rgba(80,140,255,' : 'rgba(60,100,200,';
+        ctx.fillStyle = domColor + pulse.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Energy ring
+        ctx.strokeStyle = domColor + '0.6)';
+        ctx.lineWidth = 1;
+        var ringAngle = t * 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.7, ringAngle, ringAngle + 1.5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.7, ringAngle + Math.PI, ringAngle + Math.PI + 1.5);
+        ctx.stroke();
+        ctx.strokeStyle = '#1a1a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawWall(ctx, x, y, w, h, building, t, variant) {
+        ctx.save();
+        var baseColor, accentColor;
+        if (variant === 'electric') {
+            baseColor = '#3a3a5a'; accentColor = '#5a7acc';
+        } else if (variant === 'steel') {
+            baseColor = '#4a4a5a'; accentColor = '#7a7a8a';
+        } else {
+            baseColor = '#5a5550'; accentColor = '#6a6560';
+        }
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(x, y, w, h);
+        // Brick/rivet pattern
+        var brickH = h / 3;
+        for (var row = 0; row < 3; row++) {
+            var offset = (row % 2) * w * 0.3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(x, y + row * brickH);
+            ctx.lineTo(x + w, y + row * brickH);
+            ctx.stroke();
+            // Vertical line
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.5 + offset, y + row * brickH);
+            ctx.lineTo(x + w * 0.5 + offset, y + (row + 1) * brickH);
+            ctx.stroke();
+        }
+        // Damage cracks
+        var hpRatio = building.hp / building.maxHp;
+        if (hpRatio < 0.7) {
+            ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.3, y + h * 0.2);
+            ctx.lineTo(x + w * 0.5, y + h * 0.5);
+            ctx.lineTo(x + w * 0.4, y + h * 0.8);
+            ctx.stroke();
+        }
+        if (hpRatio < 0.4) {
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.7, y + h * 0.1);
+            ctx.lineTo(x + w * 0.6, y + h * 0.6);
+            ctx.stroke();
+        }
+        // Electric sparks
+        if (variant === 'electric' && building.active) {
+            var sparkA = 0.3 + 0.3 * Math.sin(t * 8);
+            ctx.fillStyle = 'rgba(100,150,255,' + sparkA.toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(x + w * 0.5, y + h * 0.3, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Steel rivets
+        if (variant === 'steel') {
+            ctx.fillStyle = '#8a8a9a';
+            var corners = [[0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]];
+            for (var c = 0; c < corners.length; c++) {
+                ctx.beginPath();
+                ctx.arc(x + w * corners[c][0], y + h * corners[c][1], 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawCoreRepair(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a2a1a';
+        ctx.fillRect(x, y, w, h);
+        // Wrench icon
+        var pulse = 0.5 + 0.3 * Math.sin(t * 2);
+        ctx.strokeStyle = 'rgba(100,200,100,' + pulse.toFixed(2) + ')';
+        ctx.lineWidth = 2.5;
+        var wr = Math.min(w, h) * 0.25;
+        ctx.beginPath();
+        ctx.moveTo(cx - wr, cy - wr * 0.5);
+        ctx.lineTo(cx + wr * 0.3, cy + wr * 0.5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx - wr, cy - wr * 0.5, wr * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+        // Healing particles
+        if (building.active && !building.manualOff) {
+            var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, wr * 1.5);
+            grad.addColorStop(0, 'rgba(100,255,100,' + (pulse * 0.3).toFixed(2) + ')');
+            grad.addColorStop(1, 'rgba(100,255,100,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, wr * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#1a3a1a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- HOUSING ---
+
+    function _drawSmallHouse(ctx, x, y, w, h, building, t) {
+        ctx.save();
+        ctx.fillStyle = '#2a3a2a';
+        ctx.fillRect(x, y, w, h);
+        // House body
+        ctx.fillStyle = '#4a5a3a';
+        ctx.fillRect(x + w * 0.1, y + h * 0.35, w * 0.8, h * 0.6);
+        // Roof
+        ctx.fillStyle = '#6a4a3a';
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.05, y + h * 0.38);
+        ctx.lineTo(x + w * 0.5, y + h * 0.1);
+        ctx.lineTo(x + w * 0.95, y + h * 0.38);
+        ctx.closePath();
+        ctx.fill();
+        // Window (warm glow)
+        var glow = 0.5 + 0.2 * Math.sin(t * 1.5);
+        ctx.fillStyle = 'rgba(255,220,100,' + glow.toFixed(2) + ')';
+        ctx.fillRect(x + w * 0.35, y + h * 0.5, w * 0.3, h * 0.2);
+        // Window frame
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x + w * 0.35, y + h * 0.5, w * 0.3, h * 0.2);
+        // Door
+        ctx.fillStyle = '#3a2a1a';
+        ctx.fillRect(x + w * 0.4, y + h * 0.72, w * 0.2, h * 0.23);
+        ctx.strokeStyle = '#2a3a2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawMediumHouse(ctx, x, y, w, h, building, t) {
+        ctx.save();
+        ctx.fillStyle = '#2a2a3a';
+        ctx.fillRect(x, y, w, h);
+        // Apartment body
+        ctx.fillStyle = '#4a4a5a';
+        ctx.fillRect(x + w * 0.08, y + h * 0.15, w * 0.84, h * 0.8);
+        // Flat roof
+        ctx.fillStyle = '#5a5a6a';
+        ctx.fillRect(x + w * 0.05, y + h * 0.12, w * 0.9, h * 0.06);
+        // Windows (2x2 grid, staggered glow)
+        for (var wr = 0; wr < 2; wr++) {
+            for (var wc = 0; wc < 2; wc++) {
+                var wx = x + w * 0.18 + wc * w * 0.35;
+                var wy = y + h * 0.25 + wr * h * 0.3;
+                var lit = Math.sin(t * 1.2 + wr * 3 + wc * 5) > -0.3;
+                ctx.fillStyle = lit ? 'rgba(255,220,100,0.6)' : 'rgba(40,40,60,0.5)';
+                ctx.fillRect(wx, wy, w * 0.22, h * 0.18);
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(wx, wy, w * 0.22, h * 0.18);
+            }
+        }
+        ctx.strokeStyle = '#2a2a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawLargeHouse(ctx, x, y, w, h, building, t) {
+        ctx.save();
+        ctx.fillStyle = '#2a2a3a';
+        ctx.fillRect(x, y, w, h);
+        // Tall building
+        ctx.fillStyle = '#4a4a5a';
+        ctx.fillRect(x + w * 0.1, y + h * 0.05, w * 0.8, h * 0.9);
+        // Antenna
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.5, y + h * 0.05);
+        ctx.lineTo(x + w * 0.5, y - h * 0.05);
+        ctx.stroke();
+        // Blinking antenna light
+        ctx.fillStyle = Math.sin(t * 4) > 0 ? '#ff3333' : '#331111';
+        ctx.beginPath();
+        ctx.arc(x + w * 0.5, y - h * 0.05, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Windows (3x4 grid)
+        for (var wr = 0; wr < 4; wr++) {
+            for (var wc = 0; wc < 3; wc++) {
+                var wx = x + w * 0.16 + wc * w * 0.24;
+                var wy = y + h * 0.1 + wr * h * 0.2;
+                var lit = Math.sin(t * 0.8 + wr * 2.5 + wc * 4.3) > -0.2;
+                ctx.fillStyle = lit ? 'rgba(255,220,100,0.5)' : 'rgba(40,40,60,0.4)';
+                ctx.fillRect(wx, wy, w * 0.16, h * 0.12);
+            }
+        }
+        ctx.strokeStyle = '#2a2a3a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- ENVIRONMENT ---
+
+    function _drawCarbonCollector(ctx, x, y, w, h, building, t, tier) {
+        var cx = x + w / 2, cy = y + h / 2;
+        var r = Math.min(w, h) * 0.32;
+        ctx.save();
+        ctx.fillStyle = '#0a1a0a';
+        ctx.fillRect(x, y, w, h);
+        // Collector dish
+        ctx.fillStyle = tier >= 2 ? '#2a5a2a' : '#1a4a1a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        // Spinning fan at center
+        for (var f = 0; f < 4; f++) {
+            var fa = t * 3 + f * Math.PI / 2;
+            ctx.fillStyle = 'rgba(80,180,80,0.6)';
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, r * 0.6, fa, fa + 0.6);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Green particles being sucked in
+        if (building.active && !building.manualOff) {
+            for (var p = 0; p < 4; p++) {
+                var pAngle = t * 1.5 + p * Math.PI / 2;
+                var pDist = r * 1.5 - ((t * 20 + p * 8) % (r * 1.5));
+                var px = cx + Math.cos(pAngle) * pDist;
+                var py = cy + Math.sin(pAngle) * pDist;
+                var pa = Math.max(0, 0.6 - pDist / (r * 1.5) * 0.4);
+                ctx.fillStyle = 'rgba(60,200,60,' + pa.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.strokeStyle = '#0a2a0a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- GRID ---
+
+    function _drawPylonBuilding(ctx, x, y, w, h, building, t, variant) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        // Transparent base (pylons are infrastructure)
+        ctx.fillStyle = variant === 'water' ? 'rgba(10,30,60,0.5)' : 'rgba(20,20,20,0.5)';
+        ctx.fillRect(x, y, w, h);
+        // Lattice tower (X frame)
+        var lineColor = variant === 'hc' ? '#6688bb' : (variant === 'water' ? '#4466aa' : '#777');
+        var lineW = variant === 'hc' ? 2 : 1.5;
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = lineW;
+        // X shape
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.2, y + h * 0.9);
+        ctx.lineTo(x + w * 0.8, y + h * 0.1);
+        ctx.moveTo(x + w * 0.8, y + h * 0.9);
+        ctx.lineTo(x + w * 0.2, y + h * 0.1);
+        ctx.stroke();
+        // Horizontal bar
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.15, y + h * 0.5);
+        ctx.lineTo(x + w * 0.85, y + h * 0.5);
+        ctx.stroke();
+        // Top insulator/spark
+        ctx.fillStyle = variant === 'hc' ? '#88aadd' : '#aaa';
+        ctx.beginPath();
+        ctx.arc(cx, y + h * 0.15, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        // HC glow
+        if (variant === 'hc') {
+            var pulse = 0.2 + 0.2 * Math.sin(t * 3);
+            ctx.fillStyle = 'rgba(80,120,200,' + pulse.toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(cx, y + h * 0.15, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Water pylon floating platform
+        if (variant === 'water') {
+            ctx.fillStyle = '#3a5a7a';
+            ctx.fillRect(x + w * 0.05, y + h * 0.85, w * 0.9, h * 0.12);
+            // Small wave
+            ctx.strokeStyle = 'rgba(80,140,200,0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            var waveY = y + h * 0.95;
+            ctx.moveTo(x, waveY);
+            for (var wv = 0; wv < w; wv += 4) {
+                ctx.lineTo(x + wv, waveY + Math.sin(t * 3 + wv * 0.3) * 1.5);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function _drawGridConnect(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x, y, w, h);
+        // Transformer box
+        ctx.fillStyle = '#2a3a2a';
+        ctx.fillRect(x + w * 0.15, y + h * 0.15, w * 0.7, h * 0.7);
+        // Outlet prongs
+        ctx.fillStyle = '#555';
+        ctx.fillRect(cx - w * 0.12, y + h * 0.3, w * 0.08, h * 0.2);
+        ctx.fillRect(cx + w * 0.05, y + h * 0.3, w * 0.08, h * 0.2);
+        // Power indicator
+        var pulse = 0.3 + 0.4 * Math.sin(t * 2);
+        ctx.fillStyle = building.active ? 'rgba(50,200,50,' + pulse.toFixed(2) + ')' : 'rgba(100,50,50,0.3)';
+        ctx.beginPath();
+        ctx.arc(cx, cy + h * 0.15, 3, 0, Math.PI * 2);
+        ctx.fill();
+        // Pulsing energy waves when active
+        if (building.active && !building.manualOff) {
+            var pr = ((t * 2) % 1) * w * 0.5;
+            var pa = Math.max(0, 0.4 - pr / (w * 0.5));
+            ctx.strokeStyle = 'rgba(50,200,50,' + pa.toFixed(2) + ')';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(cx, cy, pr, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    function _drawConsumerMarket(ctx, x, y, w, h, building, t) {
+        var cx = x + w / 2, cy = y + h / 2;
+        ctx.save();
+        ctx.fillStyle = '#1a1a0a';
+        ctx.fillRect(x, y, w, h);
+        // Market stall
+        ctx.fillStyle = '#4a3a1a';
+        ctx.fillRect(x + w * 0.1, y + h * 0.35, w * 0.8, h * 0.6);
+        // Awning
+        ctx.fillStyle = '#cc8833';
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.05, y + h * 0.35);
+        ctx.lineTo(x + w * 0.5, y + h * 0.15);
+        ctx.lineTo(x + w * 0.95, y + h * 0.35);
+        ctx.closePath();
+        ctx.fill();
+        // Coin symbol
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold ' + Math.floor(Math.min(w, h) * 0.3) + 'px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('$', cx, cy + h * 0.1);
+        ctx.strokeStyle = '#2a2a0a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- BUILDING DRAW DISPATCH ---
+
+    function _drawBuildingCustom(ctx, x, y, w, h, building, t) {
+        var type = building.type;
+        switch (type) {
+            // Power
+            case 'solar': _drawSolarPanel(ctx, x, y, w, h, building, t); return true;
+            case 'wind': _drawWindTurbine(ctx, x, y, w, h, building, t); return true;
+            case 'coal_plant': _drawCoalPlant(ctx, x, y, w, h, building, t); return true;
+            case 'gas_plant': _drawGasPlant(ctx, x, y, w, h, building, t); return true;
+            case 'nuclear_plant': _drawNuclearPlant(ctx, x, y, w, h, building, t); return true;
+            case 'hydro_plant': _drawHydroPlant(ctx, x, y, w, h, building, t); return true;
+            // Storage
+            case 'small_battery': _drawSmallBattery(ctx, x, y, w, h, building, t); return true;
+            case 'large_battery': _drawLargeBattery(ctx, x, y, w, h, building, t); return true;
+            case 'capacitor': _drawCapacitor(ctx, x, y, w, h, building, t, false); return true;
+            case 'advanced_capacitor': _drawCapacitor(ctx, x, y, w, h, building, t, true); return true;
+            case 'consumer_battery': _drawConsumerBattery(ctx, x, y, w, h, building, t); return true;
+            // Mining
+            case 'iron_miner': case 'iron_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#8a5a2a', '#aa7744'); return true;
+            case 'coal_miner': case 'coal_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#3a3a3a', '#666'); return true;
+            case 'uranium_miner': case 'uranium_miner_t2': _drawMiner(ctx, x, y, w, h, building, t, '#2a4a2a', '#4a8a4a'); return true;
+            case 'oil_drill': case 'oil_drill_t2': _drawOilDrill(ctx, x, y, w, h, building, t); return true;
+            case 'smelter': _drawSmelter(ctx, x, y, w, h, building, t); return true;
+            // Weapons
+            case 'blaster_t1': _drawBlaster(ctx, x, y, w, h, building, t, 1); return true;
+            case 'blaster_t2': _drawBlaster(ctx, x, y, w, h, building, t, 2); return true;
+            case 'blaster_t3': _drawBlaster(ctx, x, y, w, h, building, t, 3); return true;
+            case 'laser_t1': _drawLaserTurret(ctx, x, y, w, h, building, t, 1); return true;
+            case 'laser_t2': _drawLaserTurret(ctx, x, y, w, h, building, t, 2); return true;
+            case 'laser_t3': _drawLaserTurret(ctx, x, y, w, h, building, t, 3); return true;
+            case 'missile_t1': _drawMissileLauncher(ctx, x, y, w, h, building, t, 1); return true;
+            case 'missile_t2': _drawMissileLauncher(ctx, x, y, w, h, building, t, 2); return true;
+            case 'missile_t3': _drawMissileLauncher(ctx, x, y, w, h, building, t, 3); return true;
+            case 'tesla_coil': _drawTeslaCoil(ctx, x, y, w, h, building, t); return true;
+            case 'flamethrower': _drawFlamethrower(ctx, x, y, w, h, building, t); return true;
+            case 'railgun': _drawRailgun(ctx, x, y, w, h, building, t); return true;
+            case 'emp_tower': _drawEMPTower(ctx, x, y, w, h, building, t); return true;
+            case 'mortar': _drawMortar(ctx, x, y, w, h, building, t); return true;
+            case 'drone_bay': _drawDroneBay(ctx, x, y, w, h, building, t); return true;
+            case 'mine_layer': _drawMineLayer(ctx, x, y, w, h, building, t); return true;
+            case 'autocannon': _drawAutocannon(ctx, x, y, w, h, building, t); return true;
+            case 'plasma_cannon': _drawPlasmaCannon(ctx, x, y, w, h, building, t); return true;
+            case 'fusion_beam': _drawFusionBeam(ctx, x, y, w, h, building, t); return true;
+            // Defense
+            case 'shield_t1': _drawShieldGenerator(ctx, x, y, w, h, building, t, 1); return true;
+            case 'shield_t2': _drawShieldGenerator(ctx, x, y, w, h, building, t, 2); return true;
+            case 'wall': _drawWall(ctx, x, y, w, h, building, t, 'basic'); return true;
+            case 'electric_wall': _drawWall(ctx, x, y, w, h, building, t, 'electric'); return true;
+            case 'steel_wall': _drawWall(ctx, x, y, w, h, building, t, 'steel'); return true;
+            case 'core_repair': _drawCoreRepair(ctx, x, y, w, h, building, t); return true;
+            // Housing
+            case 'small_house': _drawSmallHouse(ctx, x, y, w, h, building, t); return true;
+            case 'medium_house': _drawMediumHouse(ctx, x, y, w, h, building, t); return true;
+            case 'large_house': _drawLargeHouse(ctx, x, y, w, h, building, t); return true;
+            // Environment
+            case 'carbon_collector_t1': _drawCarbonCollector(ctx, x, y, w, h, building, t, 1); return true;
+            case 'carbon_collector_t2': _drawCarbonCollector(ctx, x, y, w, h, building, t, 2); return true;
+            // Grid
+            case 'pylon': _drawPylonBuilding(ctx, x, y, w, h, building, t, 'standard'); return true;
+            case 'water_pylon': _drawPylonBuilding(ctx, x, y, w, h, building, t, 'water'); return true;
+            case 'hc_pylon': _drawPylonBuilding(ctx, x, y, w, h, building, t, 'hc'); return true;
+            case 'grid_connect': _drawGridConnect(ctx, x, y, w, h, building, t); return true;
+            case 'consumer_market': _drawConsumerMarket(ctx, x, y, w, h, building, t); return true;
+            default: return false;
+        }
+    }
+
+    // Render a building icon into a canvas element for UI thumbnails
+    function _drawBuildingIcon(type, size) {
+        var canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var mockBuilding = {
+            type: type,
+            energy: 0,
+            hp: 100,
+            maxHp: 100,
+            active: true,
+            manualOff: false,
+            turretAngle: -Math.PI / 4,
+            scaledStorageCapacity: 0
+        };
+        var def = Config.BUILDINGS[type];
+        if (def && def.energyStorageCapacity) {
+            mockBuilding.energy = def.energyStorageCapacity * 0.6; // show partially filled
+        }
+        if (!_drawBuildingCustom(ctx, 0, 0, size, size, mockBuilding, 0)) {
+            // Fallback: colored rect with emoji
+            var cat = def ? def.category : 'grid';
+            ctx.fillStyle = COLORS.BUILDING[cat] || '#888';
+            ctx.fillRect(0, 0, size, size);
+            if (def && def.icon) {
+                ctx.font = Math.floor(size * 0.5) + 'px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(def.icon, size / 2, size / 2);
+            }
+        }
+        return canvas.toDataURL();
+    }
+
+    // Icon cache for UI
+    var _iconCache = {};
+    function _getBuildingIconDataUrl(type, size) {
+        var key = type + '_' + size;
+        if (!_iconCache[key]) {
+            _iconCache[key] = _drawBuildingIcon(type, size || 40);
+        }
+        return _iconCache[key];
+    }
+
     // Custom procedural sci-fi core graphic
     function _drawCoreBuilding(ctx, x, y, w, h, building, selectedId) {
         var cx = x + w / 2;
@@ -1143,21 +2613,32 @@ var Render = (function () {
             ph = sizeH * cs;
 
             color = COLORS.BUILDING[def.category] || '#888888';
+            var t = _animFrame / 60;
 
             // Custom draw for core building
-            if (b.type === 'core') {
+            if (b.type === 'core' || b.type === 'core_armored') {
                 _drawCoreBuilding(ctx, b.worldX, b.worldY, pw, ph, b, selectedId);
                 continue;
             }
 
-            // Building body
-            ctx.fillStyle = color;
-            ctx.fillRect(b.worldX, b.worldY, pw, ph);
-
-            // Border
-            ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(b.worldX, b.worldY, pw, ph);
+            // Try custom procedural drawing; fall back to colored rect
+            if (!_drawBuildingCustom(ctx, b.worldX, b.worldY, pw, ph, b, t)) {
+                // Fallback: colored rectangle
+                ctx.fillStyle = color;
+                ctx.fillRect(b.worldX, b.worldY, pw, ph);
+                ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(b.worldX, b.worldY, pw, ph);
+                // Icon (emoji)
+                if (def.icon) {
+                    var fontSize = Math.min(pw, ph) * 0.55;
+                    ctx.font = Math.floor(fontSize) + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(def.icon, b.worldX + pw / 2, b.worldY + ph / 2);
+                }
+            }
 
             // Inactive overlay (no power, no workers, EMP disabled, or manually off)
             if (!b.active || empDisabled[b.id] || b.manualOff) {
@@ -1203,16 +2684,6 @@ var Render = (function () {
                     ctx.textBaseline = 'middle';
                     ctx.fillText('W', wBadgeX, wBadgeY);
                 }
-            }
-
-            // Icon (emoji)
-            if (def.icon) {
-                var fontSize = Math.min(pw, ph) * 0.55;
-                ctx.font = Math.floor(fontSize) + 'px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#ffffff';
-                ctx.fillText(def.icon, b.worldX + pw / 2, b.worldY + ph / 2);
             }
 
             // Selection highlight
@@ -4286,6 +5757,8 @@ var Render = (function () {
 
         isEnergyOverlayOn: function () {
             return _showEnergyOverlay;
-        }
+        },
+
+        getBuildingIconDataUrl: _getBuildingIconDataUrl
     };
 })();

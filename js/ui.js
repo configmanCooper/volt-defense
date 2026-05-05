@@ -28,7 +28,12 @@ var UI = (function () {
         }
 
         var h = '<div class="bic-header">';
-        h += '<span class="bic-icon">' + (def.icon || '') + '</span>';
+        var bicIcon = (def.icon || '');
+        if (typeof Render !== 'undefined' && Render.getBuildingIconDataUrl) {
+            var bicUrl = Render.getBuildingIconDataUrl(type, 40);
+            if (bicUrl) bicIcon = '<img src="' + bicUrl + '" width="32" height="32" style="vertical-align:middle;image-rendering:pixelated;" />';
+        }
+        h += '<span class="bic-icon">' + bicIcon + '</span>';
         h += '<div><div class="bic-title">' + def.name + '</div>';
         if (def.description) h += '<div class="bic-subtitle">' + def.description + '</div>';
         h += '</div></div>';
@@ -1161,7 +1166,12 @@ var UI = (function () {
                 var disabled = (!canAfford || !hasWorkers) ? ' disabled' : '';
 
                 html += '<button class="build-btn' + disabled + '" data-action="select-building" data-building-type="' + key + '">';
-                html += '<span class="build-icon">' + (def.icon || '') + '</span>';
+                var iconHtml = (def.icon || '');
+                if (typeof Render !== 'undefined' && Render.getBuildingIconDataUrl) {
+                    var iconUrl = Render.getBuildingIconDataUrl(key, 32);
+                    if (iconUrl) iconHtml = '<img src="' + iconUrl + '" width="24" height="24" style="vertical-align:middle;image-rendering:pixelated;" />';
+                }
+                html += '<span class="build-icon">' + iconHtml + '</span>';
                 html += '<span class="build-name">' + def.name + '</span>';
                 html += '<span class="build-cost">$' + (cost.money || 0);
                 if (cost.iron) html += ' +' + cost.iron + '⛏️';
@@ -1313,7 +1323,12 @@ var UI = (function () {
             var hpPct = building.maxHp > 0 ? Math.floor((building.hp / building.maxHp) * 100) : 0;
             var html = '';
             html += '<div class="info-header">';
-            html += '<span class="info-icon">' + (def.icon || '') + '</span>';
+            var infoIcon = (def.icon || '');
+            if (typeof Render !== 'undefined' && Render.getBuildingIconDataUrl) {
+                var infoUrl = Render.getBuildingIconDataUrl(building.type, 40);
+                if (infoUrl) infoIcon = '<img src="' + infoUrl + '" width="28" height="28" style="vertical-align:middle;image-rendering:pixelated;" />';
+            }
+            html += '<span class="info-icon">' + infoIcon + '</span>';
             html += '<span class="info-name">' + def.name + '</span>';
             html += '</div>';
 
