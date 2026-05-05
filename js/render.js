@@ -2498,8 +2498,8 @@ var Render = (function () {
             // Power
             case 'solar': _drawSolarPanel(ctx, x, y, w, h, building, t); return true;
             case 'wind': _drawWindTurbine(ctx, x, y, w, h, building, t); return true;
-            case 'coal_plant': _drawCoalPlant(ctx, x, y, w, h, building, t); return true;
-            case 'gas_plant': _drawGasPlant(ctx, x, y, w, h, building, t); return true;
+            case 'coal_plant': return false;
+            case 'gas_plant': return false;
             case 'nuclear_plant': _drawNuclearPlant(ctx, x, y, w, h, building, t); return true;
             case 'hydro_plant': _drawHydroPlant(ctx, x, y, w, h, building, t); return true;
             // Storage
