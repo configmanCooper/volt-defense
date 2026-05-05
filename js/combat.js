@@ -416,6 +416,9 @@ var Combat = (function() {
                 continue;
             }
 
+            // Point turret toward target
+            b.turretAngle = Math.atan2(enemy.y - center.y, enemy.x - center.x);
+
             // Target switch resets ramp
             if (prevTarget !== enemy.id) {
                 b.laserRampTime = 0;
@@ -557,7 +560,8 @@ var Combat = (function() {
             var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) { continue; }
 
-            // Check energy (full per-shot cost, not per-tick)
+            // Point turret toward target
+            b.turretAngle = Math.atan2(enemy.y - center.y, enemy.x - center.x);
             var energyCost = def.energyPerShot || 0;
             if (b.energy < energyCost) { continue; }
 
@@ -616,6 +620,9 @@ var Combat = (function() {
             // Find target enemy using priority
             var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) { continue; }
+
+            // Point turret toward target
+            b.turretAngle = Math.atan2(enemy.y - center.y, enemy.x - center.x);
 
             var energyCost = def.energyPerShot || 0;
             if (b.energy < energyCost) { continue; }
@@ -928,6 +935,9 @@ var Combat = (function() {
             var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) { continue; }
 
+            // Point turret toward target
+            b.turretAngle = Math.atan2(enemy.y - center.y, enemy.x - center.x);
+
             b.energy -= energyDraw;
             var baseDamage = (def.baseDamage || 15) / tps;
             var chainCount = def.chainCount || 3;
@@ -1010,6 +1020,10 @@ var Combat = (function() {
                 if (!e || e.hp <= 0) { continue; }
                 var dist = _distance(center.x, center.y, e.x, e.y);
                 if (dist <= effectiveRange) {
+                    if (!anyInRange) {
+                        // Point turret toward first in-range enemy
+                        b.turretAngle = Math.atan2(e.y - center.y, e.x - center.x);
+                    }
                     anyInRange = true;
                     if (typeof Enemies !== 'undefined' && Enemies.damageEnemy) {
                         Enemies.damageEnemy(e.id, dps, 0);
@@ -1081,6 +1095,9 @@ var Combat = (function() {
             // Find target enemy using priority
             var target = _acquireTarget(b, center, effectiveRange);
             if (!target) { continue; }
+
+            // Point turret toward target
+            b.turretAngle = Math.atan2(target.y - center.y, target.x - center.x);
 
             // Check energy
             var energyCost = def.energyPerShot || 500;
@@ -1328,6 +1345,9 @@ var Combat = (function() {
             }
             b.energy -= energyCost;
             b.reloadTimer = def.reloadTicks || 30;
+
+            // Point turret toward target
+            b.turretAngle = Math.atan2(bestY - center.y, bestX - center.x);
 
             var dx = bestX - center.x;
             var dy = bestY - center.y;
@@ -1640,6 +1660,9 @@ var Combat = (function() {
             var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) continue;
 
+            // Point turret toward target
+            b.turretAngle = Math.atan2(enemy.y - center.y, enemy.x - center.x);
+
             var energyCost = def.energyPerShot || 15;
             if (b.energy < energyCost) continue;
 
@@ -1714,6 +1737,9 @@ var Combat = (function() {
             // Find target enemy using priority
             var enemy = _acquireTarget(b, center, effectiveRange);
             if (!enemy) { continue; }
+
+            // Point turret toward target
+            b.turretAngle = Math.atan2(enemy.y - center.y, enemy.x - center.x);
 
             // Check energy
             var energyCost = def.energyPerShot || 400;
@@ -1806,6 +1832,9 @@ var Combat = (function() {
                 b.target = null;
                 continue;
             }
+
+            // Point turret toward target
+            b.turretAngle = Math.atan2(enemy.y - center.y, enemy.x - center.x);
 
             // Target switch resets ramp
             if (prevTarget !== enemy.id) {
