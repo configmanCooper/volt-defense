@@ -387,6 +387,7 @@ var Energy = (function() {
             var consumers = [];
             for (i = 0; i < allBuildings.length; i++) {
                 building = allBuildings[i];
+                if (building.manualOff) continue;
                 def = _getDef(building.type);
                 if (!def) continue;
                 // Buildings that consume or store energy
