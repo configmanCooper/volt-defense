@@ -1367,18 +1367,49 @@ var Render = (function () {
     }
 
     function _drawConsumerBattery(ctx, x, y, w, h, building, t) {
-        _drawBattery(ctx, x, y, w, h, building, t, '#cc9920', '#ffd700');
-        // Dollar symbol overlay
-        var cx = x + w / 2, cy = y + h / 2;
+        var cx = x + w / 2;
         ctx.save();
-        ctx.fillStyle = 'rgba(255,215,0,0.7)';
-        ctx.font = 'bold ' + Math.floor(Math.min(w, h) * 0.35) + 'px monospace';
+        // Base
+        ctx.fillStyle = '#1a1a2a';
+        ctx.fillRect(x, y, w, h);
+        // Battery casing (gold tint)
+        var bx = x + w * 0.2, by = y + h * 0.15, bw = w * 0.6, bh = h * 0.75;
+        ctx.fillStyle = '#2a2a1a';
+        ctx.fillRect(bx, by, bw, bh);
+        // Terminal nub
+        ctx.fillStyle = '#665520';
+        ctx.fillRect(cx - w * 0.1, y + h * 0.07, w * 0.2, h * 0.1);
+        // Fill level (gold)
+        var cap = building.scaledStorageCapacity || (Config.BUILDINGS[building.type] && Config.BUILDINGS[building.type].energyStorageCapacity) || 1;
+        var fill = Math.min(1, (building.energy || 0) / cap);
+        var fillH = bh * 0.85 * fill;
+        if (fillH > 0) {
+            var fillY = by + bh * 0.9 - fillH;
+            ctx.fillStyle = '#cc9920';
+            ctx.fillRect(bx + 2, fillY, bw - 4, fillH);
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.fillRect(bx + 2, fillY, (bw - 4) * 0.3, fillH);
+        }
+        // Dollar sign (prominent, centered)
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold ' + Math.floor(Math.min(w, h) * 0.38) + 'px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('$', cx, cy + h * 0.15);
+        ctx.fillText('$', cx, y + h * 0.42);
+        // Small bolt icon below dollar sign (drawn as lines, not emoji)
+        var boltX = cx, boltY = y + h * 0.72;
+        var bs = Math.min(w, h) * 0.08;
+        ctx.fillStyle = '#ffdd00';
+        ctx.beginPath();
+        ctx.moveTo(boltX - bs * 0.3, boltY - bs);
+        ctx.lineTo(boltX + bs * 0.5, boltY - bs);
+        ctx.lineTo(boltX, boltY);
+        ctx.lineTo(boltX + bs * 0.3, boltY);
+        ctx.lineTo(boltX - bs * 0.5, boltY + bs);
+        ctx.lineTo(boltX, boltY);
+        ctx.closePath();
+        ctx.fill();
         // Sparkle when near full
-        var cap = building.scaledStorageCapacity || (Config.BUILDINGS[building.type] && Config.BUILDINGS[building.type].energyStorageCapacity) || 1;
-        var fill = (building.energy || 0) / cap;
         if (fill > 0.9) {
             var sparkle = 0.3 + 0.4 * Math.sin(t * 6);
             ctx.fillStyle = 'rgba(255,255,200,' + sparkle.toFixed(2) + ')';
@@ -1386,6 +1417,11 @@ var Render = (function () {
             ctx.arc(cx + w * 0.25, y + h * 0.25, 2, 0, Math.PI * 2);
             ctx.fill();
         }
+        // Border
+        ctx.strokeStyle = '#554400';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.strokeRect(x, y, w, h);
         ctx.restore();
     }
 
