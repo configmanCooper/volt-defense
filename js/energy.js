@@ -17,7 +17,7 @@ var Energy = (function() {
     var PRIORITY_MINERS = 4;
     var PRIORITY_CARBON = 5;
     var PRIORITY_BATTERIES = 6;
-    var PRIORITY_CONSUMER = 7;
+    var PRIORITY_CONSUMER = 6;
 
     // Category keys for the configurable priority system
     var PRIORITY_CATEGORIES = [
@@ -27,7 +27,7 @@ var Energy = (function() {
         { key: 'miners',  label: 'Miners',  icon: '⛏️', default: 4 },
         { key: 'carbon',  label: 'Carbon Collectors', icon: '🌿', default: 5 },
         { key: 'batteries', label: 'Batteries', icon: '🔋', default: 6 },
-        { key: 'consumer', label: 'Consumer', icon: '💰', default: 7 }
+        { key: 'consumer', label: 'Consumer', icon: '💰', default: 6 }
     ];
 
     // Custom priorities (overrides defaults when set)
