@@ -34,7 +34,11 @@ var Economy = (function () {
             if (!deposit && typeof Map !== 'undefined' && Map.getDepositAt) {
                 deposit = Map.getDepositAt(b.gridX, b.gridY);
             }
-            if (!deposit || deposit.remaining <= 0) { continue; }
+            if (!deposit || deposit.remaining <= 0) {
+                b.resourceShortage = 'depleted';
+                continue;
+            }
+            b.resourceShortage = null;
 
             var extractPerTick = def.extractionRate / Config.TICKS_PER_SECOND;
             var extracted = Math.min(extractPerTick, deposit.remaining);
@@ -278,7 +282,7 @@ var Economy = (function () {
             var resTypes = ['iron', 'coal', 'uranium', 'oil', 'steel'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
-                if (adjusted[t] && (_resources[t] || 0) < adjusted[t]) {
+                if (adjusted[t] && Math.floor(_resources[t] || 0) < adjusted[t]) {
                     return false;
                 }
             }
@@ -302,7 +306,7 @@ var Economy = (function () {
             var resTypes = ['iron', 'coal', 'uranium', 'oil', 'steel'];
             for (var i = 0; i < resTypes.length; i++) {
                 var t = resTypes[i];
-                if (adjusted[t] && (_resources[t] || 0) < adjusted[t]) {
+                if (adjusted[t] && Math.floor(_resources[t] || 0) < adjusted[t]) {
                     return false;
                 }
             }

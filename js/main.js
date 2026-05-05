@@ -356,6 +356,14 @@ var Main = (function () {
                 actions.appendChild(delBtn);
             }
 
+            var upBtn = document.createElement('button');
+            upBtn.className = 'menu-btn save-slot-btn';
+            upBtn.textContent = '⬆';
+            upBtn.title = 'Upload save file into this slot';
+            upBtn.setAttribute('data-action', 'upload-slot');
+            upBtn.setAttribute('data-slot', i);
+            actions.appendChild(upBtn);
+
             entry.appendChild(label);
             entry.appendChild(actions);
             container.appendChild(entry);
@@ -559,6 +567,14 @@ var Main = (function () {
                 actions.appendChild(dlBtn2);
             }
 
+            var upBtn2 = document.createElement('button');
+            upBtn2.className = 'menu-btn save-slot-btn';
+            upBtn2.textContent = '⬆';
+            upBtn2.title = 'Upload save file into this slot';
+            upBtn2.setAttribute('data-action', 'upload-slot');
+            upBtn2.setAttribute('data-slot', i);
+            actions.appendChild(upBtn2);
+
             entry.appendChild(label);
             entry.appendChild(actions);
             container.appendChild(entry);
@@ -684,6 +700,50 @@ var Main = (function () {
                         document.body.removeChild(a2);
                         URL.revokeObjectURL(url2);
                     }
+                }
+            } else if (action === 'upload-slot') {
+                var upSlotNum = parseInt(target.getAttribute('data-slot'), 10);
+                if (upSlotNum >= 1 && upSlotNum <= 5) {
+                    var fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.json,application/json,text/plain';
+                    fileInput.style.display = 'none';
+                    fileInput.addEventListener('change', function (ev) {
+                        var file = ev.target.files && ev.target.files[0];
+                        if (!file) return;
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            var raw = e.target.result;
+                            // Validate: either LZ:-prefixed compressed blob, or plain JSON with version
+                            var ok = false;
+                            try {
+                                if (typeof raw === 'string' && raw.length > 0) {
+                                    if (raw.substring(0, 3) === 'LZ:') {
+                                        ok = true;
+                                    } else {
+                                        var parsed = JSON.parse(raw);
+                                        if (parsed && parsed.version) ok = true;
+                                    }
+                                }
+                            } catch (e2) { ok = false; }
+                            if (!ok) {
+                                if (typeof UI !== 'undefined' && UI.showToast) UI.showToast('Invalid save file', 'error', 3000);
+                                return;
+                            }
+                            try {
+                                localStorage.setItem('voltdefense_save_' + upSlotNum, raw);
+                                if (typeof UI !== 'undefined' && UI.showToast) UI.showToast('Save uploaded to Slot ' + upSlotNum, 'success', 2000);
+                                _refreshSlotList();
+                                _refreshPauseSlotList();
+                            } catch (e3) {
+                                if (typeof UI !== 'undefined' && UI.showToast) UI.showToast('Upload failed: ' + e3.message, 'error', 3000);
+                            }
+                        };
+                        reader.readAsText(file);
+                    });
+                    document.body.appendChild(fileInput);
+                    fileInput.click();
+                    setTimeout(function () { if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput); }, 60000);
                 }
             } else if (action === 'delete-slot') {
                 var delSlot = parseInt(target.getAttribute('data-slot'), 10);

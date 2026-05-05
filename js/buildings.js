@@ -127,7 +127,7 @@ var Buildings = (function() {
                         if (Economy.getMoney() < cost[resource]) return false;
                     }
                 } else if (typeof Economy.getResource === 'function') {
-                    if (Economy.getResource(resource) < cost[resource]) return false;
+                    if (Economy.getResource(resource) < Math.ceil(cost[resource])) return false;
                 }
             }
         }

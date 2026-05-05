@@ -571,10 +571,14 @@ var Energy = (function() {
                         }
 
                         // Continue BFS through non-storage nodes that have energy.
-                        // Storage and consumer buildings (batteries/capacitors/consumer batteries)
-                        // are endpoints only: they receive energy (charge) or send energy
-                        // (discharge) but don't allow pass-through, acting as proper bottlenecks.
-                        if (nDef.category !== 'storage' && nDef.category !== 'consumer') {
+                        // Storage and consumer buildings are normally endpoints:
+                        // they receive/send energy but don't allow pass-through.
+                        // Exception: true generators (power plants) can BFS through
+                        // storage nodes so energy reaches consumers behind batteries.
+                        // Consumer buildings are always endpoints.
+                        var allowPassThrough = (nDef.category !== 'storage' && nDef.category !== 'consumer') ||
+                            (!isBatteryGen && nDef.category === 'storage');
+                        if (allowPassThrough) {
                             if (nBuilding.energy > 0 || nCapacity <= 0) {
                                 queue.push(nId);
                             }
@@ -608,9 +612,9 @@ var Energy = (function() {
                     var groupEnd = r; // exclusive
 
                     // Battery-generators that aren't full: only discharge to
-                    // same-or-higher priority consumers (up to batteries level).
+                    // strictly higher priority consumers (lower priority number).
                     // When full, they discharge to everything including consumer batteries.
-                    if (isBatteryGen && !batteryGenFull && groupTypePri > _getPri('batteries')) {
+                    if (isBatteryGen && !batteryGenFull && groupTypePri >= _getPri('batteries')) {
                         continue;
                     }
 

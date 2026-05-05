@@ -1183,7 +1183,7 @@ var Render = (function () {
                     ctx.font = 'bold 8px monospace';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    var shortNames = { iron: 'Fe', coal: 'C', oil: 'Oil', uranium: 'U', steel: 'St' };
+                    var shortNames = { iron: 'Fe', coal: 'C', oil: 'Oil', uranium: 'U', steel: 'St', depleted: '⊘' };
                     ctx.fillText(shortNames[b.resourceShortage] || '?', badgeX, badgeY);
                 }
             }

@@ -3017,7 +3017,36 @@ var Enemies = (function () {
                     isBoss: e.isBoss || false,
                     mechanic: e.mechanic || null,
                     wallsDestroyed: e.wallsDestroyed || 0,
-                    wallsToDestroyMax: e.wallsToDestroyMax || 0
+                    wallsToDestroyMax: e.wallsToDestroyMax || 0,
+                    drainRange: e.drainRange || 0,
+                    drainRate: e.drainRate || 0,
+                    drainThreshold: e.drainThreshold || 0,
+                    drainZapDuration: e.drainZapDuration || 0,
+                    drainZapDPS: e.drainZapDPS || 0,
+                    drainCooldown: e.drainCooldown || 0,
+                    drainAbsorbed: e.drainAbsorbed || 0,
+                    drainState: e.drainState || null,
+                    drainTimer: e.drainTimer || 0,
+                    spawnType: e.spawnType || null,
+                    spawnCount: e.spawnCount || 0,
+                    spawnCooldown: e.spawnCooldown || 0,
+                    spawnTimer: e.spawnTimer || 0,
+                    spawnDoubleThreshold: e.spawnDoubleThreshold || 0,
+                    spawnedIds: e.spawnedIds || [],
+                    baseArmor: e.baseArmor || 0,
+                    carapaceMaxBonus: e.carapaceMaxBonus || 0,
+                    jumpDistance: e.jumpDistance || 0,
+                    jumpCooldown: e.jumpCooldown || 0,
+                    jumpTimer: e.jumpTimer || 0,
+                    jumpAOERadius: e.jumpAOERadius || 0,
+                    jumpAOEDamage: e.jumpAOEDamage || 0,
+                    jumpCoreDamage: e.jumpCoreDamage || 0,
+                    nexusLaserRange: e.nexusLaserRange || 0,
+                    nexusLaserDPS: e.nexusLaserDPS || 0,
+                    nexusLaserCoreDPS: e.nexusLaserCoreDPS || 0,
+                    nexusShieldDPS: e.nexusShieldDPS || 0,
+                    nexusDamagePerSpawnKill: e.nexusDamagePerSpawnKill || 0,
+                    reflectDPS: e.reflectDPS || 0
                 });
             }
 
@@ -3051,6 +3080,59 @@ var Enemies = (function () {
             _spawnPoints   = data.spawnPoints   || [];
             _bossWaveActive = data.bossWaveActive || false;
             _bossWaveIds    = data.bossWaveIds    || [];
+
+            // Reconstruct missing mechanic properties from config (for older saves)
+            for (var i = 0; i < _enemies.length; i++) {
+                var e = _enemies[i];
+                var def = Config.ENEMIES ? Config.ENEMIES[e.type] : null;
+                if (!def) continue;
+
+                if (e.mechanic === 'energy_drain' && !e.drainRange) {
+                    e.drainRange = def.drainRange || 300;
+                    e.drainRate = def.drainRate || 10;
+                    e.drainThreshold = def.drainThreshold || 500;
+                    e.drainZapDuration = e.drainZapDuration || (def.drainZapDuration || 2) * Config.TICKS_PER_SECOND;
+                    e.drainZapDPS = e.drainZapDPS || Math.round((def.drainZapDPS || 25));
+                    e.drainCooldown = e.drainCooldown || (def.drainCooldown || 15) * Config.TICKS_PER_SECOND;
+                    if (e.drainAbsorbed == null) e.drainAbsorbed = 0;
+                    if (!e.drainState) e.drainState = 'idle';
+                    if (e.drainTimer == null) e.drainTimer = 0;
+                    if (!e.drainTargets) e.drainTargets = [];
+                }
+                if (e.mechanic === 'spawner' && !e.spawnCooldown) {
+                    e.spawnType = def.spawnType || 'swarm';
+                    e.spawnCount = def.spawnCount || 3;
+                    e.spawnCooldown = (def.spawnCooldown || 5) * Config.TICKS_PER_SECOND;
+                    if (e.spawnTimer == null) e.spawnTimer = e.spawnCooldown;
+                    e.spawnDoubleThreshold = def.spawnDoubleThreshold || 0.5;
+                    if (!e.spawnedIds) e.spawnedIds = [];
+                    e.carapaceMaxBonus = def.carapaceMaxBonus || 0;
+                    if (!e.baseArmor) e.baseArmor = e.armor;
+                }
+                if (e.mechanic === 'jumper' && !e.jumpCooldown) {
+                    e.jumpDistance = def.jumpDistance || 50;
+                    e.jumpCooldown = (def.jumpCooldown || 3) * Config.TICKS_PER_SECOND;
+                    if (e.jumpTimer == null) e.jumpTimer = e.jumpCooldown;
+                    e.jumpAOERadius = def.jumpAOERadius || 300;
+                    e.jumpAOEDamage = def.jumpAOEDamage || 10;
+                    e.jumpCoreDamage = def.jumpCoreDamage || 5;
+                }
+                if (e.mechanic === 'nexus' && !e.nexusLaserRange) {
+                    e.spawnCooldown = (def.spawnCooldown || 5) * Config.TICKS_PER_SECOND;
+                    if (e.spawnTimer == null) e.spawnTimer = e.spawnCooldown;
+                    e.spawnCount = def.spawnCount || 5;
+                    e.nexusLaserRange = def.nexusLaserRange || 500;
+                    e.nexusLaserDPS = def.nexusLaserDPS || 2;
+                    e.nexusLaserCoreDPS = def.nexusLaserCoreDPS || 1;
+                    e.nexusShieldDPS = def.nexusShieldDPS || 20;
+                    e.nexusDamagePerSpawnKill = def.nexusDamagePerSpawnKill || 10;
+                    if (!e.spawnedIds) e.spawnedIds = [];
+                    if (!e.nexusLaserTargets) e.nexusLaserTargets = [];
+                }
+                if (e.mechanic === 'reflects' && !e.reflectDPS) {
+                    e.reflectDPS = def.reflectDPS || 1;
+                }
+            }
 
             // If loading a save with active boss wave, resume boss music
             if (_bossWaveActive && _bossWaveIds.length > 0) {

@@ -535,17 +535,7 @@ var Combat = (function() {
                 continue;
             }
 
-            // Check for jammer range reduction
-            var effectiveRange = _getEffectiveRange(b, def.range);
-
-            var center = _getBuildingCenter(b);
-
-            // Find target enemy using priority
-            var enemy = _acquireTarget(b, center, effectiveRange);
-
-            if (!enemy) { continue; }
-
-            // Check iron resource
+            // Check iron resource early so shortage badge clears even with no enemies
             var ironCost = def.ironPerShot || 0;
             var hasIron = true;
             if (ironCost > 0) {
@@ -556,6 +546,16 @@ var Combat = (function() {
                 }
             }
             if (!hasIron) { b.resourceShortage = 'iron'; continue; }
+            b.resourceShortage = null;
+
+            // Check for jammer range reduction
+            var effectiveRange = _getEffectiveRange(b, def.range);
+
+            var center = _getBuildingCenter(b);
+
+            // Find target enemy using priority
+            var enemy = _acquireTarget(b, center, effectiveRange);
+            if (!enemy) { continue; }
 
             // Check energy (full per-shot cost, not per-tick)
             var energyCost = def.energyPerShot || 0;
@@ -566,7 +566,6 @@ var Combat = (function() {
                 Economy.spendResource('iron', ironCost);
             }
             b.energy -= energyCost;
-            b.resourceShortage = null;
 
             // Calculate initial angle toward target with lead prediction
             var dx = enemy.x - center.x;
@@ -999,6 +998,7 @@ var Combat = (function() {
                     if (Economy.getResource('oil') < oilDraw) { b.resourceShortage = 'oil'; continue; }
                 } else { b.resourceShortage = 'oil'; continue; }
             }
+            b.resourceShortage = null;
 
             var anyInRange = false;
             var dps = (def.baseDPS || 8) / tps;
@@ -1026,7 +1026,6 @@ var Combat = (function() {
                     Economy.spendResource('oil', oilDraw);
                 }
                 b.flameActive = true;
-                b.resourceShortage = null;
             } else {
                 b.flameActive = false;
             }
@@ -1069,18 +1068,19 @@ var Combat = (function() {
             if (b.reloadTimer == null) { b.reloadTimer = 0; }
             if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
 
+            // Check iron early so shortage badge clears even with no enemies
+            var ironCost = def.ironPerShot || 3;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                if (Economy.getResource('iron') < ironCost) { b.resourceShortage = 'iron'; continue; }
+            } else { b.resourceShortage = 'iron'; continue; }
+            b.resourceShortage = null;
+
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
             // Find target enemy using priority
             var target = _acquireTarget(b, center, effectiveRange);
             if (!target) { continue; }
-
-            // Check iron
-            var ironCost = def.ironPerShot || 3;
-            if (typeof Economy !== 'undefined' && Economy.getResource) {
-                if (Economy.getResource('iron') < ironCost) { b.resourceShortage = 'iron'; continue; }
-            } else { b.resourceShortage = 'iron'; continue; }
 
             // Check energy
             var energyCost = def.energyPerShot || 500;
@@ -1092,7 +1092,6 @@ var Combat = (function() {
             }
             b.energy -= energyCost;
             b.reloadTimer = def.reloadTicks || 40;
-            b.resourceShortage = null;
 
             // Calculate shot line
             var dx = target.x - center.x;
@@ -1222,6 +1221,13 @@ var Combat = (function() {
             if (b.reloadTimer == null) { b.reloadTimer = 0; }
             if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
 
+            // Check iron early so shortage badge clears even with no enemies
+            var ironCost = def.ironPerShot || 2;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                if (Economy.getResource('iron') < ironCost) { b.resourceShortage = 'iron'; continue; }
+            } else { b.resourceShortage = 'iron'; continue; }
+            b.resourceShortage = null;
+
             var effectiveRange = _getEffectiveRange(b, def.range);
             var minRange = def.minRange || 100;
             var center = _getBuildingCenter(b);
@@ -1312,12 +1318,6 @@ var Combat = (function() {
             var minCluster = b.minCluster != null ? b.minCluster : 2;
             if (bestCount < minCluster) { continue; }
 
-            // Check iron
-            var ironCost = def.ironPerShot || 2;
-            if (typeof Economy !== 'undefined' && Economy.getResource) {
-                if (Economy.getResource('iron') < ironCost) { b.resourceShortage = 'iron'; continue; }
-            } else { b.resourceShortage = 'iron'; continue; }
-
             // Check energy
             var energyCost = def.energyPerShot || 200;
             if (b.energy < energyCost) { continue; }
@@ -1328,7 +1328,6 @@ var Combat = (function() {
             }
             b.energy -= energyCost;
             b.reloadTimer = def.reloadTicks || 30;
-            b.resourceShortage = null;
 
             var dx = bestX - center.x;
             var dy = bestY - center.y;
@@ -1499,6 +1498,14 @@ var Combat = (function() {
             var maxMines = def.maxMines || 10;
             var center = _getBuildingCenter(b);
 
+            // Clear steel shortage badge if steel is now available
+            if (b.resourceShortage === 'steel') {
+                var checkCost = def.mineSteelCost || 5;
+                if (typeof Economy !== 'undefined' && Economy.getResource) {
+                    if (Economy.getResource('steel') >= checkCost) { b.resourceShortage = null; }
+                }
+            }
+
             // Count active mines for this building
             var activeMineCount = 0;
             for (var mc = 0; mc < _mines.length; mc++) {
@@ -1620,6 +1627,12 @@ var Combat = (function() {
             if (b.reloadTimer == null) b.reloadTimer = 0;
             if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
 
+            // Clear steel shortage badge if steel is now available
+            var steelNeeded = def.steelPerBurst || 1;
+            if (b.resourceShortage === 'steel' && typeof Economy !== 'undefined' && Economy.getResource) {
+                if (Economy.getResource('steel') >= steelNeeded) { b.resourceShortage = null; }
+            }
+
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
@@ -1639,8 +1652,8 @@ var Combat = (function() {
                 if (typeof Economy !== 'undefined' && Economy.getResource && Economy.spendResource) {
                     if (Economy.getResource('steel') < steelCost) { b.resourceShortage = 'steel'; continue; }
                     Economy.spendResource('steel', steelCost);
-                    b.resourceShortage = null;
                 }
+                b.resourceShortage = null;
                 b.burstCounter = 0;
             }
 
@@ -1686,6 +1699,15 @@ var Combat = (function() {
             if (b.reloadTimer == null) { b.reloadTimer = 0; }
             if (b.reloadTimer > 0) { b.reloadTimer--; continue; }
 
+            // Check uranium early so shortage badge clears even with no enemies
+            var uraniumCost = def.uraniumPerShot || 1;
+            var hasUranium = true;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                hasUranium = Economy.getResource('uranium') >= uraniumCost;
+            } else { hasUranium = false; }
+            if (!hasUranium) { b.resourceShortage = 'uranium'; continue; }
+            b.resourceShortage = null;
+
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
@@ -1697,21 +1719,12 @@ var Combat = (function() {
             var energyCost = def.energyPerShot || 400;
             if (b.energy < energyCost) { continue; }
 
-            // Check uranium
-            var uraniumCost = def.uraniumPerShot || 1;
-            var hasUranium = true;
-            if (typeof Economy !== 'undefined' && Economy.getResource) {
-                hasUranium = Economy.getResource('uranium') >= uraniumCost;
-            } else { hasUranium = false; }
-            if (!hasUranium) { b.resourceShortage = 'uranium'; continue; }
-
             // Fire
             b.energy -= energyCost;
             if (typeof Economy !== 'undefined' && Economy.spendResource) {
                 Economy.spendResource('uranium', uraniumCost);
             }
             b.reloadTimer = def.reloadTicks || 15;
-            b.resourceShortage = null;
 
             // Create plasma projectile
             var dx = enemy.x - center.x;
@@ -1769,6 +1782,20 @@ var Combat = (function() {
             var effectiveRange = _getEffectiveRange(b, def.range);
             var center = _getBuildingCenter(b);
 
+            // Check uranium early so shortage badge clears even with no enemies
+            var uraniumPerTick = (def.uraniumPerSecond || 0.5) / tps;
+            var hasUranium = true;
+            if (typeof Economy !== 'undefined' && Economy.getResource) {
+                hasUranium = Economy.getResource('uranium') >= uraniumPerTick;
+            } else { hasUranium = false; }
+            if (!hasUranium) {
+                b.fusionRampTime = 0;
+                b.target = null;
+                b.resourceShortage = 'uranium';
+                continue;
+            }
+            b.resourceShortage = null;
+
             // Store previous target for ramp reset check
             var prevTarget = b.target;
             // Find target enemy using priority
@@ -1803,20 +1830,6 @@ var Combat = (function() {
             if (fusionEnergyRamp > maxFusionEnergyRamp) fusionEnergyRamp = maxFusionEnergyRamp;
             var energyDrawThisTick = (def.energyDraw || 60) * fusionEnergyRamp / tps;
 
-            // Uranium consumption
-            var uraniumPerTick = (def.uraniumPerSecond || 0.5) / tps;
-            var hasUranium = true;
-            if (typeof Economy !== 'undefined' && Economy.getResource) {
-                hasUranium = Economy.getResource('uranium') >= uraniumPerTick;
-            } else { hasUranium = false; }
-
-            if (!hasUranium) {
-                b.fusionRampTime = 0;
-                b.target = null;
-                b.resourceShortage = 'uranium';
-                continue;
-            }
-
             // Energy check — stop firing if insufficient
             if (b.energy < energyDrawThisTick) {
                 b.fusionRampTime = 0;
@@ -1829,7 +1842,6 @@ var Combat = (function() {
             if (typeof Economy !== 'undefined' && Economy.spendResource) {
                 Economy.spendResource('uranium', uraniumPerTick);
             }
-            b.resourceShortage = null;
 
             // Apply damage with high armor bypass
             var armorBypass = (typeof Config !== 'undefined' && Config.FUSION_ARMOR_BYPASS != null)

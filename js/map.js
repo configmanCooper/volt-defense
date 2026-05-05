@@ -79,10 +79,10 @@ var Map = (function() {
             var bFlow = Map.getFlowDirection(bld.gridX, bld.gridY);
             if (bFlow.dx === 0 && bFlow.dy === 0) continue;
 
-            for (var dist = 1; dist <= 12; dist++) {
+            for (var dist = 1; dist <= 36; dist++) {
                 var reduction = 0;
-                if (dist <= 4) reduction = 0.50;
-                else if (dist <= 8) reduction = 0.25;
+                if (dist <= 12) reduction = 0.50;
+                else if (dist <= 24) reduction = 0.25;
                 else reduction = 0.10;
 
                 for (var lat = -2; lat <= 2; lat++) {
@@ -593,9 +593,9 @@ var Map = (function() {
         /**
          * Get effective water speed at a tile, factoring in upstream hydro plant slowdown.
          * Hydro plants reduce speed downstream:
-         *   tiles 1-4: 50% reduction
-         *   tiles 5-8: 25% reduction
-         *   tiles 9-12: 10% reduction
+         *   tiles 1-12: 50% reduction
+         *   tiles 13-24: 25% reduction
+         *   tiles 25-36: 10% reduction
          */
         getEffectiveWaterSpeed: function(gx, gy) {
             var baseSpeed = 0;

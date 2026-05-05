@@ -51,11 +51,13 @@ var Engine = (function() {
         var centerGX = Math.floor((typeof Config !== 'undefined' ? Config.MAP_WIDTH : 10000) / 2 / cellSize);
         var centerGY = Math.floor((typeof Config !== 'undefined' ? Config.MAP_HEIGHT : 10000) / 2 / cellSize);
 
-        // Ensure core is at least 5 tiles from any water tile
+        // Ensure core is at least 5 tiles from any water tile,
+        // but no more than 25 tiles from the nearest river tile
         var coreGX = centerGX;
         var coreGY = centerGY;
         if (typeof Map !== 'undefined' && Map.getTerrain) {
-            var minDist = 5;
+            var minDist = 5;   // 200 pixels
+            var maxDist = 25;  // 1000 pixels
             var found = false;
             // Spiral outward from center to find a valid spot
             for (var radius = 0; radius <= 50 && !found; radius++) {
@@ -74,7 +76,19 @@ var Engine = (function() {
                                 }
                             }
                         }
-                        if (!tooClose) {
+                        if (tooClose) continue;
+
+                        // Check that at least one river tile is within maxDist
+                        var nearRiver = false;
+                        for (var ry = -maxDist; ry <= maxDist && !nearRiver; ry++) {
+                            for (var rx = -maxDist; rx <= maxDist && !nearRiver; rx++) {
+                                var t = Map.getTerrain(testX + rx, testY + ry);
+                                if (t === 2 || t === 3) {
+                                    nearRiver = true;
+                                }
+                            }
+                        }
+                        if (nearRiver) {
                             coreGX = testX;
                             coreGY = testY;
                             found = true;
