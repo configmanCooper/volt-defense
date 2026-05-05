@@ -5099,26 +5099,30 @@ var Render = (function () {
         var pw = sizeW * cs;
         var ph = sizeH * cs;
 
-        // Ghost fill
-        ctx.fillStyle = _placementPreview.valid ? COLORS.UI.valid : COLORS.UI.invalid;
-        ctx.fillRect(px, py, pw, ph);
+        // Ghost: try custom procedural drawing first
+        var t = _animFrame / 60;
+        var fakeBuilding = { type: _placementPreview.typeKey, worldX: px, worldY: py, id: '__preview__' };
+        ctx.globalAlpha = 0.7;
+        if (!_drawBuildingCustom(ctx, px, py, pw, ph, fakeBuilding, t)) {
+            // Fallback: colored ghost fill
+            ctx.fillStyle = _placementPreview.valid ? COLORS.UI.valid : COLORS.UI.invalid;
+            ctx.fillRect(px, py, pw, ph);
+            // Icon
+            if (def.icon) {
+                var fontSize = Math.min(pw, ph) * 0.55;
+                ctx.font = Math.floor(fontSize) + 'px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(def.icon, px + pw / 2, py + ph / 2);
+            }
+        }
+        ctx.globalAlpha = 1.0;
 
-        // Ghost border
+        // Ghost border (valid/invalid)
         ctx.strokeStyle = _placementPreview.valid ? '#00ff00' : '#ff0000';
         ctx.lineWidth = 2;
         ctx.strokeRect(px, py, pw, ph);
-
-        // Icon
-        if (def.icon) {
-            var fontSize = Math.min(pw, ph) * 0.55;
-            ctx.font = Math.floor(fontSize) + 'px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.globalAlpha = 0.7;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(def.icon, px + pw / 2, py + ph / 2);
-            ctx.globalAlpha = 1.0;
-        }
 
         // Weapon range circle
         if (def.range) {
