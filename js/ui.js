@@ -501,6 +501,8 @@ var UI = (function () {
         var touchClone = null;
         var touchStartX = 0;
         var touchStartY = 0;
+        var _cachedGroups = null;
+        var _cachedItems = null;
 
         function _getGroupsFromState() {
             var categories = Energy.getPriorityCategories();
@@ -588,13 +590,15 @@ var UI = (function () {
         }
 
         function _clearHighlights() {
-            var allGroups = modalBody.querySelectorAll('.pri-group');
+            var allGroups = _cachedGroups || modalBody.querySelectorAll('.pri-group');
+            _cachedGroups = allGroups;
             for (var ag = 0; ag < allGroups.length; ag++) {
                 allGroups[ag].style.background = '#1a1a2e';
                 allGroups[ag].style.borderTopColor = '';
                 allGroups[ag].style.borderBottomColor = '';
             }
-            var allItems = modalBody.querySelectorAll('.pri-item');
+            var allItems = _cachedItems || modalBody.querySelectorAll('.pri-item');
+            _cachedItems = allItems;
             for (var ai = 0; ai < allItems.length; ai++) {
                 allItems[ai].style.borderColor = 'transparent';
             }
@@ -605,7 +609,8 @@ var UI = (function () {
 
         function _getDropInfo(evt) {
             // Find which group or gap the mouse is over
-            var allGroups = modalBody.querySelectorAll('.pri-group');
+            var allGroups = _cachedGroups || modalBody.querySelectorAll('.pri-group');
+            _cachedGroups = allGroups;
             var clientY = evt.clientY || (evt.touches && evt.touches[0] ? evt.touches[0].clientY : 0);
             var clientX = evt.clientX || (evt.touches && evt.touches[0] ? evt.touches[0].clientX : 0);
 
@@ -657,10 +662,16 @@ var UI = (function () {
             dragEl = null;
         });
 
+        var _dragOverThrottle = 0;
         modalBody.addEventListener('dragover', function (evt) {
             if (!dragKey) return;
             evt.preventDefault();
             evt.dataTransfer.dropEffect = 'move';
+
+            // Throttle visual updates to ~30fps
+            var now = Date.now();
+            if (now - _dragOverThrottle < 33) return;
+            _dragOverThrottle = now;
 
             _clearHighlights();
             var info = _getDropInfo(evt);
@@ -699,6 +710,7 @@ var UI = (function () {
             touchDragging = false;
         }, { passive: true });
 
+        var _touchMoveThrottle = 0;
         modalBody.addEventListener('touchmove', function (evt) {
             if (!dragKey) return;
             var dx = evt.touches[0].clientX - touchStartX;
@@ -721,6 +733,10 @@ var UI = (function () {
                     touchClone.style.left = (evt.touches[0].clientX - 40) + 'px';
                     touchClone.style.top = (evt.touches[0].clientY - 15) + 'px';
                 }
+                // Throttle highlight updates to ~30fps
+                var now = Date.now();
+                if (now - _touchMoveThrottle < 33) return;
+                _touchMoveThrottle = now;
                 _clearHighlights();
                 var info = _getDropInfo(evt);
                 if (info) {
