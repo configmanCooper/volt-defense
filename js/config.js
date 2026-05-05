@@ -1897,8 +1897,8 @@ var Config = {
             killRewardMult: 1.0,
             waveBonusMult: 1.0,
             startMoney: 2000,
-            pollutionDecayMult: 0.8,
-            workerRecruitMult: 0.8,
+            pollutionDecayMult: 1.0,
+            workerRecruitMult: 1.0,
             scalingPerWave: 0.12,
             maxWaves: 40,
             scoreMult: 1.2
@@ -1917,8 +1917,8 @@ var Config = {
             killRewardMult: 1.0,
             waveBonusMult: 1.0,
             startMoney: 2000,
-            pollutionDecayMult: 0.6,
-            workerRecruitMult: 0.6,
+            pollutionDecayMult: 1.0,
+            workerRecruitMult: 1.0,
             scalingPerWave: 0.15,
             maxWaves: 50,
             scoreMult: 1.5
