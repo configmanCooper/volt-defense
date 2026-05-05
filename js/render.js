@@ -1143,28 +1143,95 @@ var Render = (function () {
 
     function _drawGasPlant(ctx, x, y, w, h, building, t) {
         ctx.save();
-        // Sleek body
-        ctx.fillStyle = '#1e2d3d';
-        ctx.fillRect(x, y + h * 0.25, w, h * 0.75);
-        // Vent stack
+        // Ground/base pad
+        ctx.fillStyle = '#3a4a4a';
+        ctx.fillRect(x, y + h * 0.82, w, h * 0.18);
+        // Main industrial building body
         ctx.fillStyle = '#2a3a4a';
-        ctx.fillRect(x + w * 0.65, y, w * 0.12, h * 0.3);
-        // Blue flame
-        var flicker = 0.6 + 0.3 * Math.sin(t * 8);
-        ctx.fillStyle = 'rgba(30,120,255,' + flicker.toFixed(2) + ')';
-        ctx.beginPath();
-        ctx.moveTo(x + w * 0.2, y + h * 0.75);
-        ctx.quadraticCurveTo(x + w * 0.35, y + h * 0.45 - Math.sin(t * 5) * 3, x + w * 0.5, y + h * 0.75);
-        ctx.fill();
-        // Turbine circle
-        ctx.strokeStyle = 'rgba(100,160,220,0.6)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(x + w * 0.35, y + h * 0.55, w * 0.15, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.strokeStyle = '#3a4a5a';
+        ctx.fillRect(x + w * 0.05, y + h * 0.45, w * 0.9, h * 0.4);
+        // Scaffolding/framework lines on building
+        ctx.strokeStyle = '#4a5a6a';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x, y + h * 0.25, w, h * 0.75);
+        // Horizontal beams
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.05, y + h * 0.55); ctx.lineTo(x + w * 0.95, y + h * 0.55);
+        ctx.moveTo(x + w * 0.05, y + h * 0.65); ctx.lineTo(x + w * 0.95, y + h * 0.65);
+        ctx.moveTo(x + w * 0.05, y + h * 0.75); ctx.lineTo(x + w * 0.95, y + h * 0.75);
+        ctx.stroke();
+        // Vertical framework supports
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.25, y + h * 0.45); ctx.lineTo(x + w * 0.25, y + h * 0.85);
+        ctx.moveTo(x + w * 0.5, y + h * 0.45); ctx.lineTo(x + w * 0.5, y + h * 0.85);
+        ctx.moveTo(x + w * 0.75, y + h * 0.45); ctx.lineTo(x + w * 0.75, y + h * 0.85);
+        ctx.stroke();
+
+        // Three tall cylindrical stacks (the main feature)
+        var stackPositions = [0.2, 0.5, 0.8];
+        var stackWidths = [w * 0.13, w * 0.15, w * 0.13];
+        var stackTops = [h * 0.08, h * 0.02, h * 0.1];
+        for (var si = 0; si < 3; si++) {
+            var sx = x + w * stackPositions[si] - stackWidths[si] / 2;
+            var sy = y + stackTops[si];
+            var sw = stackWidths[si];
+            var sh = y + h * 0.5 - sy;
+            // Stack body - steel blue cylinder
+            var grad = ctx.createLinearGradient(sx, sy, sx + sw, sy);
+            grad.addColorStop(0, '#4a6a7a');
+            grad.addColorStop(0.3, '#6a8a9a');
+            grad.addColorStop(0.7, '#5a7a8a');
+            grad.addColorStop(1, '#3a5a6a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(sx, sy, sw, sh);
+            // Stack top cap (darker ring)
+            ctx.fillStyle = '#3a5060';
+            ctx.fillRect(sx - 1, sy, sw + 2, h * 0.03);
+            // Highlight stripe (reflection)
+            ctx.fillStyle = 'rgba(180,210,230,0.15)';
+            ctx.fillRect(sx + sw * 0.2, sy + h * 0.02, sw * 0.15, sh - h * 0.02);
+            // Stack outline
+            ctx.strokeStyle = '#2a4050';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sx, sy, sw, sh);
+        }
+
+        // Horizontal pipe/walkway connecting stacks at mid-height
+        ctx.fillStyle = '#5a6a7a';
+        ctx.fillRect(x + w * 0.12, y + h * 0.3, w * 0.76, h * 0.025);
+        ctx.fillRect(x + w * 0.12, y + h * 0.38, w * 0.76, h * 0.02);
+        // Diagonal braces between stacks
+        ctx.strokeStyle = '#4a5a6a';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.27, y + h * 0.3); ctx.lineTo(x + w * 0.43, y + h * 0.45);
+        ctx.moveTo(x + w * 0.57, y + h * 0.3); ctx.lineTo(x + w * 0.73, y + h * 0.45);
+        ctx.stroke();
+
+        // Small equipment boxes at base
+        ctx.fillStyle = '#ccc';
+        ctx.fillRect(x + w * 0.08, y + h * 0.76, w * 0.1, h * 0.08);
+        ctx.fillRect(x + w * 0.82, y + h * 0.76, w * 0.1, h * 0.08);
+
+        // Subtle heat shimmer / exhaust from tops when active
+        if (building.active && !building.manualOff) {
+            for (var ei = 0; ei < 3; ei++) {
+                var ex = x + w * stackPositions[ei];
+                var ey = y + stackTops[ei];
+                for (var ep = 0; ep < 2; ep++) {
+                    var epy = ey - ((t * 12 + ep * 6 + ei * 4) % 14);
+                    var epx = ex + Math.sin(t * 3 + ep * 2 + ei) * 2;
+                    var epa = Math.max(0, 0.25 - ((t * 12 + ep * 6 + ei * 4) % 14) / 56);
+                    ctx.fillStyle = 'rgba(160,180,200,' + epa.toFixed(2) + ')';
+                    ctx.beginPath();
+                    ctx.arc(epx, epy, 2 + ep, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Outer border
+        ctx.strokeStyle = '#2a3a4a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
         ctx.restore();
     }
 
@@ -2499,7 +2566,7 @@ var Render = (function () {
             case 'solar': _drawSolarPanel(ctx, x, y, w, h, building, t); return true;
             case 'wind': _drawWindTurbine(ctx, x, y, w, h, building, t); return true;
             case 'coal_plant': return false;
-            case 'gas_plant': return false;
+            case 'gas_plant': _drawGasPlant(ctx, x, y, w, h, building, t); return true;
             case 'nuclear_plant': _drawNuclearPlant(ctx, x, y, w, h, building, t); return true;
             case 'hydro_plant': _drawHydroPlant(ctx, x, y, w, h, building, t); return true;
             // Storage
