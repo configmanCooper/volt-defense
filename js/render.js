@@ -2489,7 +2489,7 @@ var Render = (function () {
         // Door knob
         ctx.fillStyle = '#cc9944';
         ctx.beginPath();
-        ctx.arc(hx + hw * 0.53, hy + hh * 0.8, 1, 0, Math.PI * 2);
+        ctx.arc(hx + hw * 0.53, hy + hh * 0.8, 0.5, 0, Math.PI * 2);
         ctx.fill();
         // Chimney
         ctx.fillStyle = '#6a5040';
@@ -2554,12 +2554,7 @@ var Render = (function () {
         ctx.strokeStyle = '#5a5a4a';
         ctx.lineWidth = 1;
         ctx.strokeRect(x + w * 0.43, y + h * 0.75, w * 0.14, h * 0.13);
-        // Entrance light
-        var lightGlow = 0.4 + 0.2 * Math.sin(t * 2);
-        ctx.fillStyle = 'rgba(255,200,100,' + lightGlow.toFixed(2) + ')';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.5, y + h * 0.71, 2, 0, Math.PI * 2);
-        ctx.fill();
+
         // Border
         ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 1;
