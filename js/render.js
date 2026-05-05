@@ -2593,6 +2593,7 @@ var Render = (function () {
         // Windows (3x5 grid with recesses)
         for (var wr = 0; wr < 5; wr++) {
             for (var wc = 0; wc < 3; wc++) {
+                if (wr === 4 && wc === 1) continue; // skip bottom middle (door area)
                 var wx = x + w * 0.14 + wc * w * 0.26;
                 var wy = y + h * 0.08 + wr * h * 0.17;
                 var lit = Math.sin(t * 0.8 + wr * 2.5 + wc * 4.3) > -0.2;
