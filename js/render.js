@@ -2260,54 +2260,135 @@ var Render = (function () {
     function _drawPylonBuilding(ctx, x, y, w, h, building, t, variant) {
         var cx = x + w / 2, cy = y + h / 2;
         ctx.save();
-        // Transparent base (pylons are infrastructure)
-        ctx.fillStyle = variant === 'water' ? 'rgba(10,30,60,0.5)' : 'rgba(20,20,20,0.5)';
-        ctx.fillRect(x, y, w, h);
-        // Lattice tower (X frame)
-        var lineColor = variant === 'hc' ? '#6688bb' : (variant === 'water' ? '#4466aa' : '#777');
-        var lineW = variant === 'hc' ? 2 : 1.5;
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = lineW;
-        // X shape
-        ctx.beginPath();
-        ctx.moveTo(x + w * 0.2, y + h * 0.9);
-        ctx.lineTo(x + w * 0.8, y + h * 0.1);
-        ctx.moveTo(x + w * 0.8, y + h * 0.9);
-        ctx.lineTo(x + w * 0.2, y + h * 0.1);
-        ctx.stroke();
-        // Horizontal bar
-        ctx.beginPath();
-        ctx.moveTo(x + w * 0.15, y + h * 0.5);
-        ctx.lineTo(x + w * 0.85, y + h * 0.5);
-        ctx.stroke();
-        // Top insulator/spark
-        ctx.fillStyle = variant === 'hc' ? '#88aadd' : '#aaa';
-        ctx.beginPath();
-        ctx.arc(cx, y + h * 0.15, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        // HC glow
-        if (variant === 'hc') {
-            var pulse = 0.2 + 0.2 * Math.sin(t * 3);
-            ctx.fillStyle = 'rgba(80,120,200,' + pulse.toFixed(2) + ')';
-            ctx.beginPath();
-            ctx.arc(cx, y + h * 0.15, 5, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        // Water pylon floating platform
+
+        // Water pylon floating platform base
         if (variant === 'water') {
-            ctx.fillStyle = '#3a5a7a';
-            ctx.fillRect(x + w * 0.05, y + h * 0.85, w * 0.9, h * 0.12);
-            // Small wave
+            ctx.fillStyle = '#2a4a6a';
+            ctx.fillRect(x + w * 0.05, y + h * 0.82, w * 0.9, h * 0.15);
             ctx.strokeStyle = 'rgba(80,140,200,0.4)';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            var waveY = y + h * 0.95;
+            var waveY = y + h * 0.96;
             ctx.moveTo(x, waveY);
             for (var wv = 0; wv < w; wv += 4) {
                 ctx.lineTo(x + wv, waveY + Math.sin(t * 3 + wv * 0.3) * 1.5);
             }
             ctx.stroke();
         }
+
+        var metalColor = variant === 'hc' ? '#7090bb' : (variant === 'water' ? '#5577aa' : '#888');
+        var darkMetal = variant === 'hc' ? '#506888' : (variant === 'water' ? '#3a5577' : '#555');
+        var lw = variant === 'hc' ? 2 : 1.5;
+
+        // Tower legs (two angled legs from base converging toward center)
+        var baseW = w * 0.4;   // half-width at base
+        var topW = w * 0.08;   // half-width at top
+        var baseY = y + h * 0.85;
+        var topY = y + h * 0.12;
+
+        ctx.strokeStyle = metalColor;
+        ctx.lineWidth = lw;
+        // Left leg
+        ctx.beginPath();
+        ctx.moveTo(cx - baseW, baseY);
+        ctx.lineTo(cx - topW, topY);
+        ctx.stroke();
+        // Right leg
+        ctx.beginPath();
+        ctx.moveTo(cx + baseW, baseY);
+        ctx.lineTo(cx + topW, topY);
+        ctx.stroke();
+
+        // Cross braces (horizontal + diagonal lattice)
+        var braceCount = 4;
+        for (var bi = 0; bi < braceCount; bi++) {
+            var frac = 0.2 + bi * 0.18;
+            var by = y + h * (0.85 - frac * 0.73);
+            var bwL = cx - (baseW + (topW - baseW) * frac);
+            var bwR = cx + (baseW + (topW - baseW) * frac);
+            // Horizontal brace
+            ctx.strokeStyle = darkMetal;
+            ctx.lineWidth = lw * 0.7;
+            ctx.beginPath();
+            ctx.moveTo(bwL, by);
+            ctx.lineTo(bwR, by);
+            ctx.stroke();
+            // Diagonal brace (alternating direction)
+            if (bi < braceCount - 1) {
+                var nextFrac = 0.2 + (bi + 1) * 0.18;
+                var ny = y + h * (0.85 - nextFrac * 0.73);
+                var nwL = cx - (baseW + (topW - baseW) * nextFrac);
+                var nwR = cx + (baseW + (topW - baseW) * nextFrac);
+                ctx.lineWidth = lw * 0.5;
+                ctx.beginPath();
+                if (bi % 2 === 0) {
+                    ctx.moveTo(bwL, by); ctx.lineTo(nwR, ny);
+                } else {
+                    ctx.moveTo(bwR, by); ctx.lineTo(nwL, ny);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // Crossarms (horizontal arms at top for wires)
+        var armY = y + h * 0.2;
+        var armSpan = w * 0.42;
+        ctx.strokeStyle = metalColor;
+        ctx.lineWidth = lw * 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - armSpan, armY);
+        ctx.lineTo(cx + armSpan, armY);
+        ctx.stroke();
+
+        // Second smaller crossarm higher
+        var arm2Y = y + h * 0.12;
+        var arm2Span = w * 0.28;
+        ctx.beginPath();
+        ctx.moveTo(cx - arm2Span, arm2Y);
+        ctx.lineTo(cx + arm2Span, arm2Y);
+        ctx.stroke();
+
+        // Insulators (small hanging lines from crossarm tips)
+        var insColor = variant === 'hc' ? '#aaccee' : '#bbb';
+        ctx.strokeStyle = insColor;
+        ctx.lineWidth = 1;
+        var insLen = h * 0.06;
+        var insPositions = [
+            [cx - armSpan, armY], [cx + armSpan, armY], [cx - armSpan * 0.5, armY],
+            [cx + armSpan * 0.5, armY], [cx - arm2Span, arm2Y], [cx + arm2Span, arm2Y]
+        ];
+        for (var ii = 0; ii < insPositions.length; ii++) {
+            ctx.beginPath();
+            ctx.moveTo(insPositions[ii][0], insPositions[ii][1]);
+            ctx.lineTo(insPositions[ii][0], insPositions[ii][1] + insLen);
+            ctx.stroke();
+            // Insulator dot
+            ctx.fillStyle = insColor;
+            ctx.beginPath();
+            ctx.arc(insPositions[ii][0], insPositions[ii][1] + insLen, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // HC pylon glow at top
+        if (variant === 'hc') {
+            var pulse = 0.15 + 0.2 * Math.sin(t * 3);
+            ctx.fillStyle = 'rgba(80,140,220,' + pulse.toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(cx, y + h * 0.08, 4, 0, Math.PI * 2);
+            ctx.fill();
+            // Small arc between top insulators
+            if (Math.sin(t * 5) > 0.7) {
+                ctx.strokeStyle = 'rgba(100,180,255,0.6)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx - arm2Span, arm2Y + insLen);
+                var arcMidX = cx;
+                var arcMidY = arm2Y + insLen - 3 + Math.sin(t * 8) * 2;
+                ctx.quadraticCurveTo(arcMidX, arcMidY, cx + arm2Span, arm2Y + insLen);
+                ctx.stroke();
+            }
+        }
+
         ctx.restore();
     }
 
