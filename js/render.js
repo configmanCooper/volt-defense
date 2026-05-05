@@ -2434,31 +2434,64 @@ var Render = (function () {
 
     function _drawSmallHouse(ctx, x, y, w, h, building, t) {
         ctx.save();
-        ctx.fillStyle = '#2a3a2a';
-        ctx.fillRect(x, y, w, h);
-        // House body
-        ctx.fillStyle = '#4a5a3a';
-        ctx.fillRect(x + w * 0.1, y + h * 0.35, w * 0.8, h * 0.6);
-        // Roof
-        ctx.fillStyle = '#6a4a3a';
+        // Ground
+        ctx.fillStyle = '#3a5a2a';
+        ctx.fillRect(x, y + h * 0.85, w, h * 0.15);
+        // House body with gradient
+        var wallGrad = ctx.createLinearGradient(x, y + h * 0.4, x, y + h * 0.85);
+        wallGrad.addColorStop(0, '#6a7a5a');
+        wallGrad.addColorStop(1, '#5a6a4a');
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(x + w * 0.1, y + h * 0.4, w * 0.8, h * 0.45);
+        // Side shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.fillRect(x + w * 0.7, y + h * 0.4, w * 0.2, h * 0.45);
+        // Roof with overhang
+        ctx.fillStyle = '#8a5a3a';
         ctx.beginPath();
-        ctx.moveTo(x + w * 0.05, y + h * 0.38);
+        ctx.moveTo(x + w * 0.02, y + h * 0.42);
         ctx.lineTo(x + w * 0.5, y + h * 0.1);
-        ctx.lineTo(x + w * 0.95, y + h * 0.38);
+        ctx.lineTo(x + w * 0.98, y + h * 0.42);
         ctx.closePath();
         ctx.fill();
-        // Window (warm glow)
+        // Roof ridge highlight
+        ctx.strokeStyle = '#9a6a4a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.25, y + h * 0.27);
+        ctx.lineTo(x + w * 0.5, y + h * 0.12);
+        ctx.lineTo(x + w * 0.75, y + h * 0.27);
+        ctx.stroke();
+        // Window with curtains and cross frame
         var glow = 0.5 + 0.2 * Math.sin(t * 1.5);
         ctx.fillStyle = 'rgba(255,220,100,' + glow.toFixed(2) + ')';
-        ctx.fillRect(x + w * 0.35, y + h * 0.5, w * 0.3, h * 0.2);
-        // Window frame
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(x + w * 0.35, y + h * 0.5, w * 0.3, h * 0.2);
-        // Door
-        ctx.fillStyle = '#3a2a1a';
-        ctx.fillRect(x + w * 0.4, y + h * 0.72, w * 0.2, h * 0.23);
-        ctx.strokeStyle = '#2a3a2a';
+        ctx.fillRect(x + w * 0.3, y + h * 0.5, w * 0.35, h * 0.18);
+        ctx.strokeStyle = '#4a3a2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + w * 0.3, y + h * 0.5, w * 0.35, h * 0.18);
+        // Window cross
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.475, y + h * 0.5);
+        ctx.lineTo(x + w * 0.475, y + h * 0.68);
+        ctx.moveTo(x + w * 0.3, y + h * 0.59);
+        ctx.lineTo(x + w * 0.65, y + h * 0.59);
+        ctx.stroke();
+        // Door with frame and knob
+        ctx.fillStyle = '#5a3a1a';
+        ctx.fillRect(x + w * 0.38, y + h * 0.72, w * 0.22, h * 0.13);
+        ctx.strokeStyle = '#4a2a0a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + w * 0.38, y + h * 0.72, w * 0.22, h * 0.13);
+        // Door knob
+        ctx.fillStyle = '#cc9944';
+        ctx.beginPath();
+        ctx.arc(x + w * 0.55, y + h * 0.79, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Chimney
+        ctx.fillStyle = '#6a5040';
+        ctx.fillRect(x + w * 0.7, y + h * 0.12, w * 0.1, h * 0.2);
+        // Border
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
         ctx.restore();
@@ -2466,28 +2499,65 @@ var Render = (function () {
 
     function _drawMediumHouse(ctx, x, y, w, h, building, t) {
         ctx.save();
-        ctx.fillStyle = '#2a2a3a';
-        ctx.fillRect(x, y, w, h);
-        // Apartment body
-        ctx.fillStyle = '#4a4a5a';
-        ctx.fillRect(x + w * 0.08, y + h * 0.15, w * 0.84, h * 0.8);
-        // Flat roof
-        ctx.fillStyle = '#5a5a6a';
-        ctx.fillRect(x + w * 0.05, y + h * 0.12, w * 0.9, h * 0.06);
-        // Windows (2x2 grid, staggered glow)
+        // Ground
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(x, y + h * 0.88, w, h * 0.12);
+        // Building body with gradient
+        var wallGrad = ctx.createLinearGradient(x, y + h * 0.15, x + w, y + h * 0.15);
+        wallGrad.addColorStop(0, '#5a5a6a');
+        wallGrad.addColorStop(0.5, '#6a6a7a');
+        wallGrad.addColorStop(1, '#4a4a5a');
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(x + w * 0.06, y + h * 0.18, w * 0.88, h * 0.7);
+        // Flat roof with ledge
+        ctx.fillStyle = '#5a5a68';
+        ctx.fillRect(x + w * 0.03, y + h * 0.14, w * 0.94, h * 0.07);
+        ctx.fillStyle = '#6a6a78';
+        ctx.fillRect(x + w * 0.03, y + h * 0.14, w * 0.94, h * 0.025);
+        // Floor dividers
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.06, y + h * 0.52);
+        ctx.lineTo(x + w * 0.94, y + h * 0.52);
+        ctx.stroke();
+        // Windows (2x3 grid with frames)
         for (var wr = 0; wr < 2; wr++) {
-            for (var wc = 0; wc < 2; wc++) {
-                var wx = x + w * 0.18 + wc * w * 0.35;
-                var wy = y + h * 0.25 + wr * h * 0.3;
+            for (var wc = 0; wc < 3; wc++) {
+                var wx = x + w * 0.12 + wc * w * 0.27;
+                var wy = y + h * 0.24 + wr * h * 0.32;
                 var lit = Math.sin(t * 1.2 + wr * 3 + wc * 5) > -0.3;
-                ctx.fillStyle = lit ? 'rgba(255,220,100,0.6)' : 'rgba(40,40,60,0.5)';
-                ctx.fillRect(wx, wy, w * 0.22, h * 0.18);
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 0.5;
-                ctx.strokeRect(wx, wy, w * 0.22, h * 0.18);
+                // Window recess
+                ctx.fillStyle = '#2a2a3a';
+                ctx.fillRect(wx - 1, wy - 1, w * 0.18 + 2, h * 0.16 + 2);
+                ctx.fillStyle = lit ? 'rgba(255,220,100,0.6)' : 'rgba(30,30,50,0.7)';
+                ctx.fillRect(wx, wy, w * 0.18, h * 0.16);
+                // Window cross frame
+                ctx.strokeStyle = lit ? '#8a7a5a' : '#3a3a4a';
+                ctx.lineWidth = 0.7;
+                ctx.beginPath();
+                ctx.moveTo(wx + w * 0.09, wy);
+                ctx.lineTo(wx + w * 0.09, wy + h * 0.16);
+                ctx.moveTo(wx, wy + h * 0.08);
+                ctx.lineTo(wx + w * 0.18, wy + h * 0.08);
+                ctx.stroke();
             }
         }
-        ctx.strokeStyle = '#2a2a3a';
+        // Entrance door at bottom center
+        ctx.fillStyle = '#3a3a2a';
+        ctx.fillRect(x + w * 0.4, y + h * 0.72, w * 0.2, h * 0.16);
+        // Door frame
+        ctx.strokeStyle = '#5a5a4a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + w * 0.4, y + h * 0.72, w * 0.2, h * 0.16);
+        // Entrance light
+        var lightGlow = 0.4 + 0.2 * Math.sin(t * 2);
+        ctx.fillStyle = 'rgba(255,200,100,' + lightGlow.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(x + w * 0.5, y + h * 0.71, 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Border
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
         ctx.restore();
@@ -2495,34 +2565,76 @@ var Render = (function () {
 
     function _drawLargeHouse(ctx, x, y, w, h, building, t) {
         ctx.save();
-        ctx.fillStyle = '#2a2a3a';
-        ctx.fillRect(x, y, w, h);
-        // Tall building
-        ctx.fillStyle = '#4a4a5a';
-        ctx.fillRect(x + w * 0.1, y + h * 0.05, w * 0.8, h * 0.9);
-        // Antenna
-        ctx.strokeStyle = '#888';
+        // Ground
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(x, y + h * 0.92, w, h * 0.08);
+        // Main tower body with gradient
+        var wallGrad = ctx.createLinearGradient(x + w * 0.1, y, x + w * 0.9, y);
+        wallGrad.addColorStop(0, '#5a5a6a');
+        wallGrad.addColorStop(0.3, '#6a6a7a');
+        wallGrad.addColorStop(0.7, '#5a5a68');
+        wallGrad.addColorStop(1, '#4a4a5a');
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(x + w * 0.08, y + h * 0.06, w * 0.84, h * 0.86);
+        // Roof cap
+        ctx.fillStyle = '#5a5a68';
+        ctx.fillRect(x + w * 0.05, y + h * 0.03, w * 0.9, h * 0.05);
+        ctx.fillStyle = '#6a6a78';
+        ctx.fillRect(x + w * 0.05, y + h * 0.03, w * 0.9, h * 0.02);
+        // Floor dividers
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)';
         ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x + w * 0.5, y + h * 0.05);
-        ctx.lineTo(x + w * 0.5, y - h * 0.05);
-        ctx.stroke();
-        // Blinking antenna light
-        ctx.fillStyle = Math.sin(t * 4) > 0 ? '#ff3333' : '#331111';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.5, y - h * 0.05, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        // Windows (3x4 grid)
-        for (var wr = 0; wr < 4; wr++) {
+        for (var fl = 1; fl < 5; fl++) {
+            var fy = y + h * (0.08 + fl * 0.17);
+            ctx.beginPath();
+            ctx.moveTo(x + w * 0.08, fy);
+            ctx.lineTo(x + w * 0.92, fy);
+            ctx.stroke();
+        }
+        // Windows (3x5 grid with recesses)
+        for (var wr = 0; wr < 5; wr++) {
             for (var wc = 0; wc < 3; wc++) {
-                var wx = x + w * 0.16 + wc * w * 0.24;
-                var wy = y + h * 0.1 + wr * h * 0.2;
+                var wx = x + w * 0.14 + wc * w * 0.26;
+                var wy = y + h * 0.08 + wr * h * 0.17;
                 var lit = Math.sin(t * 0.8 + wr * 2.5 + wc * 4.3) > -0.2;
-                ctx.fillStyle = lit ? 'rgba(255,220,100,0.5)' : 'rgba(40,40,60,0.4)';
-                ctx.fillRect(wx, wy, w * 0.16, h * 0.12);
+                // Window recess
+                ctx.fillStyle = '#2a2a3a';
+                ctx.fillRect(wx - 1, wy - 1, w * 0.15 + 2, h * 0.1 + 2);
+                ctx.fillStyle = lit ? 'rgba(255,220,100,0.5)' : 'rgba(25,25,45,0.6)';
+                ctx.fillRect(wx, wy, w * 0.15, h * 0.1);
+                // Curtain effect on some lit windows
+                if (lit && ((wr + wc) % 3 === 0)) {
+                    ctx.fillStyle = 'rgba(200,160,80,0.3)';
+                    ctx.fillRect(wx, wy, w * 0.06, h * 0.1);
+                }
             }
         }
-        ctx.strokeStyle = '#2a2a3a';
+        // Antenna
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.5, y + h * 0.03);
+        ctx.lineTo(x + w * 0.5, y - h * 0.06);
+        ctx.stroke();
+        // Antenna cross bar
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.42, y - h * 0.02);
+        ctx.lineTo(x + w * 0.58, y - h * 0.02);
+        ctx.stroke();
+        // Blinking antenna light
+        ctx.fillStyle = Math.sin(t * 4) > 0 ? '#ff3333' : '#551111';
+        ctx.beginPath();
+        ctx.arc(x + w * 0.5, y - h * 0.06, 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Entrance
+        ctx.fillStyle = '#3a3a2a';
+        ctx.fillRect(x + w * 0.38, y + h * 0.82, w * 0.24, h * 0.1);
+        // Entrance overhang
+        ctx.fillStyle = '#5a5a5a';
+        ctx.fillRect(x + w * 0.34, y + h * 0.8, w * 0.32, h * 0.03);
+        // Border
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
         ctx.restore();
@@ -2745,26 +2857,77 @@ var Render = (function () {
     function _drawConsumerMarket(ctx, x, y, w, h, building, t) {
         var cx = x + w / 2, cy = y + h / 2;
         ctx.save();
-        ctx.fillStyle = '#1a1a0a';
-        ctx.fillRect(x, y, w, h);
-        // Market stall
-        ctx.fillStyle = '#4a3a1a';
-        ctx.fillRect(x + w * 0.1, y + h * 0.35, w * 0.8, h * 0.6);
-        // Awning
+        // Ground pad
+        ctx.fillStyle = '#3a3a2a';
+        ctx.fillRect(x, y + h * 0.85, w, h * 0.15);
+        // Main building body
+        var wallGrad = ctx.createLinearGradient(x, y + h * 0.3, x + w, y + h * 0.3);
+        wallGrad.addColorStop(0, '#5a4a2a');
+        wallGrad.addColorStop(0.5, '#6a5a3a');
+        wallGrad.addColorStop(1, '#4a3a1a');
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(x + w * 0.06, y + h * 0.32, w * 0.88, h * 0.53);
+        // Storefront window
+        ctx.fillStyle = 'rgba(200,180,120,0.25)';
+        ctx.fillRect(x + w * 0.12, y + h * 0.5, w * 0.35, h * 0.25);
+        ctx.strokeStyle = '#5a4a2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + w * 0.12, y + h * 0.5, w * 0.35, h * 0.25);
+        // Awning with stripes
         ctx.fillStyle = '#cc8833';
         ctx.beginPath();
-        ctx.moveTo(x + w * 0.05, y + h * 0.35);
-        ctx.lineTo(x + w * 0.5, y + h * 0.15);
-        ctx.lineTo(x + w * 0.95, y + h * 0.35);
+        ctx.moveTo(x + w * 0.02, y + h * 0.34);
+        ctx.lineTo(x + w * 0.5, y + h * 0.1);
+        ctx.lineTo(x + w * 0.98, y + h * 0.34);
         ctx.closePath();
         ctx.fill();
-        // Coin symbol
+        // Awning stripe detail
+        ctx.fillStyle = '#bb7722';
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.18, y + h * 0.28);
+        ctx.lineTo(x + w * 0.34, y + h * 0.17);
+        ctx.lineTo(x + w * 0.5, y + h * 0.28);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.5, y + h * 0.28);
+        ctx.lineTo(x + w * 0.66, y + h * 0.17);
+        ctx.lineTo(x + w * 0.82, y + h * 0.28);
+        ctx.closePath();
+        ctx.fill();
+        // Door
+        ctx.fillStyle = '#4a3a1a';
+        ctx.fillRect(x + w * 0.6, y + h * 0.55, w * 0.22, h * 0.3);
+        ctx.strokeStyle = '#5a4a2a';
+        ctx.strokeRect(x + w * 0.6, y + h * 0.55, w * 0.22, h * 0.3);
+        // Door handle
+        ctx.fillStyle = '#cc9944';
+        ctx.beginPath();
+        ctx.arc(x + w * 0.64, y + h * 0.7, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Dollar sign on awning
         ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold ' + Math.floor(Math.min(w, h) * 0.3) + 'px monospace';
+        ctx.font = 'bold ' + Math.floor(Math.min(w, h) * 0.22) + 'px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('$', cx, cy + h * 0.1);
-        ctx.strokeStyle = '#2a2a0a';
+        ctx.fillText('$', cx, y + h * 0.22);
+        // Small signboard
+        ctx.fillStyle = '#2a2a1a';
+        ctx.fillRect(x + w * 0.25, y + h * 0.38, w * 0.5, h * 0.08);
+        ctx.fillStyle = '#ddaa44';
+        ctx.font = Math.floor(Math.min(w, h) * 0.1) + 'px sans-serif';
+        ctx.fillText('MARKET', cx, y + h * 0.425);
+        // Animated coin sparkle
+        var sparkT = (t * 2) % 4;
+        if (sparkT < 1.5) {
+            var sparkA = 0.6 - sparkT * 0.4;
+            ctx.fillStyle = 'rgba(255,215,0,' + Math.max(0, sparkA).toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(x + w * 0.85, y + h * 0.15, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Border
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
         ctx.restore();
