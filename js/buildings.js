@@ -152,10 +152,10 @@ var Buildings = (function() {
         for (var resource in cost) {
             if (cost.hasOwnProperty(resource)) {
                 var amount = Math.floor(cost[resource] * ratio);
-                if (typeof Economy.addResource === 'function') {
-                    Economy.addResource(resource, amount);
-                } else if (resource === 'money' && typeof Economy.addMoney === 'function') {
+                if (resource === 'money' && typeof Economy.addMoney === 'function') {
                     Economy.addMoney(amount);
+                } else if (typeof Economy.addResource === 'function') {
+                    Economy.addResource(resource, amount);
                 }
             }
         }
