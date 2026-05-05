@@ -1236,45 +1236,107 @@ var Render = (function () {
     }
 
     function _drawNuclearPlant(ctx, x, y, w, h, building, t) {
-        var cx = x + w / 2, cy = y + h / 2;
+        var cx = x + w / 2;
         ctx.save();
-        // Base
-        ctx.fillStyle = '#1a1a2a';
-        ctx.fillRect(x, y, w, h);
-        // Cooling tower (trapezoid)
+
+        // Ground
+        ctx.fillStyle = '#2a2a1a';
+        ctx.fillRect(x, y + h * 0.85, w, h * 0.15);
+
+        // Factory building (center, behind towers)
         ctx.fillStyle = '#3a3a4a';
+        ctx.fillRect(x + w * 0.3, y + h * 0.5, w * 0.4, h * 0.38);
+        ctx.fillStyle = '#4a4a5a';
+        ctx.fillRect(x + w * 0.3, y + h * 0.5, w * 0.4, h * 0.04);
+
+        // Radiation symbol on factory
+        var radX = cx, radY = y + h * 0.68;
+        var radR = Math.min(w, h) * 0.1;
+        // Yellow circle background
+        ctx.fillStyle = '#ccaa20';
         ctx.beginPath();
-        ctx.moveTo(cx - w * 0.3, y + h * 0.9);
-        ctx.lineTo(cx - w * 0.2, y + h * 0.15);
-        ctx.lineTo(cx + w * 0.2, y + h * 0.15);
-        ctx.lineTo(cx + w * 0.3, y + h * 0.9);
-        ctx.closePath();
+        ctx.arc(radX, radY, radR, 0, Math.PI * 2);
         ctx.fill();
-        // Green glow at base
-        var pulse = 0.3 + 0.2 * Math.sin(t * 2);
-        var grad = ctx.createRadialGradient(cx, y + h * 0.8, 0, cx, y + h * 0.8, w * 0.3);
-        grad.addColorStop(0, 'rgba(30,255,60,' + pulse.toFixed(2) + ')');
-        grad.addColorStop(1, 'rgba(30,255,60,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(cx, y + h * 0.8, w * 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        // Steam puffs
-        for (var s = 0; s < 2; s++) {
-            var sy = y + h * 0.1 - ((t * 10 + s * 12) % 15);
-            var sx = cx + Math.sin(t + s * 4) * 2;
-            var sa = Math.max(0, 0.3 - ((t * 10 + s * 12) % 15) / 30);
-            ctx.fillStyle = 'rgba(200,200,220,' + sa.toFixed(2) + ')';
+        // Black trefoil blades (3 sectors)
+        ctx.fillStyle = '#1a1a1a';
+        for (var bi = 0; bi < 3; bi++) {
+            var angle = bi * (Math.PI * 2 / 3) - Math.PI / 2;
             ctx.beginPath();
-            ctx.arc(sx, sy, 3 + s, 0, Math.PI * 2);
+            ctx.moveTo(radX, radY);
+            ctx.arc(radX, radY, radR * 0.9, angle - 0.35, angle + 0.35);
+            ctx.closePath();
             ctx.fill();
         }
-        // Radiation symbol hint
-        ctx.strokeStyle = 'rgba(50,200,70,0.3)';
-        ctx.lineWidth = 1;
+        // Center dot
+        ctx.fillStyle = '#1a1a1a';
         ctx.beginPath();
-        ctx.arc(cx, cy + h * 0.1, w * 0.12, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.arc(radX, radY, radR * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Two cooling towers (hyperboloid shape — wider at bottom, narrower in middle, flared at top)
+        var towerPositions = [0.22, 0.78];
+        for (var ti = 0; ti < 2; ti++) {
+            var tx = x + w * towerPositions[ti];
+            var tBot = y + h * 0.88;
+            var tTop = y + h * 0.12;
+            var tH = tBot - tTop;
+            var botW = w * 0.22;
+            var midW = w * 0.14;
+            var topW = w * 0.18;
+
+            // Tower body using quadratic curves for hyperboloid shape
+            var tGrad = ctx.createLinearGradient(tx - botW, tTop, tx + botW, tTop);
+            tGrad.addColorStop(0, '#5a5a6a');
+            tGrad.addColorStop(0.35, '#8a8a9a');
+            tGrad.addColorStop(0.65, '#7a7a8a');
+            tGrad.addColorStop(1, '#4a4a5a');
+            ctx.fillStyle = tGrad;
+            ctx.beginPath();
+            // Left side: bottom-left, curve inward at middle, flare at top
+            ctx.moveTo(tx - botW, tBot);
+            ctx.quadraticCurveTo(tx - midW, tTop + tH * 0.55, tx - topW, tTop);
+            // Top edge
+            ctx.lineTo(tx + topW, tTop);
+            // Right side
+            ctx.quadraticCurveTo(tx + midW, tTop + tH * 0.55, tx + botW, tBot);
+            ctx.closePath();
+            ctx.fill();
+            // Tower outline
+            ctx.strokeStyle = '#3a3a4a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(tx - botW, tBot);
+            ctx.quadraticCurveTo(tx - midW, tTop + tH * 0.55, tx - topW, tTop);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(tx + botW, tBot);
+            ctx.quadraticCurveTo(tx + midW, tTop + tH * 0.55, tx + topW, tTop);
+            ctx.stroke();
+            // Top rim (ellipse approximation)
+            ctx.strokeStyle = '#6a6a7a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(tx, tTop + 1, topW, topW * 0.2, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Billowing steam clouds from each tower (when active)
+            if (building.active && !building.manualOff) {
+                for (var si = 0; si < 5; si++) {
+                    var seed = ti * 17 + si * 7;
+                    var lifeT = (t * 8 + seed) % 25;
+                    var steamY = tTop - lifeT * 1.2;
+                    var steamX = tx + Math.sin(t * 1.5 + seed * 0.7) * (3 + lifeT * 0.3);
+                    var steamR = 3 + lifeT * 0.6;
+                    var steamA = Math.max(0, 0.5 - lifeT / 25);
+                    ctx.fillStyle = 'rgba(220,220,235,' + steamA.toFixed(2) + ')';
+                    ctx.beginPath();
+                    ctx.arc(steamX, steamY, steamR, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Outer border
         ctx.strokeStyle = '#2a2a3a';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
