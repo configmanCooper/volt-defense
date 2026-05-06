@@ -865,10 +865,17 @@ var Buildings = (function() {
             b.manualOff = !b.manualOff;
             var def = _getDef(b.type);
             var workersNeeded = (def && def.workersRequired) ? def.workersRequired : 0;
-            if (workersNeeded > 0 && typeof Workers !== 'undefined') {
-                if (b.manualOff && typeof Workers.freeWorkers === 'function') {
-                    Workers.freeWorkers(workersNeeded);
-                } else if (!b.manualOff && typeof Workers.allocateWorkers === 'function') {
+            if (b.manualOff) {
+                // Deactivate building immediately
+                if (b.active) {
+                    b.active = false;
+                    if (workersNeeded > 0 && typeof Workers !== 'undefined' && typeof Workers.freeWorkers === 'function') {
+                        Workers.freeWorkers(workersNeeded);
+                    }
+                }
+                b.shieldActive = false;
+            } else {
+                if (workersNeeded > 0 && typeof Workers !== 'undefined' && typeof Workers.allocateWorkers === 'function') {
                     Workers.allocateWorkers(workersNeeded);
                 }
             }
