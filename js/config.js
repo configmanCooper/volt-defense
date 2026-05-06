@@ -122,14 +122,14 @@ var Config = {
             size: [1, 1],
             hp: 60,
             workersRequired: 1,
-            energyGeneration: 12,
+            energyGeneration: 18,
             energyConsumption: 0,
             energyStorageCapacity: 0,
             maxChargeRate: 0,
             maxDischargeRate: 0,
             pollution: 0,
             upgradeTo: null,
-            description: 'Generates 12 energy during daytime only. No output at night.',
+            description: 'Generates 18 energy during daytime only. No output at night.',
             icon: '☀️'
         },
         wind: {
