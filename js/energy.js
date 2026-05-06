@@ -762,6 +762,18 @@ var Energy = (function() {
                     }
                 }
 
+                // Skip energy consumption for manually turned-off buildings
+                if (building.manualOff) {
+                    if (building.active) {
+                        var wOff = def.workersRequired || 0;
+                        if (wOff > 0 && typeof Workers !== 'undefined' && Workers.freeWorkers) {
+                            Workers.freeWorkers(wOff);
+                        }
+                        building.active = false;
+                    }
+                    continue;
+                }
+
                 // Energy consumption
                 if (!def.energyConsumption || def.energyConsumption <= 0) {
                     // Activate buildings that don't consume energy (weapons, core_repair)
