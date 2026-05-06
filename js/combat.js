@@ -1962,7 +1962,13 @@ var Combat = (function() {
                     var center = _getBuildingCenter(b);
                     var dist = _distance(e.x, e.y, center.x, center.y);
                     if (dist <= cellSz) {
-                        b.hp -= (eDef.damage || 5) / tps;
+                        var dmg = (eDef.damage || 5) / tps;
+                        // Saboteurs deal double damage to pylons
+                        var bDef = _getBuildingDef(b.type);
+                        if (bDef && bDef.category === 'grid') {
+                            dmg *= 2;
+                        }
+                        b.hp -= dmg;
                         if (b.hp < 0) { b.hp = 0; }
                     }
                 }
