@@ -107,6 +107,12 @@ var Main = (function () {
         if (typeof slot === 'number') Save.setSlot(slot);
         if (!Save.hasSaveInSlot(Save.getSlot())) return;
 
+        // Stop existing loops to prevent duplicates
+        _stopLoops();
+
+        // Dismiss tutorial if active
+        if (typeof Tutorial !== 'undefined' && Tutorial.destroy) Tutorial.destroy();
+
         if (Save.load()) {
             if (typeof Render !== 'undefined' && typeof Render.init === 'function') {
                 Render.init();
@@ -118,6 +124,11 @@ var Main = (function () {
                 Input.init();
             }
 
+            // Dismiss pause overlay if loading mid-game
+            var po = document.getElementById('pause-overlay');
+            if (po) po.style.display = 'none';
+            if (typeof Engine !== 'undefined' && Engine.setPaused) Engine.setPaused(false);
+
             _showScreen('game');
             _updatePauseSlotIndicator();
             _startLoops();
@@ -126,6 +137,9 @@ var Main = (function () {
             if (typeof Music !== 'undefined' && Music.isEnabled && Music.isEnabled()) {
                 Music.play();
             }
+        } else {
+            // Load failed — restart loops if we were previously running
+            if (_initialized) _startLoops();
         }
     }
 

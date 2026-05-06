@@ -143,7 +143,7 @@ var Save = (function () {
                 };
                 if (data.engine) {
                     if (typeof data.engine.wave === 'number') info.wave = data.engine.wave;
-                    if (data.engine.difficultyKey) info.difficulty = data.engine.difficultyKey;
+                    if (data.engine.difficultyKey || data.engine.difficulty) info.difficulty = data.engine.difficultyKey || data.engine.difficulty;
                 }
                 return info;
             } catch (e) {
@@ -171,7 +171,7 @@ var Save = (function () {
                 };
                 if (data.engine) {
                     if (typeof data.engine.wave === 'number') info.wave = data.engine.wave;
-                    if (data.engine.difficultyKey) info.difficulty = data.engine.difficultyKey;
+                    if (data.engine.difficultyKey || data.engine.difficulty) info.difficulty = data.engine.difficultyKey || data.engine.difficulty;
                 }
                 return info;
             } catch (e) {
