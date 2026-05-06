@@ -170,7 +170,7 @@ var Tutorial = (function() {
             // Step 7: Build a Blaster
             {
                 title: 'Step 7: Build a Weapon 🔫',
-                text: 'Enemies are coming! You need weapons to defend your core.<br><br>Let\'s start with a <b>Blaster</b> — it\'s cheap and effective against early enemies. Open the <b>Weapons</b> category and place a <b>Blaster T1</b>.<br><br>Remember: weapons need energy to fire, so make sure they\'re connected to your grid!<br><br>💡 <b>Tip:</b> You can spot enemies as little red dots on the minimap in the bottom-right corner of the screen.',
+                text: 'Enemies are coming! You need weapons to defend your core.<br><br>Let\'s start with a <b>Blaster</b> — it\'s cheap and effective against early enemies. Open the <b>Weapons</b> category and place a <b>Blaster T1</b>.<br><br>Remember: weapons need energy to fire, so make sure they\'re connected to your grid!<br><br>💡 <b>Tip:</b> You can <b>right-click</b> to cancel building placement at any time. You can also <b>left-click on an existing building</b> while placing to inspect its details.',
                 type: 'interactive',
                 flash: '[data-action="select-category"][data-category="weapons"]',
                 onEnter: function() {
@@ -196,25 +196,37 @@ var Tutorial = (function() {
                     '💥 <b>Mine Layer</b> — Places proximity mines that explode when enemies get close.<br>' +
                     '🔩 <b>Autocannon</b> — Rapid-fire physical rounds. Bypasses some armor.<br>' +
                     '🔮 <b>Plasma Cannon</b> — Ignores all armor. Uses uranium.<br>' +
-                    '☄️ <b>Fusion Beam</b> — Ultimate weapon. Massive damage and range.',
+                    '☄️ <b>Fusion Beam</b> — Ultimate weapon. Massive damage and range.<br><br>' +
+                    '⬆️ <b>Upgrades:</b> Many buildings can be upgraded in-place! <b>Blasters</b>, <b>Lasers</b>, <b>Missiles</b>, and <b>Shields</b> can be upgraded through 2-3 tiers. <b>Miners</b>, <b>Batteries</b>, <b>Capacitors</b>, <b>Houses</b>, <b>Carbon Collectors</b>, <b>Pylons</b>, and even the <b>Core</b> can also be upgraded. Click a building to see if an upgrade is available.',
                 type: 'info'
             },
-            // Step 9: Resources & Mining
+            // Step 9: Cables & Connections
+            {
+                title: 'Cables & Connections 🔌',
+                text: 'Energy flows through <b>cables</b> connecting your buildings. Most buildings <b>auto-connect</b> to the nearest building when placed.<br><br>However, you may need to <b>manually connect</b> cables sometimes — especially to control which buildings power which. To manually connect: <b>right-click</b> on building A, then <b>right-click</b> on building B.<br><br>⚠️ <b>Connection order matters!</b> Energy flows from the first building to the second. Connect generators → storage → consumers in that order for best results.<br><br>Each building supports up to <b>4 cable connections</b> (HC Pylons support 6). You can press <b>E</b> to toggle the energy flow overlay and see how power moves through your grid.',
+                type: 'info'
+            },
+            // Step 10: Resources & Mining
             {
                 title: 'Resources & Mining ⛏️',
                 text: 'Your map contains resource deposits: <b>Iron</b> (common), <b>Coal</b> (common), <b>Oil</b> (moderate), and <b>Uranium</b> (rare).<br><br>Build <b>Miners</b> on top of deposits to extract resources — miners need energy and workers to operate.<br><br>Iron is used for missiles and advanced buildings. Coal fuels Coal Plants. Uranium powers Nuclear Plants and Plasma Cannons. Oil runs Gas Plants and Flamethrowers.<br><br>You\'ll also want a <b>Smelter</b> — it converts iron into steel, which is needed for advanced weapons like Autocannons and Mine Layers.<br><br>Plan your resource extraction early!',
                 type: 'info'
             },
-            // Step 10: Walls & Shields
+            // Step 11: Walls & Shields
             {
                 title: 'Walls & Shields 🛡️',
                 text: '<b>Walls</b> are cheap barriers that block enemy movement, forcing them to path around or destroy them. Use walls to create mazes and chokepoints that keep enemies in your weapons\' firing lanes longer.<br><br><b>Electric Walls</b> deal contact damage to enemies touching them but cost energy.<br><br><b>Shield Generators</b> create a 400-pixel diameter energy bubble that enemies must destroy before passing through. Shields use a lot of energy constantly, and taking hits drains even more.<br><br>Place shields at key chokepoints and make sure they have dedicated power. Combine walls, shields, and weapons for layered defense!',
                 type: 'info'
             },
-            // Step 11: Final
+            // Step 12: Final
             {
                 title: 'You\'re Ready! 🎉',
-                text: 'You now know the basics of Volt Defense!<br><br>For more details, check out the 📖 <b>Enemy Glossary</b> and ⚔️ <b>Weapons Glossary</b> buttons in the top-right HUD bar. They contain detailed stats on every enemy and weapon in the game.<br><br>💡 <b>Tip:</b> Press the 🔌 button in the HUD bar (or the <b>E</b> key) to toggle the <b>Energy Flow Overlay</b> — it shows how energy is moving through your cables in real time!<br><br>Click <b>Complete</b> to receive a bonus <b>$500</b> — good luck defending your core, Commander! ⚡',
+                text: 'You now know the basics of Volt Defense!<br><br><b>Quick reference:</b><br>' +
+                    '• <b>Left-click</b> a building to see its details, stats, and upgrade options<br>' +
+                    '• <b>Right-click</b> to cancel placement or manually connect cables<br>' +
+                    '• <b>E</b> key toggles the energy flow overlay<br>' +
+                    '• <b>WASD</b> or drag to pan the map<br><br>' +
+                    'Check out the 📖 <b>Enemy Glossary</b> and ⚔️ <b>Weapons Glossary</b> buttons in the HUD bar for detailed stats.<br><br>Click <b>Complete</b> to receive a bonus <b>$500</b> — good luck defending your core, Commander! ⚡',
                 type: 'info',
                 onEnter: function() {
                     _flashMultiple(['[data-action="enemy-glossary"]', '[data-action="weapons-glossary"]']);
@@ -441,6 +453,10 @@ var Tutorial = (function() {
                 _boxEl.parentNode.removeChild(_boxEl);
             }
             _boxEl = null;
+        },
+
+        isActive: function() {
+            return _active;
         },
 
         isEnabled: function() {

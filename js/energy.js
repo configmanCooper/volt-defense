@@ -820,7 +820,11 @@ var Energy = (function() {
 
             _stats.totalGeneration = totalGeneration * tps;
             _stats.totalConsumption = totalConsumption * tps;
-            _lifetimeGeneration += totalGeneration;
+            // Don't count energy generated during tutorial towards score
+            var tutActive = (typeof Tutorial !== 'undefined' && Tutorial.isActive && Tutorial.isActive());
+            if (!tutActive) {
+                _lifetimeGeneration += totalGeneration;
+            }
             _stats.totalStored = totalStored;
             _stats.totalCapacity = totalCapacity;
 

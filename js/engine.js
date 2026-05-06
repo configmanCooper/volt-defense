@@ -214,8 +214,9 @@ var Engine = (function() {
                 }
             }
 
-            // 7. Wave timer
-            if (_state.wavesEnabled && _state.waveTimer > 0) {
+            // 7. Wave timer (paused during tutorial)
+            var tutActive = (typeof Tutorial !== 'undefined' && Tutorial.isActive && Tutorial.isActive());
+            if (_state.wavesEnabled && _state.waveTimer > 0 && !tutActive) {
                 _state.waveTimer -= 1 / tps;
                 if (_state.waveTimer <= 0) {
                     _state.waveTimer = 0;

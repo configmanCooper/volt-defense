@@ -498,6 +498,15 @@ var Input = (function () {
                         }
                     }
                     if (_state === 'placing') {
+                        // If clicking on an existing building while placing, show its details
+                        var clickedBld = _getBuildingAtMouse();
+                        if (clickedBld) {
+                            _selectedBuildingId = clickedBld.id;
+                            if (typeof UI !== 'undefined' && UI.showBuildingInfo) {
+                                UI.showBuildingInfo(clickedBld.id);
+                            }
+                            return;
+                        }
                         _attemptPlacement();
                     } else if (_debugMode && _debugSpawnType) {
                         // Debug: spawn enemy at click position
