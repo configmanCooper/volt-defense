@@ -6203,8 +6203,8 @@ var Render = (function () {
         },
 
         setZoom: function (z) {
-            if (z < 0.5) z = 0.5;
-            if (z > 3.0) z = 3.0;
+            if (z < 0.4) z = 0.4;
+            if (z > 1.0) z = 1.0;
             // Zoom toward center of viewport
             var centerWX = _camera.x + (Config.VIEWPORT_WIDTH / _zoom) / 2;
             var centerWY = _camera.y + (Config.VIEWPORT_HEIGHT / _zoom) / 2;
@@ -6217,8 +6217,8 @@ var Render = (function () {
         zoom: function (delta, mouseScreenX, mouseScreenY) {
             var step = 0.1;
             var newZoom = _zoom + delta * step;
-            if (newZoom < 0.5) newZoom = 0.5;
-            if (newZoom > 3.0) newZoom = 3.0;
+            if (newZoom < 0.4) newZoom = 0.4;
+            if (newZoom > 1.0) newZoom = 1.0;
             // Zoom toward mouse position
             var worldX = mouseScreenX / _zoom + _camera.x;
             var worldY = mouseScreenY / _zoom + _camera.y;
