@@ -30,7 +30,7 @@ var UI = (function () {
         var h = '<div class="bic-header">';
         var bicIcon = (def.icon || '');
         if (typeof Render !== 'undefined' && Render.getBuildingIconDataUrl) {
-            var bicUrl = Render.getBuildingIconDataUrl(type, 40);
+            var bicUrl = Render.getBuildingIconDataUrl(typeKey, 40);
             if (bicUrl) bicIcon = '<img src="' + bicUrl + '" width="32" height="32" style="vertical-align:middle;image-rendering:pixelated;" />';
         }
         h += '<span class="bic-icon">' + bicIcon + '</span>';
