@@ -634,9 +634,9 @@ var Render = (function () {
     function _ensureStaticTerrainCache() {
         var cs = _cellSize();
         var range = _visibleRange();
-        // Scale margin with zoom: at zoom 0.5 use ~60 cells, at zoom 1.0 use 30
-        var margin = Math.ceil(45 / Math.max(_zoom, 0.5));
-        var threshold = Math.ceil(margin * 0.25);
+        // Keep a modest buffer: ~20 cells beyond the viewport
+        var margin = 20;
+        var threshold = 5;
         var needsRedraw = false;
 
         if (!_staticTerrainCanvas) {
