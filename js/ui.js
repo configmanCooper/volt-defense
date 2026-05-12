@@ -17,6 +17,7 @@ var UI = (function () {
     function _showBuildInfoCard(typeKey) {
         var card = document.getElementById('build-info-card');
         if (!card || typeof Config === 'undefined' || !Config.BUILDINGS[typeKey]) return;
+        try {
         var def = Config.BUILDINGS[typeKey];
         var cost = def.cost;
         if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
@@ -30,8 +31,10 @@ var UI = (function () {
         var h = '<div class="bic-header">';
         var bicIcon = (def.icon || '');
         if (typeof Render !== 'undefined' && Render.getBuildingIconDataUrl) {
-            var bicUrl = Render.getBuildingIconDataUrl(typeKey, 40);
-            if (bicUrl) bicIcon = '<img src="' + bicUrl + '" width="32" height="32" style="vertical-align:middle;image-rendering:pixelated;" />';
+            try {
+                var bicUrl = Render.getBuildingIconDataUrl(typeKey, 40);
+                if (bicUrl) bicIcon = '<img src="' + bicUrl + '" width="32" height="32" style="vertical-align:middle;image-rendering:pixelated;" />';
+            } catch (iconErr) { /* ignore icon error */ }
         }
         h += '<span class="bic-icon">' + bicIcon + '</span>';
         h += '<div><div class="bic-title">' + def.name + '</div>';
@@ -158,6 +161,10 @@ var UI = (function () {
         h += '</div>'; // close bic-stats
         card.innerHTML = h;
         card.classList.add('visible');
+        } catch (ex) {
+            console.error('_showBuildInfoCard error:', ex);
+            card.classList.add('visible');
+        }
     }
 
     function _bicStat(label, value) {
