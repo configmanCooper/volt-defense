@@ -2069,6 +2069,7 @@ var Combat = (function() {
         tick: function() {
             if (typeof Config === 'undefined') { return; }
 
+            _handleSpecialEnemies();
             _processShields();
             _processShieldCollisions();
             _processElectricWalls();
@@ -2087,7 +2088,6 @@ var Combat = (function() {
             _processAutocannons();
             _processPlasmaCanons();
             _processFusionBeams();
-            _handleSpecialEnemies();
         },
 
         getProjectiles: function() { return _projectiles; },
