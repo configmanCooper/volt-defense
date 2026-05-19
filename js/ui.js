@@ -2145,7 +2145,7 @@ var UI = (function () {
             content += '<div class="gameover-stat">🌊 Waves Survived: <strong>' + waveReached + '</strong></div>';
             content += '<div class="gameover-stat">💀 Enemies Killed: <strong>' + UI.formatNumber(enemiesKilled) + '</strong></div>';
             content += '<div class="gameover-stat">⏱️ Time Played: <strong>' + timeStr + '</strong></div>';
-            content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumber(score) + '</strong></div>';
+            content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumberFull(score) + '</strong></div>';
             content += '<div class="gameover-stat" style="font-size:1.2em;margin-top:4px;">⚡ Rank: <strong style="color:' + tier.color + ';">' + tier.grade + '</strong> — <em>' + tier.title + '</em></div>';
 
             UI.showModal('⚡ Game Over ⚡', content, [
@@ -2175,7 +2175,7 @@ var UI = (function () {
             content += '<div class="gameover-stat">🌊 Waves Completed: <strong>' + waveReached + '</strong></div>';
             content += '<div class="gameover-stat">💀 Enemies Killed: <strong>' + UI.formatNumber(enemiesKilled) + '</strong></div>';
             content += '<div class="gameover-stat">⏱️ Time Played: <strong>' + timeStr + '</strong></div>';
-            content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumber(score) + '</strong></div>';
+            content += '<div class="gameover-stat">🏆 Score: <strong>' + UI.formatNumberFull(score) + '</strong></div>';
             content += '<div class="gameover-stat" style="font-size:1.2em;margin-top:4px;">⚡ Rank: <strong style="color:' + tier.color + ';">' + tier.grade + '</strong> — <em>' + tier.title + '</em></div>';
 
             UI.showModal('🏆 VICTORY! 🏆', content, [
@@ -2210,6 +2210,18 @@ var UI = (function () {
             n = Math.floor(n);
             if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
             if (n >= 10000) return (n / 1000).toFixed(1) + 'K';
+            var parts = [];
+            var s = Math.abs(n).toString();
+            for (var i = s.length - 1, count = 0; i >= 0; i--, count++) {
+                if (count > 0 && count % 3 === 0) parts.unshift(',');
+                parts.unshift(s[i]);
+            }
+            return (n < 0 ? '-' : '') + parts.join('');
+        },
+
+        formatNumberFull: function (n) {
+            if (n == null) return '0';
+            n = Math.floor(n);
             var parts = [];
             var s = Math.abs(n).toString();
             for (var i = s.length - 1, count = 0; i >= 0; i--, count++) {
