@@ -807,7 +807,7 @@ var Config = {
             range: 600,
             minRange: 100,
             energyPerShot: 200,
-            reloadTicks: 30,
+            reloadTicks: 38,
             ironPerShot: 2,
             splashRadius: 80,
             mortarSpeed: 200,
