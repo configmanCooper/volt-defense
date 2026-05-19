@@ -1130,8 +1130,15 @@ var UI = (function () {
                 if (!key) continue;
                 var def = (typeof Config !== 'undefined' && Config.BUILDINGS) ? Config.BUILDINGS[key] : null;
                 if (!def) continue;
+                var cost = def.cost;
+                if (typeof Engine !== 'undefined' && Engine.applyDifficultyToCost) {
+                    cost = Engine.applyDifficultyToCost(def.cost);
+                }
+                if (key === 'consumer_battery' && typeof Buildings !== 'undefined' && Buildings.getConsumerBatteryScaledCost) {
+                    cost = { money: Buildings.getConsumerBatteryScaledCost() };
+                }
                 var canAfford = (typeof Economy !== 'undefined' && Economy.canAfford)
-                    ? Economy.canAfford(def.cost) : true;
+                    ? Economy.canAfford(cost) : true;
                 var hasWorkers = (typeof Workers !== 'undefined' && Workers.canAllocate)
                     ? Workers.canAllocate(def.workersRequired || 0) : true;
                 if (!canAfford || !hasWorkers) {
@@ -1183,7 +1190,7 @@ var UI = (function () {
                     cost = { money: Buildings.getConsumerBatteryScaledCost() };
                 }
                 var canAfford = (typeof Economy !== 'undefined' && Economy.canAfford)
-                    ? Economy.canAfford(def.cost) : true;
+                    ? Economy.canAfford(cost) : true;
                 var hasWorkers = (typeof Workers !== 'undefined' && Workers.canAllocate)
                     ? Workers.canAllocate(def.workersRequired || 0) : true;
                 var disabled = (!canAfford || !hasWorkers) ? ' disabled' : '';
